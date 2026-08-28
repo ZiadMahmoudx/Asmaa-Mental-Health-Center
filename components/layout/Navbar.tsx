@@ -23,14 +23,22 @@ import {
   Lock,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { useTelehealth } from "@/context/TelehealthStore";
+import { AccountMenu, type AccountMenuUser } from "@/components/layout/AccountMenu";
 
-export const Navbar: React.FC = () => {
+/**
+ * The signed-in user and CSRF token are resolved on the server in app/layout.tsx
+ * and passed in. The navbar has no say in who the visitor is - it only renders
+ * what the session says.
+ */
+export interface NavbarProps {
+  user: AccountMenuUser | null;
+  csrfToken: string;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
   const { language, toggleLanguage, t } = useLanguage();
-  const { currentUser, switchUserRole } = useTelehealth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
 
   // Primary Visible Nav Links
@@ -156,88 +164,7 @@ export const Navbar: React.FC = () => {
               <span>{language === "ar" ? "English" : "العربية"}</span>
             </button>
 
-            {/* Role Switcher Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-alabaster-muted border border-alabaster-border text-xs font-semibold text-gray-700 hover:bg-gray-100 transition"
-              >
-                <span className={`w-2 h-2 rounded-full ${currentUser.role === 'DOCTOR' ? 'bg-amber-500' : currentUser.role === 'ADMIN' ? 'bg-purple-500' : 'bg-emerald-500'}`} />
-                <span>
-                  {currentUser.role === "DOCTOR"
-                    ? language === "ar" ? "وضع الطبيب" : "Doctor"
-                    : currentUser.role === "ADMIN"
-                    ? language === "ar" ? "وضع الإدارة" : "Admin"
-                    : language === "ar" ? "وضع المريض" : "Patient"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-gray-400" />
-              </button>
-
-              {roleDropdownOpen && (
-                <div className="absolute top-full mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 text-xs animate-in fade-in zoom-in-95">
-                  <div className="px-3 py-1 text-[10px] font-bold text-gray-400 border-b border-gray-100">
-                    {language === "ar" ? "تبديل وضع العرض (تجربة المنصة):" : "Preview Role View:"}
-                  </div>
-                  <button
-                    onClick={() => {
-                      switchUserRole("PATIENT");
-                      setRoleDropdownOpen(false);
-                    }}
-                    className={`w-full text-start rtl:text-right ltr:text-left px-3 py-2 hover:bg-teal-50 flex items-center gap-2 font-medium ${
-                      currentUser.role === "PATIENT" ? "text-teal-800 bg-teal-50/60 font-bold" : "text-gray-700"
-                    }`}
-                  >
-                    <UserIcon className="w-3.5 h-3.5 text-sage-600" />
-                    <span>{language === "ar" ? "المريض (سارة محمود)" : "Patient (Sara)"}</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      switchUserRole("DOCTOR");
-                      setRoleDropdownOpen(false);
-                    }}
-                    className={`w-full text-start rtl:text-right ltr:text-left px-3 py-2 hover:bg-teal-50 flex items-center gap-2 font-medium ${
-                      currentUser.role === "DOCTOR" ? "text-teal-800 bg-teal-50/60 font-bold" : "text-gray-700"
-                    }`}
-                  >
-                    <Stethoscope className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{language === "ar" ? "الاستشاري (د. أسماء)" : "Doctor (Dr. Asmaa)"}</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      switchUserRole("ADMIN");
-                      setRoleDropdownOpen(false);
-                    }}
-                    className={`w-full text-start rtl:text-right ltr:text-left px-3 py-2 hover:bg-teal-50 flex items-center gap-2 font-medium ${
-                      currentUser.role === "ADMIN" ? "text-teal-800 bg-teal-50/60 font-bold" : "text-gray-700"
-                    }`}
-                  >
-                    <Shield className="w-3.5 h-3.5 text-purple-600" />
-                    <span>{language === "ar" ? "لوحة الإدارة الطبية" : "Admin QA Board"}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Dashboard Link */}
-            <Link
-              href={
-                currentUser.role === "DOCTOR"
-                  ? "/dashboard/doctor"
-                  : currentUser.role === "ADMIN"
-                  ? "/dashboard/admin"
-                  : "/dashboard/patient"
-              }
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-sage-50 border border-sage-200/60 hover:bg-sage-100 transition"
-            >
-              <UserIcon className="w-3.5 h-3.5 text-teal-800" />
-              <span>
-                {currentUser.role === "DOCTOR"
-                  ? (language === "ar" ? "لوحة الاستشاري" : "Doctor")
-                  : currentUser.role === "ADMIN"
-                  ? (language === "ar" ? "لوحة الإدارة" : "Admin")
-                  : (language === "ar" ? "بوابة المريض" : "Patient")}
-              </span>
-            </Link>
+            <AccountMenu user={user} csrfToken={csrfToken} />
 
             {/* Primary Instant Booking Button */}
             <Link
@@ -285,20 +212,27 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="pt-4 border-t border-gray-100 space-y-2">
-            <Link
-              href={
-                currentUser.role === "DOCTOR"
-                  ? "/dashboard/doctor"
-                  : currentUser.role === "ADMIN"
-                  ? "/dashboard/admin"
-                  : "/dashboard/patient"
-              }
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-sage-50 text-teal-900"
-            >
-              <UserIcon className="w-4 h-4" />
-              <span>{currentUser.role === "DOCTOR" ? "لوحة الاستشاري" : currentUser.role === "ADMIN" ? "لوحة الإدارة" : "بوابة المريض"}</span>
-            </Link>
+            {user ? (
+              // `/dashboard` resolves the right destination for the role on the
+              // server, so the mobile menu never has to know the mapping.
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-sage-50 text-teal-900"
+              >
+                <UserIcon className="w-4 h-4" />
+                <span>{language === "ar" ? "لوحتي" : "My dashboard"}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-sage-50 text-teal-900"
+              >
+                <UserIcon className="w-4 h-4" />
+                <span>{language === "ar" ? "تسجيل الدخول" : "Sign in"}</span>
+              </Link>
+            )}
 
             <Link
               href="/therapists"

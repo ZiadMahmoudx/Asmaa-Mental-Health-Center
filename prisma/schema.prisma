@@ -1,0 +1,357 @@
+// =============================================================================
+//  Asmaa Clinic for Mental Health - مركز أسما للصحة النفسية
+//  Prisma schema - hybrid (ONLINE / OFFLINE) telepsychiatry platform
+//
+//  DUAL-PROVIDER SCHEMA  ·  PostgreSQL  +  Microsoft SQL Server
+//  -----------------------------------------------------------
+//  This file is written in the portable subset that both providers accept, so
+//  the platform can move between them without a schema rewrite. Switch with:
+//
+//      npm run db:use:sqlserver     (rewrites the datasource + native types)
+//      npm run db:use:postgres
+//
+//  The switch is mechanical - scripts/use-db-provider.mjs rewrites the
+//  `provider` line and maps native type attributes. Do not hand-edit the
+//  datasource block; re-run the script instead.
+//
+//  THREE RULES KEEP THIS FILE PORTABLE. Preserve them when adding models:
+//
+//   1. NO `enum` BLOCKS. SQL Server has no enum type. Enumerations live in
+//      lib/domain/enums.ts as TypeScript unions; columns are `String` and Zod
+//      validates them at the network boundary.
+//
+//   2. NO `String[]` SCALAR LISTS. SQL Server has no array type. Lists are
+//      stored as JSON text in a `*Json` column and read through
+//      `toStringArray` / `fromStringArray` in lib/serialization.ts.
+//
+//   3. EVERY id AND FOREIGN KEY CARRIES `@db.VarChar(30)`. Left unsized, a
+//      `String` becomes `NVarChar(1000)` on SQL Server - 2000 bytes, which
+//      breaks the 900-byte index key limit the moment the column is indexed.
+//      cuid() produces 25 characters, so 30 is the working size.
+//
+//  On SQL Server the switch script maps `@db.VarChar(n)` to `@db.NVarChar(n)`
+//  and `@db.Text` to `@db.NVarChar(Max)`. That mapping is not cosmetic:
+//  `VARCHAR` on SQL Server is a non-Unicode, code-page type and would corrupt
+//  every Arabic name, biography and clinical note stored in it.
+//
+//  TIME HANDLING
+//  -------------
+//  Every DateTime is UTC. Prisma normalises to UTC on write and returns UTC
+//  Date objects on read. Cairo-local rendering happens only in the presentation
+//  layer (Intl with Africa/Cairo). Never persist a local wall-clock time.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------- IDENTITY ------------------------------------
+
+model User {
+  id           String @id @default(cuid()) @db.NVarChar(30)
+  fullName     String @db.NVarChar(120)
+  email        String @unique @db.NVarChar(190)
+  phone        String @unique @db.NVarChar(24) // E.164, e.g. +201002345678
+  passwordHash String @db.NVarChar(255) // argon2id - never expose outside lib/auth
+
+  /// Role enum -> lib/domain/enums.ts `Role`
+  role String @default("PATIENT") @db.NVarChar(20)
+
+  // Phase-1 readiness for OTP phone verification (see VerificationToken below).
+  phoneVerifiedAt DateTime?
+  emailVerifiedAt DateTime?
+
+  isActive    Boolean   @default(true) // soft-disable; clinical history is never deleted
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  doctorProfile       DoctorProfile?
+  sessions            Session[]
+  verificationTokens  VerificationToken[]
+  patientAppointments Appointment[]       @relation("PatientAppointments")
+  patientRecords      ClinicalRecord[]    @relation("PatientClinicalRecords")
+  reviewedPayments    PaymentProof[]      @relation("PaymentReviewer")
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([phone])
+  @@map("users")
+}
+
+/// Opaque server-side sessions. The cookie carries a random 256-bit token; only
+/// its SHA-256 digest is stored, so a database leak cannot be replayed as a login.
+model Session {
+  id            String    @id @default(cuid()) @db.NVarChar(30)
+  userId        String    @db.NVarChar(30)
+  tokenHash     String    @unique @db.NVarChar(64) // sha256 hex of the cookie token
+  csrfTokenHash String    @db.NVarChar(64) // sha256 hex of the double-submit CSRF token
+  userAgent     String?   @db.NVarChar(255)
+  ipAddress     String?   @db.NVarChar(64)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Short-lived hashed OTP / reset codes. Present so phone verification can be
+/// switched on by wiring an SMS provider without a further migration.
+model VerificationToken {
+  id     String @id @default(cuid()) @db.NVarChar(30)
+  userId String @db.NVarChar(30)
+
+  /// VerificationPurpose enum -> lib/domain/enums.ts
+  purpose String @db.NVarChar(30)
+
+  codeHash    String    @db.NVarChar(64) // sha256 hex of the 6-digit OTP
+  destination String    @db.NVarChar(190) // phone or email the code was sent to
+  attempts    Int       @default(0)
+  consumedAt  DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+// ------------------------------- CLINICAL STAFF ------------------------------
+
+model DoctorProfile {
+  id            String  @id @default(cuid()) @db.NVarChar(30)
+  userId        String  @unique @db.NVarChar(30)
+  title         String  @db.NVarChar(180) // "استشاري أول الطب النفسي"
+  titleEn       String? @db.NVarChar(180)
+  licenseNumber String  @unique @db.NVarChar(60)
+
+  /// JSON array of Arabic specialty labels. Read via toStringArray().
+  specialtiesJson   String @default("[]") @db.NVarChar(Max)
+  /// JSON array of English specialty labels.
+  specialtiesEnJson String @default("[]") @db.NVarChar(Max)
+
+  bio               String  @db.NVarChar(Max)
+  bioEn             String? @db.NVarChar(Max)
+  yearsOfExperience Int     @default(0)
+
+  sessionPriceOnline  Decimal @db.Decimal(10, 2) // EGP
+  sessionPriceOffline Decimal @db.Decimal(10, 2) // EGP
+  defaultDurationMins Int     @default(45)
+
+  roomNumber          String?  @db.NVarChar(30) // physical clinic room for OFFLINE visits
+  avatarUrl           String?  @db.NVarChar(500)
+  isAcceptingPatients Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availability    DoctorAvailability[]
+  timeOff         AvailabilityException[]
+  appointments    Appointment[]
+  clinicalRecords ClinicalRecord[]
+
+  @@index([isAcceptingPatients])
+  @@map("doctor_profiles")
+}
+
+/// Recurring weekly working window, expressed in UTC minutes-from-midnight so it
+/// is immune to Cairo DST shifts. dayOfWeek follows JS getUTCDay(): 0 = Sunday.
+model DoctorAvailability {
+  id                 String    @id @default(cuid()) @db.NVarChar(30)
+  doctorId           String    @db.NVarChar(30)
+  dayOfWeek          Int // 0..6, UTC day
+  startMinutesUTC    Int // 0..1439, inclusive
+  endMinutesUTC      Int // 1..1440, exclusive
+  slotDurationMins   Int       @default(45)
+  isOnlineAvailable  Boolean   @default(true)
+  isOfflineAvailable Boolean   @default(false)
+  effectiveFrom      DateTime  @default(now())
+  effectiveUntil     DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, dayOfWeek, startMinutesUTC, endMinutesUTC])
+  @@index([doctorId, dayOfWeek])
+  @@map("doctor_availability")
+}
+
+/// One-off blackout (leave, conference, clinic closure) that subtracts from the
+/// recurring availability for a concrete UTC interval.
+model AvailabilityException {
+  id          String   @id @default(cuid()) @db.NVarChar(30)
+  doctorId    String   @db.NVarChar(30)
+  startsAtUTC DateTime
+  endsAtUTC   DateTime
+  reason      String?  @db.NVarChar(255)
+  createdAt   DateTime @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, startsAtUTC, endsAtUTC])
+  @@map("availability_exceptions")
+}
+
+// ------------------------------- BOOKING -------------------------------------
+
+model Appointment {
+  id        String @id @default(cuid()) @db.NVarChar(30)
+  patientId String @db.NVarChar(30)
+  doctorId  String @db.NVarChar(30)
+
+  /// AppointmentType enum -> lib/domain/enums.ts
+  type String @db.NVarChar(20)
+
+  scheduledAtUTC  DateTime
+  durationMinutes Int      @default(45)
+
+  /// AppointmentStatus enum -> lib/domain/enums.ts
+  status String @default("PENDING_PAYMENT_PROOF") @db.NVarChar(30)
+
+  priceEGP       Decimal @db.Decimal(10, 2) // frozen at booking time
+  zoomMeetingUrl String? @db.NVarChar(500) // ONLINE only, set on approval
+  zoomMeetingId  String? @db.NVarChar(80)
+  zoomPasscode   String? @db.NVarChar(60)
+  clinicNotes    String? @db.NVarChar(Max) // OFFLINE directions / reception notes
+
+  /// Race-condition guard. While the appointment occupies the slot this holds the
+  /// constant ACTIVE_SLOT_LOCK; when the appointment is released (cancelled,
+  /// rejected, expired) it is rewritten to the appointment id, which is unique and
+  /// therefore frees the composite unique index below for a new booking.
+  /// See lib/constants.ts ACTIVE_SLOT_LOCK and app/actions/booking.actions.ts.
+  slotLockKey String @db.NVarChar(40)
+
+  /// Deadline for the patient to upload a receipt. Past this point the slot is
+  /// reclaimable by any other patient (booking.actions.ts releases it in-band).
+  holdExpiresAt DateTime?
+
+  cancelledAt        DateTime?
+  cancellationReason String?   @db.NVarChar(500)
+  completedAt        DateTime?
+  reminderSentAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // NoAction on both sides, for two reasons that both come from SQL Server:
+  //   - `Restrict` is not a valid referential action there at all, and
+  //   - `User` reaches `Appointment` twice (directly as the patient, and via
+  //     DoctorProfile as the doctor). SQL Server rejects multiple cascade paths
+  //     between two tables, and Prisma's implicit `onUpdate: Cascade` creates
+  //     exactly that, so the update action has to be pinned as well.
+  // The intent is unchanged: a user or doctor with appointments cannot be
+  // deleted. Accounts are deactivated via `isActive`, never removed.
+  patient        User            @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentProofs  PaymentProof[]
+  clinicalRecord ClinicalRecord?
+
+  /// Atomic double-booking prevention: at most one live appointment per
+  /// (doctor, exact UTC start). Enforced by the database, not by application code.
+  @@unique([doctorId, scheduledAtUTC, slotLockKey], map: "appointments_doctor_slot_lock_key")
+  @@index([patientId, scheduledAtUTC])
+  @@index([doctorId, scheduledAtUTC])
+  @@index([status, holdExpiresAt])
+  @@index([status, scheduledAtUTC])
+  @@map("appointments")
+}
+
+// ------------------------------- MANUAL PAYMENTS -----------------------------
+
+/// One row per receipt the patient submits. A rejected proof is kept for audit
+/// and the patient may submit a replacement, so an appointment can hold several.
+model PaymentProof {
+  id            String @id @default(cuid()) @db.NVarChar(30)
+  appointmentId String @db.NVarChar(30)
+
+  /// PaymentMethod enum -> lib/domain/enums.ts
+  method String @db.NVarChar(20)
+
+  senderIdentifier String   @db.NVarChar(120) // InstaPay handle or Vodafone Cash MSISDN
+  transactionRef   String?  @db.NVarChar(120)
+  amountClaimedEGP Decimal? @db.Decimal(10, 2)
+  receiptImageUrl  String   @db.NVarChar(500) // private key served by /api/receipts/[proofId]
+  receiptMimeType  String   @db.NVarChar(60)
+  receiptSizeBytes Int
+  receiptSha256    String   @db.NVarChar(64) // duplicate-receipt detection
+
+  /// PaymentProofStatus enum -> lib/domain/enums.ts
+  status String @default("UNDER_REVIEW") @db.NVarChar(20)
+
+  uploadedAt      DateTime  @default(now())
+  reviewedById    String?   @db.NVarChar(30)
+  reviewedAt      DateTime?
+  rejectionReason String?   @db.NVarChar(500)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status, uploadedAt])
+  @@index([appointmentId])
+  @@index([receiptSha256])
+  @@index([reviewedById])
+  @@map("payment_proofs")
+}
+
+// ------------------------------- CLINICAL RECORD -----------------------------
+
+model ClinicalRecord {
+  id             String  @id @default(cuid()) @db.NVarChar(30)
+  appointmentId  String  @unique @db.NVarChar(30) // one signed record per session
+  doctorId       String  @db.NVarChar(30)
+  patientId      String  @db.NVarChar(30)
+  chiefComplaint String? @db.NVarChar(Max)
+  diagnosis      String  @db.NVarChar(Max)
+
+  /// JSON array of DSM-5 codes. Read via toStringArray().
+  dsm5CodesJson String @default("[]") @db.NVarChar(Max)
+
+  prescriptionNotes String?   @db.NVarChar(Max)
+  followUpPlan      String?   @db.NVarChar(Max)
+  /// RiskLevel enum -> lib/domain/enums.ts
+  riskLevel         String?   @db.NVarChar(20)
+  signedAt          DateTime? // locked once signed
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  appointment Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  doctor      DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  patient     User          @relation("PatientClinicalRecords", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patientId, createdAt])
+  @@index([doctorId, createdAt])
+  @@map("clinical_records")
+}
+
+// ------------------------------- AUDIT ---------------------------------------
+
+/// Append-only trail for every privileged action (payment approval, clinical
+/// record access, role change). Required by the clinic confidentiality policy.
+model AuditLog {
+  id         String   @id @default(cuid()) @db.NVarChar(30)
+  actorId    String?  @db.NVarChar(30)
+  action     String   @db.NVarChar(80) // e.g. PAYMENT_APPROVED
+  entityType String   @db.NVarChar(60)
+  entityId   String   @db.NVarChar(60)
+  metadata   String?  @db.NVarChar(Max) // JSON, never contains PHI free-text
+  ipAddress  String?  @db.NVarChar(64)
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
