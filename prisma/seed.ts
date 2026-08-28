@@ -107,6 +107,10 @@ async function main() {
         "العلاج المعرفي السلوكي",
       ],
       specialtiesEn: ["Major Depression", "Anxiety & Panic Disorders", "Bipolar Disorder", "CBT"],
+      // ConcernTag values from lib/content/intake.ts — what the triage
+      // questionnaire matches patients against.
+      concernTags: ["anxiety", "panic", "depression", "trauma", "addiction", "sleep"],
+      gender: "FEMALE",
       bio: "استشاري أول الطب النفسي، دكتوراه من جامعة القاهرة وعضوية الكلية الملكية البريطانية (MRCPsych)، بخبرة تتجاوز 18 عاماً في الاضطرابات الوجدانية والقلق والصدمات النفسية.",
       bioEn:
         "Senior Consultant Psychiatrist, MD Cairo University, MRCPsych (UK). 18+ years treating mood disorders, anxiety and complex trauma.",
@@ -131,6 +135,8 @@ async function main() {
       titleEn: "Consultant Psychiatrist & Adult Cognitive Therapist",
       specialties: ["الوسواس القهري", "القلق الاجتماعي", "الأرق واضطرابات النوم"],
       specialtiesEn: ["OCD", "Social Anxiety", "Insomnia & Sleep Disorders"],
+      concernTags: ["ocd", "anxiety", "sleep", "burnout", "panic"],
+      gender: "MALE",
       bio: "استشاري الطب النفسي، ماجستير جامعة عين شمس وزمالة البورد العربي، متخصص في علاج الوسواس القهري بتقنية التعرض ومنع الاستجابة (ERP).",
       bioEn:
         "Consultant Psychiatrist, MSc Ain Shams, Arab Board Fellow. Specialises in ERP for OCD and sleep rhythm restoration.",
@@ -153,6 +159,8 @@ async function main() {
       titleEn: "Senior Clinical Psychologist",
       specialties: ["العلاج الأسري", "الاستشارات الزوجية", "دعم ما بعد الولادة"],
       specialtiesEn: ["Family Therapy", "Couples Counselling", "Postpartum Support"],
+      concernTags: ["relationships", "depression", "trauma", "burnout"],
+      gender: "FEMALE",
       bio: "أخصائية أولى علم النفس الإكلينيكي، ماجستير الإرشاد النفسي، متخصصة في العلاج الأسري والاستشارات الزوجية ودعم الأمهات الجدد.",
       bioEn:
         "Senior Clinical Psychologist, MSc Counselling Psychology. Focused on family systems, couples work and postpartum support.",
@@ -190,6 +198,8 @@ async function main() {
         titleEn: seed.titleEn,
         specialtiesJson: JSON.stringify(seed.specialties),
         specialtiesEnJson: JSON.stringify(seed.specialtiesEn),
+        concernTagsJson: JSON.stringify(seed.concernTags),
+        gender: seed.gender,
         bio: seed.bio,
         bioEn: seed.bioEn,
         sessionPriceOnline: new Prisma.Decimal(seed.sessionPriceOnline),
@@ -204,6 +214,8 @@ async function main() {
         titleEn: seed.titleEn,
         specialtiesJson: JSON.stringify(seed.specialties),
         specialtiesEnJson: JSON.stringify(seed.specialtiesEn),
+        concernTagsJson: JSON.stringify(seed.concernTags),
+        gender: seed.gender,
         bio: seed.bio,
         bioEn: seed.bioEn,
         yearsOfExperience: seed.yearsOfExperience,

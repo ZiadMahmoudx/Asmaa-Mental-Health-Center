@@ -183,8 +183,8 @@ export default async function PatientDashboardPage() {
             {[
               { href: "/assessments", label: "المقاييس النفسية", sub: "PHQ-9 · GAD-7", icon: Activity },
               { href: "/safety-plan", label: "خطة الأمان النفسي", sub: "Stanley-Brown", icon: HeartPulse },
-              { href: "/audio", label: "الصوتيات الإرشادية", sub: "تمارين تهدئة", icon: Headphones },
-              { href: "/books", label: "مكتبة التعافي", sub: "كتب ومراجع", icon: BookOpen },
+              { href: "/intake", label: "الاستبيان الطبي", sub: "توجيه للاستشاري", icon: Stethoscope },
+              { href: "/emergency", label: "الطوارئ والتهدئة", sub: "تنفس وتأريض", icon: Headphones },
             ].map((tool) => {
               const Icon = tool.icon;
               return (

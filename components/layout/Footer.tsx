@@ -87,22 +87,22 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2 text-sm text-teal-100/70">
               <li>
-                <Link href="/academy" className="hover:text-white transition">
+                <Link href="/assessments" className="hover:text-white transition">
                   {language === "ar" ? "ماستركلاس نوبات الهلع" : "Panic Disorder Masterclass"}
                 </Link>
               </li>
               <li>
-                <Link href="/academy" className="hover:text-white transition">
+                <Link href="/assessments" className="hover:text-white transition">
                   {language === "ar" ? "كورس التعافي من الصدمات" : "Trauma Recovery Course"}
                 </Link>
               </li>
               <li>
-                <Link href="/books" className="hover:text-white transition">
+                <Link href="/safety-plan" className="hover:text-white transition">
                   {language === "ar" ? "كتب المساعدة الذاتية" : "Self-Help eBooks"}
                 </Link>
               </li>
               <li>
-                <Link href="/assistant" className="hover:text-white transition">
+                <Link href="/emergency" className="hover:text-white transition">
                   {language === "ar" ? "المساعد النفسي الذكي (PFA)" : "AI Triage Assistant"}
                 </Link>
               </li>

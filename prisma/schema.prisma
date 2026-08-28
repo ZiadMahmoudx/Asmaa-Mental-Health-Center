@@ -74,10 +74,14 @@ model User {
   doctorProfile       DoctorProfile?
   sessions            Session[]
   verificationTokens  VerificationToken[]
-  patientAppointments Appointment[]       @relation("PatientAppointments")
-  patientRecords      ClinicalRecord[]    @relation("PatientClinicalRecords")
-  reviewedPayments    PaymentProof[]      @relation("PaymentReviewer")
+  patientAppointments Appointment[]        @relation("PatientAppointments")
+  patientRecords      ClinicalRecord[]     @relation("PatientClinicalRecords")
+  reviewedPayments    PaymentProof[]       @relation("PaymentReviewer")
   auditLogs           AuditLog[]
+  intakes             IntakeAssessment[]   @relation("PatientIntakes")
+  reviewedIntakes     IntakeAssessment[]   @relation("IntakeReviewer")
+  assessments         ClinicalAssessment[] @relation("PatientAssessments")
+  safetyPlan          SafetyPlan?          @relation("PatientSafetyPlan")
 
   @@index([role])
   @@index([phone])
@@ -140,6 +144,15 @@ model DoctorProfile {
   specialtiesJson   String @default("[]") @db.NVarChar(Max)
   /// JSON array of English specialty labels.
   specialtiesEnJson String @default("[]") @db.NVarChar(Max)
+
+  /// JSON array of ConcernTag values this consultant treats (lib/content/intake.ts).
+  /// The intake questionnaire matches patients against these, replacing the old
+  /// hard-coded doctor id lists that did not survive contact with real data.
+  concernTagsJson String @default("[]") @db.NVarChar(Max)
+
+  /// MALE | FEMALE. Optional, and used only to honour a patient's stated
+  /// preference for a consultant's gender during triage.
+  gender String? @db.NVarChar(10)
 
   bio               String  @db.NVarChar(Max)
   bioEn             String? @db.NVarChar(Max)
@@ -333,6 +346,108 @@ model ClinicalRecord {
   @@index([patientId, createdAt])
   @@index([doctorId, createdAt])
   @@map("clinical_records")
+}
+
+// ------------------------------- TRIAGE & SCREENING --------------------------
+
+/// One completed intake questionnaire. This is the clinic's triage record: what
+/// the patient came in with, how urgent it looked, and which consultants the
+/// matcher suggested. Kept even after the patient books, because the reason for
+/// referral is part of the clinical story.
+model IntakeAssessment {
+  id        String @id @default(cuid()) @db.NVarChar(30)
+  patientId String @db.NVarChar(30)
+
+  /// JSON array of ConcernTag values the patient selected.
+  concernsJson String @default("[]") @db.NVarChar(Max)
+
+  ageGroup          String @db.NVarChar(20)
+  therapyHistory    String @db.NVarChar(30)
+  medicationHistory String @db.NVarChar(30)
+  genderPreference  String @default("ANY") @db.NVarChar(10)
+
+  /// Raw screening answers, kept so a clinician can see the individual items
+  /// rather than only the total.
+  answersJson   String @default("{}") @db.NVarChar(Max)
+  severityScore Int
+  maxScore      Int
+
+  /// STABLE | EVALUATE | CRISIS_EMERGENCY (lib/content/intake.ts)
+  urgencyLevel  String  @db.NVarChar(30)
+  /// True when the safety item was endorsed, whatever the total score.
+  crisisFlagged Boolean @default(false)
+
+  /// JSON array of DoctorProfile ids the matcher suggested, in rank order.
+  matchedDoctorIdsJson String @default("[]") @db.NVarChar(Max)
+
+  /// Set when a member of staff has looked at a flagged intake.
+  reviewedAt   DateTime?
+  reviewedById String?   @db.NVarChar(30)
+
+  createdAt DateTime @default(now())
+
+  patient    User  @relation("PatientIntakes", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedBy User? @relation("IntakeReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patientId, createdAt])
+  @@index([urgencyLevel, createdAt])
+  @@index([crisisFlagged, reviewedAt])
+  @@index([reviewedById])
+  @@map("intake_assessments")
+}
+
+/// A completed standardised screening scale (PHQ-9, GAD-7, ISI).
+///
+/// The score is always recomputed on the server from `answersJson` — a total
+/// posted by the client is never stored, because a doctor reads these numbers.
+model ClinicalAssessment {
+  id        String @id @default(cuid()) @db.NVarChar(30)
+  patientId String @db.NVarChar(30)
+
+  /// PHQ9 | GAD7 | ISI (lib/content/assessment-scales.ts)
+  type String @db.NVarChar(20)
+
+  answersJson String @default("{}") @db.NVarChar(Max)
+  totalScore  Int
+  maxScore    Int
+
+  /// MINIMAL | MILD | MODERATE | MODERATELY_SEVERE | SEVERE
+  severityBand String @db.NVarChar(30)
+
+  /// True when a safety-flagged item (e.g. PHQ-9 item 9) was endorsed.
+  riskItemEndorsed Boolean @default(false)
+
+  completedAt DateTime @default(now())
+
+  patient User @relation("PatientAssessments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patientId, completedAt])
+  @@index([type, completedAt])
+  @@index([riskItemEndorsed, completedAt])
+  @@map("clinical_assessments")
+}
+
+/// Stanley-Brown safety plan. One live plan per patient, revised in place —
+/// a safety plan is a current document, not a history, and the patient needs
+/// the newest version instantly at the moment they reach for it.
+model SafetyPlan {
+  id        String @id @default(cuid()) @db.NVarChar(30)
+  patientId String @unique @db.NVarChar(30)
+
+  warningSignsJson         String  @default("[]") @db.NVarChar(Max)
+  copingStrategiesJson     String  @default("[]") @db.NVarChar(Max)
+  socialDistractionsJson   String  @default("[]") @db.NVarChar(Max)
+  trustedContactsJson      String  @default("[]") @db.NVarChar(Max)
+  professionalContactsJson String  @default("[]") @db.NVarChar(Max)
+  environmentStepsJson     String  @default("[]") @db.NVarChar(Max)
+  reasonsForLiving         String? @db.NVarChar(Max)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient User @relation("PatientSafetyPlan", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("safety_plans")
 }
 
 // ------------------------------- AUDIT ---------------------------------------

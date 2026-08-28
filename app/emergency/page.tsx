@@ -17,8 +17,8 @@ import {
   MapPin,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { BreathingExerciseModal } from "@/components/assistant/BreathingExerciseModal";
-import { SensoryGroundingModal } from "@/components/assistant/SensoryGroundingModal";
+import { BreathingExerciseModal } from "@/components/crisis/BreathingExerciseModal";
+import { SensoryGroundingModal } from "@/components/crisis/SensoryGroundingModal";
 
 interface EmergencyLine {
   countryAr: string;

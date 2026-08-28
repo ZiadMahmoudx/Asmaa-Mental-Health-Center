@@ -129,6 +129,13 @@ app/actions/admin.actions.ts      approve, reject, assign Zoom link, cancel
 app/actions/doctor.actions.ts     agenda, availability, clinical records
 app/actions/doctors.actions.ts    public consultant directory
 app/actions/records.actions.ts    a patient's own signed records
+app/actions/intake.actions.ts     triage scoring, matching, crisis queue
+app/actions/assessments.actions.ts PHQ-9 / GAD-7 / ISI, scored server-side
+app/actions/safety-plan.actions.ts Stanley-Brown safety plan
+app/actions/metrics.actions.ts    clinic metrics + consultant roster
+
+lib/content/intake.ts             triage questions, concern tags, scoring
+lib/content/assessment-scales.ts  the three scales + scoring (shared, pure)
 
 app/api/receipts/[proofId]/route.ts   authorised receipt delivery
 middleware.ts                          signed-out gate + CSRF seeding + headers
@@ -147,6 +154,12 @@ components/booking/BookingFlow.tsx
 components/booking/PaymentUploadForm.tsx
 components/dashboard/PatientAppointments.tsx
 components/dashboard/DoctorAgenda.tsx
+components/clinical/IntakeWizard.tsx
+components/clinical/AssessmentRunner.tsx
+components/clinical/SafetyPlanEditor.tsx
+components/admin/CrisisIntakeQueue.tsx
+components/home/HomeContent.tsx
+components/crisis/*                   breathing + grounding tools
 
 scripts/use-db-provider.mjs           provider switch
 scripts/enable-sqlserver-tcp.ps1      one-time local SQL Server setup
@@ -289,7 +302,32 @@ genuinely valid.
 
 ---
 
-## 7. Known gaps (deliberately out of Phase 1)
+## 7. Scope: what was removed, and why
+
+The following were deleted rather than left as non-functional UI. All of it is
+recoverable from git history if the clinic wants it in a later phase.
+
+| Removed | Reason |
+|---|---|
+| `/academy`, `/books` | Course and e-book stores with mock catalogues and simulated wallet purchases. No payment path exists for them in Phase 1. |
+| `/circles` | Group support circles. A real clinical service, but it needs capacity management and multi-patient appointments — genuinely Phase 2, not a mock to keep. |
+| `/audio` | Static audio library, no backing storage. |
+| `/assistant` + AI drawer | Keyword-matching chatbot presented as a clinical assistant. An ungrounded bot answering mental-health questions is a liability, not a feature. Its two genuinely useful tools (4-7-8 breathing, 5-4-3-2-1 grounding) were kept and moved to `/emergency`. |
+| `/session/[sessionId]` | 731 lines of simulated video-call UI with no WebRTC behind it. Zoom links replace it. |
+| `context/TelehealthStore.tsx` | The client-side "database". Everything it held now comes from the server. |
+| `lib/utils.ts`, `types/telehealth.ts` | Became dead once the store went. This also removed the hard-coded FX rates. |
+| Wallet, promo codes, card fields | Simulated money. Phase 1 settles by manual transfer. |
+
+**Fabricated claims removed from the marketing pages.** The home page advertised
+`4.96 / 5.0` from `15k+` patient reviews, and the FAQ claimed AES-256
+end-to-end encrypted video with anti-recording watermarks. The platform collects
+no ratings, and online sessions run on Zoom — the clinic operates no custom video
+stack. Both were replaced with statements that are true and derived from the
+database (consultant count, the roster's real maximum years of experience).
+
+---
+
+## 8. Known gaps (deliberately out of Phase 1)
 
 - **Phone verification is modelled, not wired.** `VerificationToken` and
   `User.phoneVerifiedAt` exist and `generateNumericCode` is implemented; an SMS

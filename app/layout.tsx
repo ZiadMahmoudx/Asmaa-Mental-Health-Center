@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
-import { TelehealthProvider } from "@/context/TelehealthStore";
 import { CrisisBanner } from "@/components/layout/CrisisBanner";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { AIAssistantDrawer } from "@/components/assistant/AIAssistantDrawer";
 import { getAuthContext } from "@/lib/auth/session";
 import { readCsrfToken } from "@/lib/auth/csrf";
 
@@ -58,18 +56,12 @@ export default async function RootLayout({
       </head>
       <body className="antialiased bg-alabaster-base text-gray-800 selection:bg-teal-100 selection:text-teal-900">
         <LanguageProvider>
-          {/* TelehealthProvider still backs the content areas that are not part
-              of the Phase-1 clinical flow (academy, books, circles, audio). It no
-              longer has any role in authentication. */}
-          <TelehealthProvider>
-            <div className="flex flex-col min-h-screen">
-              <CrisisBanner />
-              <Navbar user={navUser} csrfToken={csrfToken} />
-              <main className="flex-grow">{children}</main>
-              <Footer />
-              <AIAssistantDrawer />
-            </div>
-          </TelehealthProvider>
+          <div className="flex flex-col min-h-screen">
+            <CrisisBanner />
+            <Navbar user={navUser} csrfToken={csrfToken} />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </div>
         </LanguageProvider>
       </body>
     </html>

@@ -27,12 +27,26 @@ export type AuditAction =
   | "RECEIPT_VIEWED"
   | "AVAILABILITY_UPDATED"
   | "CLINICAL_RECORD_SAVED"
-  | "CLINICAL_RECORD_VIEWED";
+  | "CLINICAL_RECORD_VIEWED"
+  | "INTAKE_SUBMITTED"
+  | "INTAKE_REVIEWED"
+  | "ASSESSMENT_COMPLETED"
+  | "ASSESSMENT_VIEWED"
+  | "SAFETY_PLAN_SAVED"
+  | "SAFETY_PLAN_VIEWED";
 
 export interface AuditInput {
   actorId: string | null;
   action: AuditAction;
-  entityType: "User" | "Appointment" | "PaymentProof" | "ClinicalRecord" | "DoctorAvailability";
+  entityType:
+    | "User"
+    | "Appointment"
+    | "PaymentProof"
+    | "ClinicalRecord"
+    | "DoctorAvailability"
+    | "IntakeAssessment"
+    | "ClinicalAssessment"
+    | "SafetyPlan";
   entityId: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
 }

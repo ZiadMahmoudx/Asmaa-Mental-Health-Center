@@ -46,17 +46,13 @@ export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
     { href: "/", labelAr: "الرئيسية", labelEn: "Home" },
     { href: "/therapists", labelAr: "الأطباء والمعالجون", labelEn: "Therapists" },
     { href: "/intake", labelAr: "الاستبيان الطبي", labelEn: "Smart Triage", badge: "مجاناً" },
-    { href: "/circles", labelAr: "دوائر الدعم", labelEn: "Support Circles", icon: Users },
   ];
 
   // Secondary Services in Clean Dropdown
   const moreServices = [
     { href: "/assessments", labelAr: "المقاييس النفسية (PHQ-9 / GAD-7)", labelEn: "Psychometric Tests", icon: Activity },
     { href: "/safety-plan", labelAr: "خطة الأمان النفسي (Stanley-Brown)", labelEn: "Psychiatric Safety Plan", icon: ShieldCheck },
-    { href: "/audio", labelAr: "الصوتيات الإرشادية باللهجات", labelEn: "Dialect Audio Sessions", icon: Headphones },
-    { href: "/academy", labelAr: "أكاديمية أسما والكورسات", labelEn: "Academy & Courses", icon: BookOpen },
-    { href: "/books", labelAr: "مكتبة التعافي والكتب", labelEn: "Recovery E-Books", icon: BookOpen },
-    { href: "/assistant", labelAr: "المرشد الذكي للإسعافات (AI PFA)", labelEn: "AI PFA Assistant", icon: Sparkles },
+    { href: "/emergency", labelAr: "الطوارئ وأدوات التهدئة الفورية", labelEn: "Emergency & Calming Tools", icon: Activity },
     { href: "/faq", labelAr: "ميثاق السرية والأسئلة الشائعة", labelEn: "Clinical Ethics & FAQ", icon: Lock },
   ];
 
@@ -88,7 +84,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
           <nav className="hidden lg:flex items-center gap-1.5">
             {primaryLinks.map((link) => {
               const isActive = pathname === link.href;
-              const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
@@ -99,7 +94,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
                       : "text-gray-700 hover:text-teal-900 hover:bg-alabaster-base"
                   }`}
                 >
-                  {Icon && <Icon className="w-3.5 h-3.5 text-teal-700" />}
                   <span>{language === "ar" ? link.labelAr : link.labelEn}</span>
                   {link.badge && (
                     <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-sage-100 text-sage-800 rounded-full">
