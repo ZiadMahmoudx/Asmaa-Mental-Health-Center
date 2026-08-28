@@ -19,13 +19,23 @@ export type AuditAction =
   | "APPOINTMENT_RESERVED"
   | "APPOINTMENT_CANCELLED"
   | "APPOINTMENT_COMPLETED"
+  | "APPOINTMENT_RESCHEDULED"
+  | "APPOINTMENT_CANCELLED_BY_DOCTOR"
   | "HOLD_EXPIRED_RECLAIMED"
+  | "HOLDS_RELEASED_BY_CRON"
   | "PAYMENT_PROOF_SUBMITTED"
   | "PAYMENT_APPROVED"
   | "PAYMENT_REJECTED"
   | "ZOOM_LINK_ASSIGNED"
   | "RECEIPT_VIEWED"
   | "AVAILABILITY_UPDATED"
+  | "AVAILABILITY_RULE_EDITED"
+  | "AVAILABILITY_RULE_RETIRED"
+  | "TIME_OFF_ADDED"
+  | "TIME_OFF_CANCELLED"
+  | "DOCTOR_PRICING_UPDATED"
+  | "DOCTOR_CONCERN_TAGS_UPDATED"
+  | "DOCTOR_STATUS_TOGGLED"
   | "CLINICAL_RECORD_SAVED"
   | "CLINICAL_RECORD_VIEWED"
   | "INTAKE_SUBMITTED"
@@ -33,7 +43,8 @@ export type AuditAction =
   | "ASSESSMENT_COMPLETED"
   | "ASSESSMENT_VIEWED"
   | "SAFETY_PLAN_SAVED"
-  | "SAFETY_PLAN_VIEWED";
+  | "SAFETY_PLAN_VIEWED"
+  | "SAFETY_PLAN_VIEWED_IN_SESSION";
 
 export interface AuditInput {
   actorId: string | null;
@@ -44,6 +55,8 @@ export interface AuditInput {
     | "PaymentProof"
     | "ClinicalRecord"
     | "DoctorAvailability"
+    | "AvailabilityException"
+    | "DoctorProfile"
     | "IntakeAssessment"
     | "ClinicalAssessment"
     | "SafetyPlan";

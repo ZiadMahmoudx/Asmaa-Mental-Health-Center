@@ -5,6 +5,8 @@ import { ActionResult, Failures, success } from "@/lib/result";
 import { AuthContext, getAuthContext, hasRole } from "@/lib/auth/session";
 import { verifyCsrfFromForm } from "@/lib/auth/csrf";
 
+export type { AuthContext };
+
 /**
  * Authorisation helpers.
  *

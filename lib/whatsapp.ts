@@ -246,6 +246,75 @@ export function sessionReminderMessage(input: AppointmentSummary): string {
     .join("\n");
 }
 
+export interface RescheduleSummary extends AppointmentSummary {
+  oldScheduledAtUTC: Date;
+  reason?: string;
+}
+
+/** Patient notification when an appointment is rescheduled. */
+export function appointmentRescheduledMessage(input: RescheduleSummary): string {
+  const lines = [
+    `تعديل موعد الجلسة 🗓️`,
+    ``,
+    `مرحباً ${input.patientName}، تم تعديل موعد جلستك مع ${input.doctorName}:`,
+    ``,
+    `⏳ الموعد السابق: ${formatCairo(input.oldScheduledAtUTC)}`,
+    `✨ الموعد الجديد: ${formatCairo(input.scheduledAtUTC)} (بتوقيت القاهرة)`,
+    input.reason ? `📝 ملاحظة: ${input.reason}` : null,
+  ];
+
+  if (input.type === "ONLINE") {
+    lines.push(
+      ``,
+      `💻 رابط الدخول للجلسة:`,
+      input.zoomMeetingUrl ?? "(تواصل معنا للحصول على الرابط)",
+      input.zoomPasscode ? `🔑 كلمة المرور: ${input.zoomPasscode}` : null,
+    );
+  } else {
+    lines.push(
+      ``,
+      `🏥 العنوان: ${input.clinicAddressAr ?? ""}`,
+      input.roomNumber ? `🚪 رقم الغرفة: ${input.roomNumber}` : null,
+      input.clinicMapsUrl ? `📍 ${input.clinicMapsUrl}` : null,
+    );
+  }
+
+  lines.push(
+    ``,
+    `إذا كان الموعد الجديد غير مناسب لك، يرجى التواصل معنا لاختيار موعد بديل.`,
+  );
+
+  return lines.filter((l): l is string => l !== null && l !== "").join("\n");
+}
+
+export interface ClinicCancellationSummary {
+  patientName: string;
+  doctorName: string;
+  scheduledAtUTC: Date;
+  reason: string;
+  rebookUrl?: string;
+}
+
+/** Patient notification when a doctor or clinic cancels an appointment. */
+export function clinicCancellationMessage(input: ClinicCancellationSummary): string {
+  const lines = [
+    `إشعار بخصوص موعد جلستك 🌿`,
+    ``,
+    `مرحباً ${input.patientName}، نعتذر منك بشدة، تم إلغاء موعد جلستك مع ${input.doctorName} بتاريخ ${formatCairo(
+      input.scheduledAtUTC,
+    )}.`,
+    ``,
+    `📝 سبب الإلغاء: ${input.reason}`,
+    ``,
+    `نحن حريصون على استمرار رعايتك. يمكنك اختيار موعد بديل أو التواصل معنا لتسوية الحجز فوراً:`,
+    input.rebookUrl ? input.rebookUrl : null,
+    ``,
+    `فريق المركز في خدمتك دائماً لأي استفسار.`,
+  ];
+
+  return lines.filter((l): l is string => l !== null && l !== "").join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // One-call link builders (message + wa.me URL in a single step)
 // ---------------------------------------------------------------------------
@@ -272,4 +341,16 @@ export function adminVerificationAlertLink(
   input: Parameters<typeof adminVerificationAlertMessage>[0] & { adminPhone: string },
 ): string {
   return buildWhatsAppLink(input.adminPhone, adminVerificationAlertMessage(input));
+}
+
+export function appointmentRescheduledLink(
+  input: RescheduleSummary & { patientPhone: string },
+): string {
+  return buildWhatsAppLink(input.patientPhone, appointmentRescheduledMessage(input));
+}
+
+export function clinicCancellationLink(
+  input: ClinicCancellationSummary & { patientPhone: string },
+): string {
+  return buildWhatsAppLink(input.patientPhone, clinicCancellationMessage(input));
 }

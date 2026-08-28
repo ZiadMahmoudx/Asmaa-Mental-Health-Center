@@ -232,17 +232,19 @@ async function main() {
 
       await prisma.doctorAvailability.upsert({
         where: {
-          doctorId_dayOfWeek_startMinutesUTC_endMinutesUTC: {
+          doctorId_dayOfWeek_startMinutesUTC_endMinutesUTC_ruleLockKey: {
             doctorId: profile.id,
             dayOfWeek: window.dayOfWeek,
             startMinutesUTC,
             endMinutesUTC,
+            ruleLockKey: "ACTIVE",
           },
         },
         update: {
           isActive: true,
           isOnlineAvailable: window.online,
           isOfflineAvailable: window.offline,
+          ruleLockKey: "ACTIVE",
         },
         create: {
           doctorId: profile.id,
@@ -252,6 +254,7 @@ async function main() {
           slotDurationMins: 45,
           isOnlineAvailable: window.online,
           isOfflineAvailable: window.offline,
+          ruleLockKey: "ACTIVE",
         },
       });
     }

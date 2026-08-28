@@ -18,7 +18,14 @@ import {
   registerSchema,
   reserveSlotSchema,
 } from "@/lib/validation/schemas";
-import { buildWhatsAppLink, toWaMeNumber, paymentInstructionsMessage } from "@/lib/whatsapp";
+import {
+  buildWhatsAppLink,
+  toWaMeNumber,
+  paymentInstructionsMessage,
+  appointmentRescheduledMessage,
+  clinicCancellationMessage,
+} from "@/lib/whatsapp";
+import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
 
@@ -265,6 +272,54 @@ async function main() {
     assert.ok(message.includes("https://asmaaclinic.com/booking/abc/payment"));
     // Egypt observes DST from late April to late October, so 14:00 UTC is 5 PM Cairo.
     assert.ok(message.includes("٥:٠٠"), `Egypt is UTC+3 in September (DST): 14:00Z must render as 5 PM Cairo. Got: ${message}`);
+  });
+
+  await check("reschedule message includes both old and new times", () => {
+    const message = appointmentRescheduledMessage({
+      patientName: "سارة محمود",
+      doctorName: "د. أسماء عبد الوهاب",
+      type: "ONLINE",
+      oldScheduledAtUTC: new Date("2026-09-02T14:00:00Z"),
+      scheduledAtUTC: new Date("2026-09-04T16:00:00Z"),
+      durationMinutes: 45,
+      priceEGP: 850,
+      zoomMeetingUrl: "https://zoom.us/j/123456789",
+      zoomPasscode: "123456",
+      roomNumber: null,
+      clinicAddressAr: "القاهرة الجديدة",
+      clinicMapsUrl: "https://maps.google.com",
+      reason: "بناء على طلب الاستشاري",
+    });
+    assert.ok(message.includes("تعديل موعد"));
+    assert.ok(message.includes("https://zoom.us/j/123456789"));
+    assert.ok(message.includes("بناء على طلب الاستشاري"));
+  });
+
+  await check("clinic cancellation message includes reason", () => {
+    const message = clinicCancellationMessage({
+      patientName: "سارة محمود",
+      doctorName: "د. أسماء عبد الوهاب",
+      scheduledAtUTC: new Date("2026-09-02T14:00:00Z"),
+      reason: "ظرف صحي طارئ للاستشاري",
+    });
+    assert.ok(message.includes("نعتذر منك بشدة"));
+    assert.ok(message.includes("ظرف صحي طارئ للاستشاري"));
+  });
+
+  console.log("\n--- cairo time conversion ---");
+
+  await check("converts 16:00 Cairo (winter) to 14:00 UTC (840 mins)", () => {
+    const utcMins = cairoLabelToUtcMinutes("16:00");
+    assert.equal(utcMins, 14 * 60);
+    const label = utcMinutesToCairoLabel(utcMins);
+    assert.equal(label, "16:00");
+  });
+
+  await check("handles midnight wraps cleanly in Cairo clock", () => {
+    const utcMins = cairoLabelToUtcMinutes("01:00");
+    assert.equal(utcMins, 23 * 60);
+    const label = utcMinutesToCairoLabel(utcMins);
+    assert.equal(label, "01:00");
   });
 
   console.log("\n--- password & tokens ---");

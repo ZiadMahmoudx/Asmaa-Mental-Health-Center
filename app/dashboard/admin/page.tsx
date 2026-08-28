@@ -74,18 +74,34 @@ export default async function AdminDashboardPage() {
             </p>
           </div>
 
-          <Link
-            href="/dashboard/admin/verification"
-            className="px-5 py-3 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-extrabold transition flex items-center gap-2 shrink-0"
-          >
-            <Receipt className="w-4 h-4" />
-            مكتب مراجعة المدفوعات
-            {metrics.pendingReceipts > 0 && (
-              <span className="px-1.5 py-0.5 rounded-lg bg-white text-terracotta-700 text-[10px] font-black">
-                {metrics.pendingReceipts}
-              </span>
-            )}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/admin/appointments"
+              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
+            >
+              <CalendarCheck className="w-4 h-4" />
+              سجل الحجوزات
+            </Link>
+            <Link
+              href="/dashboard/admin/schedule"
+              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
+            >
+              <Clock3 className="w-4 h-4" />
+              إدارة جداول الأطباء
+            </Link>
+            <Link
+              href="/dashboard/admin/verification"
+              className="px-4 py-2.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-sm"
+            >
+              <Receipt className="w-4 h-4" />
+              مكتب مراجعة المدفوعات
+              {metrics.pendingReceipts > 0 && (
+                <span className="px-1.5 py-0.5 rounded-lg bg-white text-terracotta-700 text-[10px] font-black">
+                  {metrics.pendingReceipts}
+                </span>
+              )}
+            </Link>
+          </div>
         </header>
 
         {/* Things that need a human today */}
@@ -192,6 +208,7 @@ export default async function AdminDashboardPage() {
                       <Th>جلسات مكتملة</Th>
                       <Th>السعر (أونلاين / عيادة)</Th>
                       <Th>الحالة</Th>
+                      <Th>الإجراء</Th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -231,6 +248,14 @@ export default async function AdminDashboardPage() {
                               لا توجد نوافذ عمل — لن يظهر في الحجز
                             </p>
                           )}
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <Link
+                            href={`/dashboard/admin/schedule?doctorId=${doctor.id}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200"
+                          >
+                            إدارة الجدول
+                          </Link>
                         </td>
                       </tr>
                     ))}

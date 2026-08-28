@@ -34,6 +34,7 @@ const envSchema = z.object({
   CLINIC_NAME_AR: z.string().min(1).default("مركز أسما للصحة النفسية"),
   CLINIC_ADDRESS_AR: z.string().min(1).default("القاهرة الجديدة، التجمع الخامس"),
   CLINIC_MAPS_URL: z.string().url().default("https://maps.google.com/?q=30.0271,31.4835"),
+  CRON_SECRET: z.string().min(16).default("dev-cron-secret-change-in-production-min32chars"),
 });
 
 function loadEnv() {

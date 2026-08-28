@@ -281,10 +281,41 @@ export const availabilityRuleSchema = z
     path: ["isOnlineAvailable"],
   });
 
-export const deleteAvailabilitySchema = z.object({ availabilityId: cuidSchema });
+export const deleteAvailabilitySchema = z.object({
+  availabilityId: cuidSchema,
+  doctorId: cuidSchema.optional(),
+});
+
+export const availabilityRuleUpdateSchema = z
+  .object({
+    availabilityId: cuidSchema,
+    doctorId: cuidSchema.optional(),
+    dayOfWeek: z.coerce.number().int().min(0, "يوم غير صالح").max(6, "يوم غير صالح"),
+    startMinutesUTC: z.coerce.number().int().min(0).max(1439),
+    endMinutesUTC: z.coerce.number().int().min(1).max(1440),
+    slotDurationMins: durationSchema,
+    isOnlineAvailable: z.coerce.boolean(),
+    isOfflineAvailable: z.coerce.boolean(),
+  })
+  .refine((data) => data.endMinutesUTC > data.startMinutesUTC, {
+    message: "وقت النهاية يجب أن يكون بعد وقت البداية",
+    path: ["endMinutesUTC"],
+  })
+  .refine(
+    (data) => (data.endMinutesUTC - data.startMinutesUTC) >= data.slotDurationMins,
+    {
+      message: "النافذة الزمنية أقصر من مدة الجلسة الواحدة",
+      path: ["slotDurationMins"],
+    },
+  )
+  .refine((data) => data.isOnlineAvailable || data.isOfflineAvailable, {
+    message: "يجب تفعيل نوع واحد على الأقل: أونلاين أو حضوري",
+    path: ["isOnlineAvailable"],
+  });
 
 export const timeOffSchema = z
   .object({
+    doctorId: cuidSchema.optional(),
     startsAtUTC: utcInstant,
     endsAtUTC: utcInstant,
     reason: z.string().trim().max(255).optional().or(z.literal("")).transform((v) => v || undefined),
@@ -293,6 +324,67 @@ export const timeOffSchema = z
     message: "نهاية فترة الإجازة يجب أن تكون بعد بدايتها",
     path: ["endsAtUTC"],
   });
+
+export const timeOffCancelSchema = z.object({
+  exceptionId: cuidSchema,
+  doctorId: cuidSchema.optional(),
+});
+
+export const forceTimeOffSchema = z
+  .object({
+    doctorId: cuidSchema,
+    startsAtUTC: utcInstant,
+    endsAtUTC: utcInstant,
+    reason: z.string().trim().max(255).optional().or(z.literal("")).transform((v) => v || undefined),
+    cancelConflicts: z.coerce.boolean().refine((v) => v === true, {
+      message: "يجب تأكيد إلغاء الحجوزات المتعارضة",
+    }),
+    cancellationReason: z.string().trim().min(5, "يجب كتابة سبب الإلغاء للمرضى (٥ أحرف على الأقل)").max(500),
+  })
+  .refine((data) => data.endsAtUTC > data.startsAtUTC, {
+    message: "نهاية فترة الإجازة يجب أن تكون بعد بدايتها",
+    path: ["endsAtUTC"],
+  });
+
+export const rescheduleAppointmentSchema = z.object({
+  appointmentId: cuidSchema,
+  scheduledAtUTC: utcInstant,
+  durationMinutes: durationSchema,
+  reason: z.string().trim().max(500).optional().or(z.literal("")).transform((v) => v || undefined),
+  notifyPatient: z.coerce.boolean().default(true),
+  allowOffGrid: z.coerce.boolean().optional(),
+});
+
+export const cancelByDoctorSchema = z.object({
+  appointmentId: cuidSchema,
+  reason: z.string().trim().min(5, "يجب كتابة سبب الإلغاء للمريض (٥ أحرف على الأقل)").max(500),
+});
+
+export const releaseReservationSchema = z.object({
+  appointmentId: cuidSchema,
+});
+
+export const doctorPricingUpdateSchema = z.object({
+  doctorId: cuidSchema,
+  sessionPriceOnline: z.coerce
+    .number()
+    .positive("السعر يجب أن يكون أكبر من صفر")
+    .max(100_000, "السعر غير منطقي"),
+  sessionPriceOffline: z.coerce
+    .number()
+    .positive("السعر يجب أن يكون أكبر من صفر")
+    .max(100_000, "السعر غير منطقي"),
+});
+
+export const doctorConcernTagsUpdateSchema = z.object({
+  doctorId: cuidSchema,
+  concernTags: z.array(z.string()).min(1, "اختر وسماً واحداً على الأقل"),
+});
+
+export const doctorStatusToggleSchema = z.object({
+  doctorId: cuidSchema,
+  isAcceptingPatients: z.coerce.boolean(),
+});
 
 export const clinicalRecordSchema = z.object({
   appointmentId: cuidSchema,

@@ -2,44 +2,39 @@ import type { Metadata } from "next";
 import { CalendarCheck, ShieldCheck, Stethoscope, Users } from "lucide-react";
 import { requireRolePage } from "@/lib/auth/guards";
 import { readCsrfToken } from "@/lib/auth/csrf";
-import { getMyAgendaAction, getMyAvailabilityAction } from "@/app/actions/doctor.actions";
+import {
+  getMyAgendaAction,
+  getMyAvailabilityAction,
+  getTimeOffAction,
+} from "@/app/actions/doctor.actions";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
-import { DoctorAgenda } from "@/components/dashboard/DoctorAgenda";
+import { DoctorWorkspace } from "@/components/dashboard/DoctorWorkspace";
 
 export const metadata: Metadata = {
   title: "لوحة الاستشاري | مركز أسما للصحة النفسية",
   description: "جدول جلساتك، مواعيد عملك الأسبوعية، وتقاريرك الإكلينيكية.",
 };
 
-/**
- * Consultant dashboard.
- *
- * Server-rendered and scoped by the session: `getMyAgendaAction` and
- * `getMyAvailabilityAction` both resolve the DoctorProfile from the signed-in
- * user and filter every query by it. No doctor id is ever accepted from the
- * request, so one consultant cannot read another's patients by changing a URL.
- */
 export const dynamic = "force-dynamic";
 
 export default async function DoctorDashboardPage() {
   const auth = await requireRolePage(["DOCTOR"], "/dashboard/doctor");
 
-  const [agendaResult, availabilityResult, csrfToken] = await Promise.all([
+  const [agendaResult, availabilityResult, timeOffResult, csrfToken] = await Promise.all([
     getMyAgendaAction(),
     getMyAvailabilityAction(),
+    getTimeOffAction(),
     readCsrfToken(),
   ]);
 
-  // A DOCTOR account with no linked DoctorProfile is a provisioning error, not a
-  // user error — say so plainly instead of rendering an empty agenda.
-  if (!agendaResult.ok || !availabilityResult.ok) {
-    // Narrow explicitly: TypeScript cannot infer from the combined condition
-    // which of the two results is the failing one.
+  if (!agendaResult.ok || !availabilityResult.ok || !timeOffResult.ok) {
     const message = !agendaResult.ok
       ? agendaResult.messageAr
       : !availabilityResult.ok
         ? availabilityResult.messageAr
-        : "";
+        : !timeOffResult.ok
+          ? timeOffResult.messageAr
+          : "";
     return (
       <div className="min-h-screen py-16 bg-alabaster-base">
         <div className="max-w-lg mx-auto px-4 text-center space-y-3">
@@ -104,9 +99,10 @@ export default async function DoctorDashboardPage() {
           />
         </div>
 
-        <DoctorAgenda
+        <DoctorWorkspace
           agenda={agenda}
           availability={availabilityResult.data}
+          timeOff={timeOffResult.data}
           csrfToken={csrfToken}
         />
       </div>

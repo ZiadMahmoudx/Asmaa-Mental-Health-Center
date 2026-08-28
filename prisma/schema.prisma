@@ -78,10 +78,12 @@ model User {
   patientRecords      ClinicalRecord[]     @relation("PatientClinicalRecords")
   reviewedPayments    PaymentProof[]       @relation("PaymentReviewer")
   auditLogs           AuditLog[]
-  intakes             IntakeAssessment[]   @relation("PatientIntakes")
-  reviewedIntakes     IntakeAssessment[]   @relation("IntakeReviewer")
-  assessments         ClinicalAssessment[] @relation("PatientAssessments")
-  safetyPlan          SafetyPlan?          @relation("PatientSafetyPlan")
+  intakes                 IntakeAssessment[]      @relation("PatientIntakes")
+  reviewedIntakes         IntakeAssessment[]      @relation("IntakeReviewer")
+  assessments             ClinicalAssessment[]    @relation("PatientAssessments")
+  safetyPlan              SafetyPlan?             @relation("PatientSafetyPlan")
+  rescheduledAppointments Appointment[]           @relation("AppointmentRescheduler")
+  timeOffCreated          AvailabilityException[] @relation("TimeOffCreator")
 
   @@index([role])
   @@index([phone])
@@ -192,12 +194,19 @@ model DoctorAvailability {
   effectiveFrom      DateTime  @default(now())
   effectiveUntil     DateTime?
   isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+
+  /// Mirrors Appointment.slotLockKey. Holds ACTIVE_RULE_LOCK while the window is
+  /// live; on retirement it is rewritten to the row's own id, which frees the
+  /// (doctor, day, start, end) tuple so the same window can be created again.
+  /// Without this, a removed window is permanently unusable — see G2.
+  ruleLockKey String @default("ACTIVE") @db.NVarChar(40)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
-  @@unique([doctorId, dayOfWeek, startMinutesUTC, endMinutesUTC])
+  @@unique([doctorId, dayOfWeek, startMinutesUTC, endMinutesUTC, ruleLockKey], map: "doctor_availability_window_lock_key")
   @@index([doctorId, dayOfWeek])
   @@map("doctor_availability")
 }
@@ -205,16 +214,20 @@ model DoctorAvailability {
 /// One-off blackout (leave, conference, clinic closure) that subtracts from the
 /// recurring availability for a concrete UTC interval.
 model AvailabilityException {
-  id          String   @id @default(cuid()) @db.NVarChar(30)
-  doctorId    String   @db.NVarChar(30)
+  id          String    @id @default(cuid()) @db.NVarChar(30)
+  doctorId    String    @db.NVarChar(30)
   startsAtUTC DateTime
   endsAtUTC   DateTime
-  reason      String?  @db.NVarChar(255)
-  createdAt   DateTime @default(now())
+  reason      String?   @db.NVarChar(255)
+  cancelledAt DateTime?
+  createdById String?   @db.NVarChar(30)
+  createdAt   DateTime  @default(now())
 
-  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation("TimeOffCreator", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([doctorId, startsAtUTC, endsAtUTC])
+  @@index([createdById])
   @@map("availability_exceptions")
 }
 
@@ -255,8 +268,17 @@ model Appointment {
   cancellationReason String?   @db.NVarChar(500)
   completedAt        DateTime?
   reminderSentAt     DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+
+  /// Set when an appointment has been moved. Retains the instant it was
+  /// originally booked for, so the patient-facing history can explain the change
+  /// and the clinic can audit how often it reschedules.
+  rescheduledFromUTC DateTime?
+  rescheduledAt      DateTime?
+  rescheduledById    String?   @db.NVarChar(30)
+  rescheduleReason   String?   @db.NVarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // NoAction on both sides, for two reasons that both come from SQL Server:
   //   - `Restrict` is not a valid referential action there at all, and
@@ -268,6 +290,7 @@ model Appointment {
   // deleted. Accounts are deactivated via `isActive`, never removed.
   patient        User            @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rescheduledBy  User?           @relation("AppointmentRescheduler", fields: [rescheduledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   paymentProofs  PaymentProof[]
   clinicalRecord ClinicalRecord?
 
@@ -278,6 +301,7 @@ model Appointment {
   @@index([doctorId, scheduledAtUTC])
   @@index([status, holdExpiresAt])
   @@index([status, scheduledAtUTC])
+  @@index([rescheduledById])
   @@map("appointments")
 }
 

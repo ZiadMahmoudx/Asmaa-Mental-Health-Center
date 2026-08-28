@@ -144,6 +144,7 @@ export async function getAvailableSlotsAction(input: {
     prisma.availabilityException.findMany({
       where: {
         doctorId,
+        cancelledAt: null,
         endsAtUTC: { gt: windowStart },
         startsAtUTC: { lt: windowEnd },
       },
@@ -645,4 +646,44 @@ export async function cancelMyAppointmentAction(
   revalidatePath("/dashboard/admin/verification");
 
   return success({ appointmentId });
+}
+
+export interface SlotView {
+  startUTC: string;
+  endUTC: string;
+  durationMinutes: number;
+  timeLabel: string;
+  dateCairo: string;
+}
+
+/** Sweep and release all expired unpaid booking holds across the database. */
+export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releasedCount: number }>> {
+  const now = new Date();
+  const expired = await prisma.appointment.findMany({
+    where: {
+      status: "PENDING_PAYMENT_PROOF",
+      holdExpiresAt: { lt: now },
+      slotLockKey: ACTIVE_SLOT_LOCK,
+    },
+    select: { id: true },
+  });
+
+  if (expired.length === 0) {
+    return success({ releasedCount: 0 });
+  }
+
+  let count = 0;
+  for (const app of expired) {
+    const updated = await prisma.appointment.updateMany({
+      where: { id: app.id, status: "PENDING_PAYMENT_PROOF", slotLockKey: ACTIVE_SLOT_LOCK },
+      data: {
+        status: "EXPIRED",
+        slotLockKey: app.id,
+        holdExpiresAt: null,
+      },
+    });
+    count += updated.count;
+  }
+
+  return success({ releasedCount: count });
 }

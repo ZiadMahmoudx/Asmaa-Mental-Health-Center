@@ -16,6 +16,14 @@
  */
 export const ACTIVE_SLOT_LOCK = "ACTIVE" as const;
 
+/**
+ * Value written to DoctorAvailability.ruleLockKey while a working window is active.
+ * Retiring a window rewrites ruleLockKey to the row's own id, freeing the
+ * (doctorId, dayOfWeek, startMinutesUTC, endMinutesUTC, ACTIVE) tuple so the same
+ * window can be re-created without P2002 collision.
+ */
+export const ACTIVE_RULE_LOCK = "ACTIVE" as const;
+
 export const SESSION_COOKIE = "asmaa_session";
 export const CSRF_COOKIE = "asmaa_csrf";
 /** Form field / header name carrying the double-submit CSRF token. */
