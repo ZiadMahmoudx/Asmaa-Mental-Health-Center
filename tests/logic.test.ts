@@ -1427,6 +1427,41 @@ async function main() {
     assert.equal(tryBookRoom(bookingB), true, "After release, room instant is freed for next booking");
   });
 
+  await check("CSRF origin check accepts every host the deployment is served on", () => {
+    // Mirrors allowedOrigins() in lib/auth/csrf.ts. A deployment answers on the
+    // production alias, the project alias, the git-branch alias and each
+    // immutable deployment URL; the browser reports whichever one the user
+    // opened as the Origin. Pinning the check to APP_URL alone rejected all but
+    // one of them with CSRF_FAILED before the token was ever compared.
+    const appUrl = "https://asmaa-clinic.vercel.app";
+
+    function allowed(forwardedHost: string | null, proto = "https"): Set<string> {
+      const set = new Set<string>([appUrl]);
+      if (forwardedHost) set.add(`${proto}://${forwardedHost}`);
+      return set;
+    }
+
+    const servedHosts = [
+      "asmaa-clinic.vercel.app",
+      "asmaa-clinic-ziads-projects-5e426a15.vercel.app",
+      "asmaa-clinic-git-feat-backend-ph-ca9d02-ziads-projects-5e426a15.vercel.app",
+      "asmaa-clinic-2pw9tvnhs-ziads-projects-5e426a15.vercel.app",
+    ];
+
+    for (const host of servedHosts) {
+      assert.equal(
+        allowed(host).has(`https://${host}`),
+        true,
+        `a page served from ${host} must accept its own origin`,
+      );
+    }
+
+    // A different site is still refused, which is the whole point of the check.
+    assert.equal(allowed("asmaa-clinic.vercel.app").has("https://evil.example.com"), false);
+    // And the configured APP_URL keeps working when a proxy rewrites the host.
+    assert.equal(allowed("internal-proxy.local").has(appUrl), true);
+  });
+
   console.log(`\n${passed} checks passed.\n`);
 }
 

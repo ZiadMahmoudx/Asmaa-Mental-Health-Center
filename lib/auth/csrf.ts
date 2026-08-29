@@ -54,16 +54,51 @@ export async function readCsrfToken(): Promise<string> {
   return cookieStore.get(CSRF_COOKIE)?.value ?? "";
 }
 
+/**
+ * The origins a state-changing request may legitimately come from.
+ *
+ * `APP_URL` alone is not enough. A single deployment is reachable on several
+ * hostnames that the platform controls — the production alias, the project
+ * alias, the git-branch alias, and every immutable deployment URL — and a user
+ * who opens any of them gets a page served from that host, so the browser sends
+ * that host as the Origin. Comparing against one configured URL rejected every
+ * one of them with CSRF_FAILED before the token was even examined.
+ *
+ * The correct comparison for a same-origin check is the origin the page was
+ * actually served from, which behind Vercel arrives as `x-forwarded-host` +
+ * `x-forwarded-proto`. This is safe: a browser sets `Origin` itself and a
+ * cross-site attacker cannot forge it, so a request whose Origin equals the
+ * serving host did originate from this site. A forged Host in a server-side
+ * request carries no victim cookies, which is not the CSRF threat model.
+ *
+ * `APP_URL` stays in the set so a deployment behind a proxy that rewrites the
+ * host still validates.
+ */
+async function allowedOrigins(): Promise<Set<string>> {
+  const headerList = await headers();
+  const allowed = new Set<string>([env.APP_URL]);
+
+  const forwardedHost = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  if (forwardedHost) {
+    const proto = headerList.get("x-forwarded-proto") ?? "https";
+    allowed.add(`${proto}://${forwardedHost}`);
+  }
+
+  return allowed;
+}
+
 /** Reject cross-site state-changing requests by Origin, falling back to Referer. */
 async function isSameOrigin(): Promise<boolean> {
   const headerList = await headers();
+  const allowed = await allowedOrigins();
+
   const origin = headerList.get("origin");
-  if (origin) return origin === env.APP_URL;
+  if (origin) return allowed.has(origin);
 
   const referer = headerList.get("referer");
   if (referer) {
     try {
-      return new URL(referer).origin === env.APP_URL;
+      return allowed.has(new URL(referer).origin);
     } catch {
       return false;
     }
