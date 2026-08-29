@@ -1010,8 +1010,17 @@ export interface SlotView {
   dateCairo: string;
 }
 
-/** Sweep and release all expired unpaid booking holds and stale review holds across the database. */
-export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releasedCount: number; slaReclaimedCount: number }>> {
+/**
+ * Sweep every way a slot can stay locked past its purpose:
+ *  1. unpaid holds that lapsed before a receipt arrived,
+ *  2. receipts that sat on the verification desk past the review SLA,
+ *  3. rejection grace windows the patient never used.
+ *
+ * `releasedCount` is the total across all three; the other counters break it down.
+ */
+export async function releaseExpiredHoldsAction(): Promise<
+  ActionResult<{ releasedCount: number; slaReclaimedCount: number; rejectionLocksReleased: number }>
+> {
   const now = new Date();
   const graceThreshold = new Date(now.getTime() - 60_000); // 1 minute grace period for in-flight uploads
 
@@ -1039,15 +1048,35 @@ export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releas
     releasedCount += updated.count;
   }
 
-  // Pass 2: Stale review holds (PAYMENT_UNDER_REVIEW past SLA, A1 fix)
+  // Pass 2: Stale review holds (PAYMENT_UNDER_REVIEW past SLA, A1 fix).
+  //
+  // The SLA is measured from when the receipt currently awaiting review was
+  // uploaded, NOT from `appointment.createdAt`. A rejected receipt can be
+  // resubmitted (payment.actions.ts accepts a new proof on a REJECTED booking),
+  // which returns an old appointment to PAYMENT_UNDER_REVIEW with a brand-new
+  // receipt. Keying the SLA off `createdAt` would reclaim that slot on the very
+  // next cron tick while the patient's fresh receipt sat unreviewed.
   const slaThreshold = new Date(now.getTime() - PAYMENT_REVIEW_SLA_HOURS * 60 * 60 * 1000);
   const staleUnderReview = await prisma.appointment.findMany({
     where: {
       status: "PAYMENT_UNDER_REVIEW",
-      createdAt: { lt: slaThreshold },
       slotLockKey: ACTIVE_SLOT_LOCK,
+      // At least one receipt has been waiting longer than the SLA...
+      paymentProofs: { some: { status: "UNDER_REVIEW", uploadedAt: { lt: slaThreshold } } },
+      // ...and none was uploaded recently enough to restart the clock.
+      NOT: {
+        paymentProofs: { some: { status: "UNDER_REVIEW", uploadedAt: { gte: slaThreshold } } },
+      },
     },
-    select: { id: true, paymentProofs: { select: { id: true }, take: 1 } },
+    select: {
+      id: true,
+      paymentProofs: {
+        where: { status: "UNDER_REVIEW" },
+        orderBy: { uploadedAt: "desc" },
+        select: { id: true },
+        take: 1,
+      },
+    },
     take: 500,
   });
 
@@ -1076,11 +1105,52 @@ export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releas
     }
   }
 
-  const total = releasedCount + slaReclaimedCount;
+  // Pass 3: Lapsed rejection grace windows.
+  //
+  // `rejectPaymentAction` keeps a future session on ACTIVE_SLOT_LOCK with a
+  // `holdExpiresAt` grace deadline so the patient can replace a blurry receipt
+  // without losing the slot. REJECTED is not in OCCUPYING_STATUSES, so once that
+  // deadline passes the availability query reports the slot as free while the
+  // `(doctorId, scheduledAtUTC, slotLockKey)` unique index still refuses a new
+  // booking — the slot looks bookable and then fails with SLOT_TAKEN forever.
+  // Releasing the lock costs nothing: the REJECTED row is retained as the record
+  // of what happened, it simply stops occupying the tuple.
+  const lapsedRejections = await prisma.appointment.findMany({
+    where: {
+      status: "REJECTED",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      holdExpiresAt: { lt: graceThreshold },
+    },
+    select: { id: true },
+    take: 500,
+  });
+
+  let rejectionLocksReleased = 0;
+  for (const app of lapsedRejections) {
+    const updated = await prisma.appointment.updateMany({
+      where: { id: app.id, status: "REJECTED", slotLockKey: ACTIVE_SLOT_LOCK },
+      data: {
+        slotLockKey: app.id,
+        holdExpiresAt: null,
+      },
+    });
+    if (updated.count > 0) {
+      rejectionLocksReleased += updated.count;
+      await recordAudit({
+        actorId: null,
+        action: "HOLD_EXPIRED_RECLAIMED",
+        entityType: "Appointment",
+        entityId: app.id,
+        metadata: { reason: "REJECTION_GRACE_EXPIRED" },
+      });
+    }
+  }
+
+  const total = releasedCount + slaReclaimedCount + rejectionLocksReleased;
   if (total > 0) {
     revalidatePath("/dashboard/admin/verification");
     revalidatePath("/dashboard/admin/appointments");
   }
 
-  return success({ releasedCount: total, slaReclaimedCount });
+  return success({ releasedCount: total, slaReclaimedCount, rejectionLocksReleased });
 }

@@ -37,6 +37,7 @@ import {
 import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel, startOfCairoDayUtc } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
+import { dashboardPathForRole, OCCUPYING_STATUSES } from "@/lib/domain/enums";
 import {
   ASSESSMENT_SCALES,
   ASSESSMENT_TYPES,
@@ -1047,19 +1048,47 @@ async function main() {
       holdExpiresAt: null,
     };
 
-    const apps = [staleApp, freshApp];
+    // A booking whose first receipt was rejected days ago and who resubmitted a
+    // fresh receipt minutes ago. `createdAt` is far past the SLA; the receipt on
+    // the desk is brand new, so the slot must NOT be reclaimed.
+    const resubmittedApp: {
+      id: string; doctorId: string; scheduledAtUTC: Date; status: string;
+      slotLockKey: string; createdAt: Date; holdExpiresAt: Date | null;
+    } = {
+      id: "cl_resub_app_00000000003",
+      doctorId: "doc_1",
+      scheduledAtUTC: new Date("2026-09-01T12:00:00.000Z"),
+      status: "PAYMENT_UNDER_REVIEW",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      createdAt: new Date(now.getTime() - 96 * 60 * 60 * 1000), // booked 4 days ago
+      holdExpiresAt: null,
+    };
 
-    // Simulate release sweep
+    // Receipts awaiting review, keyed by appointment id.
+    const openReceipts = new Map<string, Date[]>([
+      [staleApp.id, [new Date(now.getTime() - 50 * 60 * 60 * 1000)]],
+      [freshApp.id, [new Date(now.getTime() - 5 * 60 * 60 * 1000)]],
+      [resubmittedApp.id, [new Date(now.getTime() - 10 * 60 * 1000)]], // uploaded 10 min ago
+    ]);
+
+    const apps = [staleApp, freshApp, resubmittedApp];
+
+    // Simulate the sweep: the SLA runs from the receipt on the desk, never from
+    // appointment.createdAt.
     let reclaimedCount = 0;
     const activeSlots = new Set<string>();
 
     for (const app of apps) {
+      const receipts = openReceipts.get(app.id) ?? [];
+      const hasStaleReceipt = receipts.some((uploadedAt) => uploadedAt < slaThreshold);
+      const hasRecentReceipt = receipts.some((uploadedAt) => uploadedAt >= slaThreshold);
+
       if (
         app.status === "PAYMENT_UNDER_REVIEW" &&
         app.slotLockKey === ACTIVE_SLOT_LOCK &&
-        app.createdAt < slaThreshold
+        hasStaleReceipt &&
+        !hasRecentReceipt
       ) {
-        // Released
         app.status = "EXPIRED";
         app.slotLockKey = app.id;
         reclaimedCount++;
@@ -1067,6 +1096,14 @@ async function main() {
         activeSlots.add(`${app.doctorId}_${app.scheduledAtUTC.toISOString()}_${app.slotLockKey}`);
       }
     }
+
+    // The resubmitted booking is older than the SLA by creation date but must survive.
+    assert.equal(
+      resubmittedApp.status,
+      "PAYMENT_UNDER_REVIEW",
+      "A freshly resubmitted receipt must restart the SLA clock, not inherit appointment.createdAt",
+    );
+    assert.equal(resubmittedApp.slotLockKey, ACTIVE_SLOT_LOCK);
 
     assert.equal(reclaimedCount, 1);
     assert.equal(staleApp.status, "EXPIRED");
@@ -1078,6 +1115,52 @@ async function main() {
     assert.equal(
       activeSlots.has(`${staleApp.doctorId}_${staleApp.scheduledAtUTC.toISOString()}_${ACTIVE_SLOT_LOCK}`),
       false,
+    );
+  });
+
+  await check("A1b: lapsed REJECTED grace window releases the slot lock tuple", () => {
+    const now = new Date("2026-08-29T12:00:00.000Z");
+    const graceThreshold = new Date(now.getTime() - 60_000);
+
+    type Row = { id: string; status: string; slotLockKey: string; holdExpiresAt: Date | null };
+
+    // Grace window elapsed an hour ago and the patient never resubmitted.
+    const lapsed: Row = {
+      id: "cl_rej_lapsed_0000000001",
+      status: "REJECTED",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      holdExpiresAt: new Date(now.getTime() - 60 * 60 * 1000),
+    };
+
+    // Grace window still open — the patient can still replace the receipt.
+    const withinGrace: Row = {
+      id: "cl_rej_open_00000000002",
+      status: "REJECTED",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      holdExpiresAt: new Date(now.getTime() + 30 * 60 * 1000),
+    };
+
+    for (const row of [lapsed, withinGrace]) {
+      if (
+        row.status === "REJECTED" &&
+        row.slotLockKey === ACTIVE_SLOT_LOCK &&
+        row.holdExpiresAt !== null &&
+        row.holdExpiresAt < graceThreshold
+      ) {
+        row.slotLockKey = row.id;
+        row.holdExpiresAt = null;
+      }
+    }
+
+    // REJECTED is not an occupying status, so a retained ACTIVE lock would make the
+    // slot read as free while the unique index still refused the booking.
+    assert.equal(OCCUPYING_STATUSES.includes("REJECTED" as never), false);
+    assert.equal(lapsed.slotLockKey, lapsed.id, "Lapsed rejection must free the slot tuple");
+    assert.equal(lapsed.holdExpiresAt, null);
+    assert.equal(
+      withinGrace.slotLockKey,
+      ACTIVE_SLOT_LOCK,
+      "An open grace window must keep the slot reserved for resubmission",
     );
   });
 
@@ -1113,6 +1196,32 @@ async function main() {
     assert.equal(alert.acknowledgedAt.toISOString(), tAck.toISOString());
     assert.equal(alert.resolvedById, adminB);
     assert.equal(alert.resolvedAt.toISOString(), tResolve.toISOString());
+  });
+
+  console.log("\n--- admin workspace routing & last admin guard (A4 & A5) ---");
+
+  await check("A4: dashboardPathForRole routes ADMIN to /dashboard/admin and DOCTOR to /dashboard/doctor", () => {
+    assert.equal(dashboardPathForRole("ADMIN"), "/dashboard/admin");
+    assert.equal(dashboardPathForRole("DOCTOR"), "/dashboard/doctor");
+    assert.equal(dashboardPathForRole("PATIENT"), "/dashboard/patient");
+  });
+
+  await check("A5: last active admin deactivation invariant rejects zero-admin state", () => {
+    const admins = [
+      { id: "admin_1", role: "ADMIN", isActive: true },
+      { id: "admin_2", role: "ADMIN", isActive: false },
+    ];
+
+    function canDeactivateAdmin(adminIdToDeactivate: string, currentActorId: string): boolean {
+      if (adminIdToDeactivate === currentActorId) return false; // Self-deactivation blocked
+      const remainingActiveAdmins = admins.filter(
+        (a) => a.role === "ADMIN" && a.isActive && a.id !== adminIdToDeactivate,
+      );
+      return remainingActiveAdmins.length > 0;
+    }
+
+    // Attempting to deactivate admin_1 when admin_2 is inactive
+    assert.equal(canDeactivateAdmin("admin_1", "super_actor"), false, "Must block deactivation of the last active admin");
   });
 
   console.log(`\n${passed} checks passed.\n`);

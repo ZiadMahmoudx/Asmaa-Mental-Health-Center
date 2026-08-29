@@ -65,98 +65,87 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
   ]);
 
   return (
-    <div className="min-h-screen py-8 bg-slate-50 text-slate-900">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-800 border border-teal-100">
-              <CalendarClock className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">
-                {isAr ? "إدارة جداول ومواعيد الأطباء" : "Doctor Schedules & Working Windows"}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isAr
-                  ? "تعديل فترات العمل الأسبوعية، تسجيل إجازات العيادة، وفك أقفال المواعيد."
-                  : "Configure recurring weekly slots, register time off, and release slot locks."}
-              </p>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-800 border border-teal-100 shrink-0">
+            <CalendarClock className="w-6 h-6" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/admin"
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
-            >
-              {isAr ? "العودة للوحة الإدارة" : "Back to Admin"}
-            </Link>
+          <div>
+            <h1 className="text-xl font-black text-slate-900">
+              {isAr ? "إدارة جداول ومواعيد الأطباء" : "Doctor Schedules & Working Windows"}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isAr
+                ? "تعديل فترات العمل الأسبوعية، تسجيل إجازات العيادة، وفك أقفال المواعيد."
+                : "Configure recurring weekly slots, register time off, and release slot locks."}
+            </p>
           </div>
         </div>
-
-        {/* Doctor Selector Tabs */}
-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-sm">
-          <label className="block text-xs font-bold text-slate-700">
-            {isAr ? "اختر الطبيب المستهدف للإدارة:" : "Select Consultant to Configure:"}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {doctors.map((doc) => {
-              const isSelected = doc.id === selectedDoctorId;
-              return (
-                <Link
-                  key={doc.id}
-                  href={`/dashboard/admin/schedule?doctorId=${doc.id}`}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition border ${
-                    isSelected
-                      ? "bg-teal-800 text-white border-teal-800 shadow-sm"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-700 hover:bg-white"
-                  }`}
-                >
-                  <UserCheck className="w-4 h-4" />
-                  <span>{doc.fullName}</span>
-                  <span className="text-[10px] opacity-80 mx-1 font-normal">
-                    ({doc.availabilityWindows} {isAr ? "فترات" : "windows"})
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {activeDoctor && (
-          <div className="space-y-8">
-            {/* Weekly Schedule Editor for Selected Doctor */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span>{isAr ? "فترات العمل الأسبوعية للاستشاري: " : "Weekly Schedule for: "}</span>
-                <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
-              </div>
-
-              <WeeklyScheduleEditor
-                availability={availabilityResult.ok ? availabilityResult.data : []}
-                csrfToken={csrfToken}
-                doctorId={activeDoctor.id}
-              />
-            </div>
-
-            {/* Time-off & Blackout Manager for Selected Doctor */}
-            <div className="space-y-3 pt-6 border-t border-slate-200">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span>{isAr ? "الإجازات والإغلاق المؤقت للاستشاري: " : "Time Off & Blocks for: "}</span>
-                <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
-              </div>
-
-              <TimeOffManager
-                timeOff={timeOffResult.ok ? timeOffResult.data : []}
-                csrfToken={csrfToken}
-                isAdmin={true}
-                doctorId={activeDoctor.id}
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Doctor Selector Tabs */}
+      <div className="p-4 bg-white border border-slate-200 rounded-3xl space-y-3 shadow-sm">
+        <label className="block text-xs font-bold text-slate-700">
+          {isAr ? "اختر الطبيب المستهدف للإدارة:" : "Select Consultant to Configure:"}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {doctors.map((doc) => {
+            const isSelected = doc.id === selectedDoctorId;
+            return (
+              <Link
+                key={doc.id}
+                href={`/dashboard/admin/schedule?doctorId=${doc.id}`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition border select-none ${
+                  isSelected
+                    ? "bg-teal-900 text-white border-teal-900 shadow-sm"
+                    : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-700 hover:bg-white"
+                }`}
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>{doc.fullName}</span>
+                <span className="text-[10px] opacity-80 mx-1 font-normal">
+                  ({doc.availabilityWindows} {isAr ? "فترات" : "windows"})
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeDoctor && (
+        <div className="space-y-8">
+          {/* Weekly Schedule Editor for Selected Doctor */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <span>{isAr ? "فترات العمل الأسبوعية للاستشاري: " : "Weekly Schedule for: "}</span>
+              <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
+            </div>
+
+            <WeeklyScheduleEditor
+              availability={availabilityResult.ok ? availabilityResult.data : []}
+              csrfToken={csrfToken}
+              doctorId={activeDoctor.id}
+            />
+          </div>
+
+          {/* Time-off & Blackout Manager for Selected Doctor */}
+          <div className="space-y-3 pt-6 border-t border-slate-200">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <span>{isAr ? "الإجازات والإغلاق المؤقت للاستشاري: " : "Time Off & Blocks for: "}</span>
+              <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
+            </div>
+
+            <TimeOffManager
+              timeOff={timeOffResult.ok ? timeOffResult.data : []}
+              csrfToken={csrfToken}
+              isAdmin={true}
+              doctorId={activeDoctor.id}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

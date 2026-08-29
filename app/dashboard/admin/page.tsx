@@ -76,70 +76,34 @@ export default async function AdminDashboardPage() {
   const unacknowledgedAlerts = openSafetyAlerts.filter((alert) => !alert.acknowledgedAtUTC);
 
   return (
-    <div className="min-h-screen py-8 bg-alabaster-base">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-7">
-        <header className="bg-teal-950 text-white rounded-3xl p-6 sm:p-8 border border-teal-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-2xl font-black">
-              {isAr ? "لوحة إدارة المركز" : "Clinic Administration Portal"}
-            </h1>
-            <p className="text-xs text-teal-300">
-              {isAr
-                ? "مؤشرات تشغيلية محدّثة لحظياً من قاعدة البيانات"
-                : "Real-time clinical operations and revenue registry"}
-            </p>
-          </div>
+    <div className="space-y-6">
+      <header className="bg-teal-950 text-white rounded-3xl p-6 sm:p-8 border border-teal-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="space-y-1.5">
+          <h1 className="text-xl sm:text-2xl font-black">
+            {isAr ? "لوحة إدارة المركز" : "Clinic Administration Portal"}
+          </h1>
+          <p className="text-xs text-teal-300">
+            {isAr
+              ? "مؤشرات تشغيلية محدّثة لحظياً من قاعدة البيانات"
+              : "Real-time clinical operations and revenue registry"}
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/dashboard/admin/staff"
-              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
-            >
-              <Users className="w-4 h-4" />
-              <span>{isAr ? "إدارة طاقم العمل" : "Staff Directory"}</span>
-            </Link>
-            <Link
-              href="/dashboard/admin/appointments"
-              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
-            >
-              <CalendarCheck className="w-4 h-4" />
-              <span>{isAr ? "سجل الحجوزات" : "Bookings Ledger"}</span>
-            </Link>
-            <Link
-              href="/dashboard/admin/schedule"
-              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
-            >
-              <Clock3 className="w-4 h-4" />
-              <span>{isAr ? "إدارة جداول الأطباء" : "Roster Schedules"}</span>
-            </Link>
-            <Link
-              href="/dashboard/admin/credits"
-              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
-            >
-              <Coins className="w-4 h-4" />
-              <span>{isAr ? "أرصدة المرضى" : "Wallet Balances"}</span>
-            </Link>
-            <Link
-              href="/dashboard/admin/reminders"
-              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
-            >
-              <BellRing className="w-4 h-4" />
-              <span>{isAr ? "تذكيرات الجلسات" : "Reminders Queue"}</span>
-            </Link>
-            <Link
-              href="/dashboard/admin/verification"
-              className="px-4 py-2.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-sm"
-            >
-              <Receipt className="w-4 h-4" />
-              <span>{isAr ? "مكتب مراجعة المدفوعات" : "Payment Verification"}</span>
-              {metrics.pendingReceipts > 0 && (
-                <span className="px-1.5 py-0.5 rounded-lg bg-white text-terracotta-700 text-[10px] font-black">
-                  {metrics.pendingReceipts}
-                </span>
-              )}
-            </Link>
-          </div>
-        </header>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard/admin/verification"
+            className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700 shadow-sm"
+          >
+            <Receipt className="w-4 h-4 text-sage-300" />
+            <span>{isAr ? "مكتب مراجعة المدفوعات" : "Payment Verification"}</span>
+            {metrics.pendingReceipts > 0 && (
+              <span className="px-1.5 py-0.5 rounded-lg bg-amber-400 text-teal-950 text-[10px] font-black">
+                {metrics.pendingReceipts}
+              </span>
+            )}
+          </Link>
+        </div>
+      </header>
 
         {/* Things that need a human today */}
         {(metrics.pendingReceipts > 0 || unacknowledgedAlerts.length > 0) && (
@@ -277,14 +241,6 @@ export default async function AdminDashboardPage() {
           )}
         </section>
 
-        <Link
-          href="/dashboard/admin/verification"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 hover:text-teal-950"
-        >
-          {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
-          <span>{isAr ? "الانتقال لمكتب مراجعة المدفوعات" : "Go to Payment Verification Desk"}</span>
-        </Link>
-      </div>
     </div>
   );
 }

@@ -142,13 +142,13 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                       </span>
                     </td>
 
-                    <td className="p-4 font-bold text-slate-900">
+                    <td className="p-4 font-bold text-slate-900 tabular-nums">
                       {formatCairo(new Date(row.scheduledAtUTC), isAr ? "ar" : "en")}
                     </td>
 
-                    <td className="p-4">
+                    <td className="p-4 space-y-1">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums ${
                           row.hoursUntilSession <= 24
                             ? "bg-amber-50 text-amber-800 border-amber-200"
                             : "bg-slate-50 text-slate-700 border-slate-200"
@@ -156,6 +156,11 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                       >
                         {isAr ? `خلال ${row.hoursUntilSession} ساعة` : `In ${row.hoursUntilSession} hrs`}
                       </span>
+                      {row.hoursUntilSession >= 22 && row.hoursUntilSession <= 26 && (
+                        <span className="block text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                          {isAr ? "نطاق الإرسال الآلي (22–26 ساعة)" : "Automated Cron Horizon (22–26h)"}
+                        </span>
+                      )}
                     </td>
 
                     <td className="p-4 text-center">

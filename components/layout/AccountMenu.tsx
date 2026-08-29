@@ -61,7 +61,7 @@ const ROLE_META: Record<
     en: "Admin portal",
     dot: "bg-purple-500",
     icon: Shield,
-    dashboard: "/dashboard/admin/verification",
+    dashboard: "/dashboard/admin",
   },
 };
 

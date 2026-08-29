@@ -384,33 +384,3 @@ export async function getPendingPaymentsCountAction(): Promise<ActionResult<numb
   const count = await prisma.paymentProof.count({ where: { status: "UNDER_REVIEW" } });
   return success(count);
 }
-
-/**
- * Release holds that lapsed without a receipt. Idempotent, and safe to call from
- * a scheduled route (`/api/cron/release-holds`) - the booking action also
- * reclaims lapsed holds inline, so this is housekeeping rather than a dependency.
- */
-export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ released: number }>> {
-  const lapsed = await prisma.appointment.findMany({
-    where: {
-      status: "PENDING_PAYMENT_PROOF",
-      slotLockKey: ACTIVE_SLOT_LOCK,
-      holdExpiresAt: { lt: new Date(Date.now() - MINUTE_MS) },
-    },
-    select: { id: true },
-    take: 500,
-  });
-
-  let released = 0;
-  for (const appointment of lapsed) {
-    const result = await prisma.appointment.updateMany({
-      where: { id: appointment.id, status: "PENDING_PAYMENT_PROOF", slotLockKey: ACTIVE_SLOT_LOCK },
-      data: { status: "EXPIRED", slotLockKey: appointment.id },
-    });
-    released += result.count;
-  }
-
-  if (released > 0) revalidatePath("/dashboard/admin/verification");
-
-  return success({ released });
-}

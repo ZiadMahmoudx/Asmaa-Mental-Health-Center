@@ -172,6 +172,7 @@ export interface AdminAppointmentRow {
   zoomPasscode: string | null;
   rescheduledFromUTC: string | null;
   cancellationReason: string | null;
+  hasClinicalRecord: boolean;
   createdAtUTC: string;
 }
 
@@ -233,6 +234,7 @@ export async function getAdminAppointmentsAction(
       include: {
         patient: { select: { id: true, fullName: true, phone: true } },
         doctor: { select: { id: true, user: { select: { fullName: true } } } },
+        clinicalRecord: { select: { id: true } },
       },
     }),
   ]);
@@ -255,6 +257,7 @@ export async function getAdminAppointmentsAction(
       zoomPasscode: a.zoomPasscode,
       rescheduledFromUTC: a.rescheduledFromUTC?.toISOString() ?? null,
       cancellationReason: a.cancellationReason,
+      hasClinicalRecord: Boolean(a.clinicalRecord),
       createdAtUTC: a.createdAt.toISOString(),
     })),
   });

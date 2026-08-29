@@ -54,21 +54,8 @@ export default async function AdminRemindersPage() {
   const reminders = remindersResult.data;
 
   return (
-    <div className="min-h-screen py-8 bg-slate-50 text-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-          <Link href="/dashboard/admin" className="hover:text-teal-800 transition">
-            {isAr ? "لوحة الإدارة" : "Admin Dashboard"}
-          </Link>
-          <span>/</span>
-          <span className="text-slate-900 font-bold">
-            {isAr ? "طابور تذكيرات الجلسات" : "Appointment Reminders"}
-          </span>
-        </div>
-
-        <ReminderQueueDashboard reminders={reminders} csrfToken={csrfToken} />
-      </div>
+    <div className="space-y-6">
+      <ReminderQueueDashboard reminders={reminders} csrfToken={csrfToken} />
     </div>
   );
 }

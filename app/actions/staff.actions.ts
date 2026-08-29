@@ -493,6 +493,30 @@ export async function toggleUserActiveStatusAction(
     );
   }
 
+  // Invariant: Last active admin lockout prevention (A5 fix)
+  if (!isActive) {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (targetUser?.role === "ADMIN") {
+      const otherActiveAdmins = await prisma.user.count({
+        where: {
+          role: "ADMIN",
+          isActive: true,
+          id: { not: userId },
+        },
+      });
+      if (otherActiveAdmins === 0) {
+        return failure(
+          "INVALID_STATE",
+          "لا يمكن تجميد هذا الحساب لأنه المدير النشط الأخير المتبقي في النظام.",
+          "Cannot deactivate this account as it is the last remaining active administrator in the system.",
+        );
+      }
+    }
+  }
+
   const user = await prisma.user.update({
     where: { id: userId },
     data: { isActive },

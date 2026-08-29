@@ -25,6 +25,18 @@
 export const ROLES = ["PATIENT", "DOCTOR", "ADMIN"] as const;
 export type Role = (typeof ROLES)[number];
 
+/** Landing route for a user, used after login and by the navbar. */
+export function dashboardPathForRole(role: Role): string {
+  switch (role) {
+    case "ADMIN":
+      return "/dashboard/admin";
+    case "DOCTOR":
+      return "/dashboard/doctor";
+    default:
+      return "/dashboard/patient";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Appointments
 // ---------------------------------------------------------------------------

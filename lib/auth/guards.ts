@@ -63,14 +63,4 @@ export async function requireRolePage(
   return auth;
 }
 
-/** Landing route for a user, used after login and by the navbar. */
-export function dashboardPathForRole(role: Role): string {
-  switch (role) {
-    case "ADMIN":
-      return "/dashboard/admin/verification";
-    case "DOCTOR":
-      return "/dashboard/doctor";
-    default:
-      return "/dashboard/patient";
-  }
-}
+export { dashboardPathForRole } from "@/lib/domain/enums";
