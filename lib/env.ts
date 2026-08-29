@@ -10,6 +10,15 @@ import { z } from "zod";
  */
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  /**
+   * Absolute origin of this deployment.
+   *
+   * Falls back to the host the platform assigned when it is not set explicitly.
+   * Preview deployments get a fresh hostname per commit, so requiring an
+   * explicit value there meant every git-push build failed Zod validation with
+   * "APP_URL: expected string, received undefined" and never shipped — silently,
+   * because a failed preview does not disturb the running production alias.
+   */
   APP_URL: z
     .string()
     .url("APP_URL must be an absolute URL, e.g. https://asmaaclinic.com")
@@ -49,8 +58,23 @@ const envSchema = z.object({
     .min(32, "CRON_SECRET must be at least 32 characters of entropy"),
 });
 
+/**
+ * Vercel names the deployment host in `VERCEL_URL` (no scheme) on every
+ * environment, including previews. Use it when APP_URL was not configured, so a
+ * preview builds and runs against its own origin instead of failing validation.
+ * An explicit APP_URL always wins.
+ */
+function resolveAppUrl(source: NodeJS.ProcessEnv): string | undefined {
+  if (source.APP_URL) return source.APP_URL;
+  const vercelHost = source.VERCEL_URL ?? source.VERCEL_BRANCH_URL;
+  return vercelHost ? `https://${vercelHost}` : undefined;
+}
+
 function loadEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse({
+    ...process.env,
+    APP_URL: resolveAppUrl(process.env),
+  });
 
   if (!parsed.success) {
     const details = parsed.error.issues
