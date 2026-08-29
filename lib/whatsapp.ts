@@ -39,7 +39,7 @@ export type Language = "ar" | "en";
  * patient-facing string goes through here.
  */
 export function formatCairo(dateUTC: Date, lang: Language = "ar"): string {
-  return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {
     timeZone: "Africa/Cairo",
     weekday: "long",
     day: "numeric",

@@ -100,10 +100,11 @@ export default async function AdminVerificationPage({
               {isAr ? "تعذّر تحميل قائمة المراجعة" : "Unable to load review queue"}
             </h2>
             <p className="text-xs text-gray-600">
-              {isAr
-                ? (!pending.ok && pending.messageAr) || (!history.ok && history.messageAr)
-                : (!pending.ok && (pending.messageEn ?? pending.messageAr)) ||
-                  (!history.ok && (history.messageEn ?? history.messageAr))}
+              {(() => {
+                const err = !pending.ok ? pending : !history.ok ? history : null;
+                if (!err) return "";
+                return isAr ? err.messageAr : err.messageEn ?? err.messageAr;
+              })()}
             </p>
           </div>
         )}

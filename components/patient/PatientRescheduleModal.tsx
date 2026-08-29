@@ -130,7 +130,7 @@ export function PatientRescheduleModal({ appointment, csrfToken, onClose }: Prop
             {isAr ? "الموعد الحالي المحجوز:" : "Current appointment time:"}
           </span>
           <div className="font-bold text-slate-900">
-            {formatCairo(new Date(appointment.scheduledAtUTC))}
+            {formatCairo(new Date(appointment.scheduledAtUTC), isAr ? "ar" : "en")}
           </div>
           <p className="text-[10px] text-amber-800 font-semibold pt-0.5">
             {isAr

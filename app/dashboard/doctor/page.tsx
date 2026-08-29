@@ -42,20 +42,18 @@ export default async function DoctorDashboardPage() {
   ]);
 
   if (!agendaResult.ok || !availabilityResult.ok || !timeOffResult.ok) {
-    const messageAr = !agendaResult.ok
-      ? agendaResult.messageAr
+    const errorResult = !agendaResult.ok
+      ? agendaResult
       : !availabilityResult.ok
-      ? availabilityResult.messageAr
+      ? availabilityResult
       : !timeOffResult.ok
-      ? timeOffResult.messageAr
-      : "";
+      ? timeOffResult
+      : null;
 
-    const messageEn = !agendaResult.ok
-      ? agendaResult.messageEn
-      : !availabilityResult.ok
-      ? availabilityResult.messageEn
-      : !timeOffResult.ok
-      ? timeOffResult.messageEn
+    const message = errorResult
+      ? isAr
+        ? errorResult.messageAr
+        : errorResult.messageEn ?? errorResult.messageAr
       : "";
 
     return (
@@ -66,7 +64,7 @@ export default async function DoctorDashboardPage() {
             {isAr ? "تعذّر تحميل لوحة الاستشاري" : "Unable to load consultant workspace"}
           </h1>
           <p className="text-xs text-gray-600 leading-relaxed">
-            {isAr ? messageAr : messageEn ?? messageAr}
+            {message}
           </p>
         </div>
       </div>

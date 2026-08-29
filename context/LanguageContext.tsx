@@ -40,13 +40,8 @@ export const LanguageProvider: React.FC<ProviderProps> = ({
 
   useEffect(() => {
     // Cookie is the single source of truth (resolved on server into initialLanguage).
-    // Sync document attributes and update client localStorage cache.
+    // Sync document attributes on language changes.
     writeLanguageCookie(language);
-    try {
-      localStorage.setItem(COOKIE_NAME, language);
-    } catch {
-      // Ignore storage errors in private browsing
-    }
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = language;
   }, [language]);
@@ -54,11 +49,6 @@ export const LanguageProvider: React.FC<ProviderProps> = ({
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     writeLanguageCookie(lang);
-    try {
-      localStorage.setItem(COOKIE_NAME, lang);
-    } catch {
-      // Ignore storage errors in private browsing
-    }
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = lang;
 

@@ -240,7 +240,7 @@ export default async function PaymentPage({
             ? `مرحباً، أنا ${auth.user.fullName}. لدي استفسار بخصوص إتمام الدفع لموعدي مع ${doctorName} ` +
                 `بتاريخ ${formatCairo(appointment.scheduledAtUTC)} (رقم الحجز: ${appointment.id}).`
             : `Hello, I am ${auth.user.fullName}. I have an inquiry regarding payment for my appointment with ${doctorName} ` +
-                `scheduled on ${formatCairo(appointment.scheduledAtUTC)} (ID: ${appointment.id}).`,
+                `scheduled on ${formatCairo(appointment.scheduledAtUTC, "en")} (ID: ${appointment.id}).`,
         )}
       />
     </Shell>
