@@ -9,6 +9,7 @@ import {
   type AppointmentStatus,
 } from "@/lib/domain/enums";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
 import { ActionResult, Failures, failure, success } from "@/lib/result";
 import {
   availabilityRuleSchema,
@@ -1184,7 +1185,7 @@ export async function rescheduleAppointmentAction(
     reason,
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
+  const appUrl = env.APP_URL;
   const whatsappDoctorUrl = doctorSessionBriefLink({
     doctorName: appointment.doctor.user.fullName,
     doctorPhone: appointment.doctor.user.phone,

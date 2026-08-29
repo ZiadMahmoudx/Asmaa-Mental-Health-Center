@@ -259,7 +259,7 @@ export async function approvePaymentAction(
     clinicMapsUrl: clinic.mapsUrl,
   } as const;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
+  const appUrl = env.APP_URL;
   const doctorBrief = {
     doctorName: appointment.doctor.user.fullName,
     doctorPhone: appointment.doctor.user.phone,
@@ -538,7 +538,7 @@ export async function assignMeetingLinkAction(
   });
 
   const clinic = getClinicConfig();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
+  const appUrl = env.APP_URL;
 
   revalidatePath("/dashboard/admin/verification");
   revalidatePath("/dashboard/patient");
