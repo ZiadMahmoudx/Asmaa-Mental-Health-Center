@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Calendar,
   CalendarClock,
-  Clock,
   Filter,
   Search,
-  UserCheck,
   Video,
   Building2,
 } from "lucide-react";
@@ -17,11 +14,21 @@ import { getAdminAppointmentsAction } from "@/app/actions/roster.actions";
 import { APPOINTMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { AdminAppointmentRowActions } from "@/components/admin/AdminAppointmentRowActions";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "سجل الحجوزات والعمليات | لوحة الإدارة",
-  description: "التحكم الشامل في جميع حجوزات المنصة، إعادة الجدولة، وإلغاء المواعيد.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "سجل الحجوزات والعمليات | لوحة الإدارة"
+        : "Bookings & Operations Ledger | Admin Portal",
+    description:
+      lang === "ar"
+        ? "التحكم الشامل في جميع حجوزات المنصة، إعادة الجدولة، وإلغاء المواعيد."
+        : "Comprehensive ledger for all consultations, status overrides, reschedulings, and cancellations.",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +42,11 @@ interface Props {
 }
 
 export default async function AdminAppointmentsPage({ searchParams }: Props) {
-  await requireRolePage(["ADMIN"], "/dashboard/admin/appointments");
+  const [_, lang] = await Promise.all([
+    requireRolePage(["ADMIN"], "/dashboard/admin/appointments"),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
   const { doctorId, status, search, page } = await searchParams;
   const currentPage = Number(page) || 1;
@@ -71,9 +82,13 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
               <CalendarClock className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">وحدة التحكم في الحجوزات والعمليات</h1>
+              <h1 className="text-xl font-bold text-slate-900">
+                {isAr ? "وحدة التحكم في الحجوزات والعمليات" : "Bookings & Operations Registry"}
+              </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                إجمالي {totalCount} حجز مسجل في قاعدة البيانات.
+                {isAr
+                  ? `إجمالي ${totalCount} حجز مسجل في قاعدة البيانات.`
+                  : `Total of ${totalCount} appointments recorded in registry.`}
               </p>
             </div>
           </div>
@@ -83,13 +98,13 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
               href="/dashboard/admin"
               className="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
             >
-              لوحة الإدارة
+              {isAr ? "لوحة الإدارة" : "Admin Portal"}
             </Link>
             <Link
               href="/dashboard/admin/schedule"
               className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
-              إدارة جداول الأطباء
+              {isAr ? "إدارة جداول الأطباء" : "Roster Schedules"}
             </Link>
           </div>
         </div>
@@ -102,30 +117,30 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
         >
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              بحث (الاسم / الهاتف)
+              {isAr ? "بحث (الاسم / الهاتف)" : "Search (Name / Phone)"}
             </label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-3" />
               <input
                 type="text"
                 name="search"
                 defaultValue={search ?? ""}
-                placeholder="اسم المريض أو هاتفه..."
-                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
+                placeholder={isAr ? "اسم المريض أو هاتفه..." : "Patient name or phone..."}
+                className="w-full ps-3 pe-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              الاستشاري
+              {isAr ? "الاستشاري" : "Consultant"}
             </label>
             <select
               name="doctorId"
               defaultValue={doctorId ?? ""}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
             >
-              <option value="">جميع الاستشاريين</option>
+              <option value="">{isAr ? "جميع الاستشاريين" : "All Consultants"}</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.fullName}
@@ -136,20 +151,20 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
 
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              حالة الحجز
+              {isAr ? "حالة الحجز" : "Booking Status"}
             </label>
             <select
               name="status"
               defaultValue={status ?? "ALL"}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
             >
-              <option value="ALL">جميع الحالات</option>
-              <option value="CONFIRMED">مؤكد (CONFIRMED)</option>
-              <option value="PENDING_PAYMENT_PROOF">بانتظار الإيصال (PENDING)</option>
-              <option value="PAYMENT_UNDER_REVIEW">قيد المراجعة (UNDER_REVIEW)</option>
-              <option value="COMPLETED">مكتمل (COMPLETED)</option>
-              <option value="CANCELLED">ملغي (CANCELLED)</option>
-              <option value="EXPIRED">منتهي (EXPIRED)</option>
+              <option value="ALL">{isAr ? "جميع الحالات" : "All Statuses"}</option>
+              <option value="CONFIRMED">{isAr ? "مؤكد (CONFIRMED)" : "Confirmed (CONFIRMED)"}</option>
+              <option value="PENDING_PAYMENT_PROOF">{isAr ? "بانتظار الإيصال (PENDING)" : "Awaiting Proof (PENDING)"}</option>
+              <option value="PAYMENT_UNDER_REVIEW">{isAr ? "قيد المراجعة (UNDER_REVIEW)" : "Under Review (UNDER_REVIEW)"}</option>
+              <option value="COMPLETED">{isAr ? "مكتمل (COMPLETED)" : "Completed (COMPLETED)"}</option>
+              <option value="CANCELLED">{isAr ? "ملغي (CANCELLED)" : "Cancelled (CANCELLED)"}</option>
+              <option value="EXPIRED">{isAr ? "منتهي (EXPIRED)" : "Expired (EXPIRED)"}</option>
             </select>
           </div>
 
@@ -159,14 +174,14 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
               className="w-full py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
             >
               <Filter className="w-3.5 h-3.5" />
-              تطبيق التصفية
+              <span>{isAr ? "تطبيق التصفية" : "Apply Filter"}</span>
             </button>
             {(doctorId || status || search) && (
               <Link
                 href="/dashboard/admin/appointments"
                 className="px-3 py-2 border border-slate-300 text-slate-600 hover:text-slate-900 rounded-xl text-xs font-bold"
               >
-                إعادة ضبط
+                {isAr ? "إعادة ضبط" : "Reset"}
               </Link>
             )}
           </div>
@@ -175,28 +190,28 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
         {/* Appointments Table */}
         <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
                 <tr>
-                  <th className="p-4 font-bold">المريض</th>
-                  <th className="p-4 font-bold">الاستشاري</th>
-                  <th className="p-4 font-bold">النوع</th>
-                  <th className="p-4 font-bold">موعد الجلسة (بتوقيت القاهرة)</th>
-                  <th className="p-4 font-bold">الحالة</th>
-                  <th className="p-4 font-bold">السعر</th>
-                  <th className="p-4 font-bold text-center">الإجراءات والتحكم</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "المريض" : "Patient"}</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "الاستشاري" : "Consultant"}</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "النوع" : "Format"}</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "موعد الجلسة (بتوقيت القاهرة)" : "Scheduled (Cairo)"}</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "الحالة" : "Status"}</th>
+                  <th className="p-4 font-bold text-start">{isAr ? "السعر" : "Price"}</th>
+                  <th className="p-4 font-bold text-center">{isAr ? "الإجراءات والتحكم" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {appointments.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-12 text-center text-slate-400 font-semibold">
-                      لا توجد حجوزات مسجلة تطابق محددات البحث.
+                      {isAr ? "لا توجد حجوزات مسجلة تطابق محددات البحث." : "No appointment bookings match criteria."}
                     </td>
                   </tr>
                 ) : (
                   appointments.map((app) => {
-                    const statusBadge = APPOINTMENT_STATUS_LABELS[app.status] || { ar: app.status };
+                    const statusBadge = APPOINTMENT_STATUS_LABELS[app.status] || { ar: app.status, en: app.status };
                     return (
                       <tr
                         key={app.id}
@@ -206,7 +221,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                           <div className="font-bold text-slate-900 text-sm">
                             {app.patientName}
                           </div>
-                          <div className="font-mono text-slate-400 text-[11px]">
+                          <div className="font-mono text-slate-400 text-[11px]" dir="ltr">
                             {app.patientPhone}
                           </div>
                         </td>
@@ -220,12 +235,12 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                             {app.type === "ONLINE" ? (
                               <>
                                 <Video className="w-3 h-3 text-teal-700" />
-                                أونلاين
+                                <span>{isAr ? "أونلاين" : "Online"}</span>
                               </>
                             ) : (
                               <>
                                 <Building2 className="w-3 h-3 text-blue-700" />
-                                عيادة
+                                <span>{isAr ? "عيادة" : "In-clinic"}</span>
                               </>
                             )}
                           </span>
@@ -237,7 +252,8 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                           </div>
                           {app.rescheduledFromUTC && (
                             <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
-                              معدل من: {formatCairo(new Date(app.rescheduledFromUTC))}
+                              {isAr ? "معدل من: " : "Rescheduled from: "}
+                              {formatCairo(new Date(app.rescheduledFromUTC))}
                             </div>
                           )}
                         </td>
@@ -254,7 +270,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                                 : "bg-amber-50 text-amber-800 border-amber-200"
                             }`}
                           >
-                            {statusBadge.ar}
+                            {isAr ? statusBadge.ar : statusBadge.en}
                           </span>
                         </td>
 
@@ -280,7 +296,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
           {totalPages > 1 && (
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
               <span className="text-slate-600 font-bold">
-                الصفحة {currentPage} من {totalPages}
+                {isAr ? `الصفحة ${currentPage} من ${totalPages}` : `Page ${currentPage} of ${totalPages}`}
               </span>
               <div className="flex gap-1">
                 {currentPage > 1 && (
@@ -290,7 +306,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                     }${status ? `&status=${status}` : ""}${search ? `&search=${search}` : ""}`}
                     className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    السابق
+                    {isAr ? "السابق" : "Previous"}
                   </Link>
                 )}
                 {currentPage < totalPages && (
@@ -300,7 +316,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                     }${status ? `&status=${status}` : ""}${search ? `&search=${search}` : ""}`}
                     className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    التالي
+                    {isAr ? "التالي" : "Next"}
                   </Link>
                 )}
               </div>

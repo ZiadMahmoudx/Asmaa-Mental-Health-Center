@@ -10,24 +10,22 @@ import { toEgp } from "@/lib/serialization";
 import { asAppointmentStatus, asAppointmentType } from "@/lib/domain/enums";
 import { buildWhatsAppLink, formatCairo, formatEgp } from "@/lib/whatsapp";
 import { PaymentUploadForm } from "@/components/booking/PaymentUploadForm";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "إتمام الدفع | مركز أسما للصحة النفسية",
-  description: "حوّل قيمة الجلسة عبر إنستا باي أو فودافون كاش وارفع صورة الإيصال لتأكيد حجزك.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "إتمام الدفع وتأكيد الحجز | مركز أسما للصحة النفسية"
+        : "Payment & Confirmation | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "حوّل قيمة الجلسة عبر إنستا باي أو فودافون كاش وارفع صورة الإيصال لتأكيد حجزك."
+        : "Transfer consultation fee via InstaPay or Vodafone Cash and upload receipt to confirm booking.",
+  };
+}
 
-/**
- * Payment step for one appointment.
- *
- * The route is on its own path segment rather than under /booking/[doctorId],
- * because Next.js requires a single parameter name per dynamic segment position
- * and this identifier is an appointment, not a doctor.
- *
- * Access control is per-row: the page loads the appointment and refuses it
- * unless the signed-in patient owns it. A patient guessing another patient's
- * appointment id gets a 404, the same response as a genuinely missing record, so
- * ids cannot be probed.
- */
 export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({
@@ -36,7 +34,11 @@ export default async function PaymentPage({
   params: Promise<{ appointmentId: string }>;
 }) {
   const { appointmentId } = await params;
-  const auth = await requireRolePage(["PATIENT"], `/payment/${appointmentId}`);
+  const [auth, lang] = await Promise.all([
+    requireRolePage(["PATIENT"], `/payment/${appointmentId}`),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -73,16 +75,33 @@ export default async function PaymentPage({
   const header = (
     <div className="bg-white rounded-3xl border border-alabaster-border shadow-sm p-6 space-y-3">
       <h1 className="text-lg font-black text-teal-950">
-        {status === "CONFIRMED" ? "تفاصيل جلستك المؤكدة" : "إتمام حجز جلستك"}
+        {status === "CONFIRMED"
+          ? isAr
+            ? "تفاصيل جلستك المؤكدة"
+            : "Confirmed Appointment Details"
+          : isAr
+          ? "إتمام حجز جلستك"
+          : "Complete Your Booking"}
       </h1>
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-        <Row label="الطبيب" value={doctorName} />
-        <Row label="الموعد (بتوقيت القاهرة)" value={formatCairo(appointment.scheduledAtUTC)} />
+        <Row label={isAr ? "الطبيب المعالج" : "Consultant"} value={doctorName} />
         <Row
-          label="نوع الجلسة"
-          value={type === "ONLINE" ? "أونلاين عبر زووم" : "حضورية بالعيادة"}
+          label={isAr ? "الموعد (بتوقيت القاهرة)" : "Scheduled Time (Cairo)"}
+          value={formatCairo(appointment.scheduledAtUTC)}
         />
-        <Row label="قيمة الجلسة" value={formatEgp(priceEGP)} />
+        <Row
+          label={isAr ? "نوع الجلسة" : "Session Format"}
+          value={
+            type === "ONLINE"
+              ? isAr
+                ? "أونلاين عبر زووم"
+                : "Online (Zoom Video)"
+              : isAr
+              ? "حضورية بمقر العيادة"
+              : "In-Clinic Visit"
+          }
+        />
+        <Row label={isAr ? "قيمة الجلسة" : "Consultation Fee"} value={formatEgp(priceEGP)} />
       </dl>
     </div>
   );
@@ -96,8 +115,12 @@ export default async function PaymentPage({
         <StatusCard
           tone="pending"
           icon={Clock3}
-          title="إيصالك قيد المراجعة"
-          body="استلمنا إيصال التحويل وفريق المركز يراجعه الآن. سيصلك تأكيد الحجز على واتساب فور الاعتماد، ومعه رابط زووم أو عنوان العيادة."
+          title={isAr ? "إيصالك قيد المراجعة" : "Payment Proof Under Review"}
+          body={
+            isAr
+              ? "استلمنا إيصال التحويل وفريق المركز يراجعه الآن. سيصلك تأكيد الحجز على واتساب فور الاعتماد، ومعه رابط زووم أو عنوان العيادة."
+              : "We have received your transfer receipt and our clinic team is verifying it. You will receive a WhatsApp confirmation with your Zoom link as soon as it is approved."
+          }
         />
       </Shell>
     );
@@ -110,13 +133,19 @@ export default async function PaymentPage({
         <StatusCard
           tone="success"
           icon={CheckCircle2}
-          title="تم تأكيد حجزك"
+          title={isAr ? "تم تأكيد حجزك بنجاح" : "Appointment Confirmed"}
           body={
             type === "ONLINE"
-              ? "جلستك أونلاين. ادخل من الرابط قبل الموعد بخمس دقائق من مكان هادئ."
-              : `جلستك حضورية بمقر المركز: ${clinic.addressAr}${
+              ? isAr
+                ? "جلستك أونلاين. ادخل من الرابط قبل الموعد بخمس دقائق من مكان هادئ."
+                : "Your session is online via Zoom. Please join 5 minutes before the scheduled time from a private, quiet space."
+              : isAr
+              ? `جلستك حضورية بمقر المركز: ${clinic.addressAr}${
                   appointment.doctor.roomNumber ? ` — غرفة ${appointment.doctor.roomNumber}` : ""
                 }. يرجى الحضور قبل الموعد بعشر دقائق.`
+              : `Your session is in-clinic: ${clinic.addressAr}${
+                  appointment.doctor.roomNumber ? ` — Room ${appointment.doctor.roomNumber}` : ""
+                }. Please arrive 10 minutes prior to your appointment.`
           }
         >
           {type === "ONLINE" && appointment.zoomMeetingUrl && (
@@ -124,10 +153,10 @@ export default async function PaymentPage({
               href={appointment.zoomMeetingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-extrabold transition"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-extrabold transition shadow-sm"
             >
               <Video className="w-4 h-4" />
-              الدخول إلى جلسة زووم
+              <span>{isAr ? "الدخول إلى جلسة زووم" : "Join Zoom Session"}</span>
             </a>
           )}
           {type === "OFFLINE" && (
@@ -135,10 +164,10 @@ export default async function PaymentPage({
               href={clinic.mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-extrabold transition"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-sage-600 hover:bg-sage-700 text-white text-xs font-extrabold transition shadow-sm"
             >
               <Building2 className="w-4 h-4" />
-              فتح موقع العيادة على الخريطة
+              <span>{isAr ? "فتح موقع العيادة على الخريطة" : "Open Clinic on Maps"}</span>
             </a>
           )}
         </StatusCard>
@@ -147,7 +176,7 @@ export default async function PaymentPage({
   }
 
   if (status === "CANCELLED" || status === "EXPIRED" || status === "COMPLETED") {
-    const copy = {
+    const copyAr = {
       CANCELLED: ["تم إلغاء هذا الحجز", "يمكنك حجز موعد جديد في أي وقت."],
       EXPIRED: [
         "انتهت مهلة هذا الحجز",
@@ -155,6 +184,17 @@ export default async function PaymentPage({
       ],
       COMPLETED: ["هذه الجلسة مكتملة", "تجدها في سجل جلساتك داخل بوابة المريض."],
     }[status];
+
+    const copyEn = {
+      CANCELLED: ["Appointment Cancelled", "You can book a new appointment anytime."],
+      EXPIRED: [
+        "Hold Expired",
+        "Payment receipt was not uploaded within the hold window. The slot has been released. Please select a new time.",
+      ],
+      COMPLETED: ["Session Completed", "Consultation records are available in your patient portal."],
+    }[status];
+
+    const copy = isAr ? copyAr : copyEn;
 
     return (
       <Shell>
@@ -164,7 +204,7 @@ export default async function PaymentPage({
             href="/therapists"
             className="inline-block px-5 py-3 rounded-2xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-extrabold transition"
           >
-            حجز موعد جديد
+            {isAr ? "حجز موعد جديد" : "Book New Appointment"}
           </Link>
         </StatusCard>
       </Shell>
@@ -196,8 +236,11 @@ export default async function PaymentPage({
         }
         clinicWhatsappUrl={buildWhatsAppLink(
           clinic.whatsappNumber,
-          `مرحباً، أنا ${auth.user.fullName}. لدي استفسار بخصوص إتمام الدفع لموعدي مع ${doctorName} ` +
-            `بتاريخ ${formatCairo(appointment.scheduledAtUTC)} (رقم الحجز: ${appointment.id}).`,
+          isAr
+            ? `مرحباً، أنا ${auth.user.fullName}. لدي استفسار بخصوص إتمام الدفع لموعدي مع ${doctorName} ` +
+                `بتاريخ ${formatCairo(appointment.scheduledAtUTC)} (رقم الحجز: ${appointment.id}).`
+            : `Hello, I am ${auth.user.fullName}. I have an inquiry regarding payment for my appointment with ${doctorName} ` +
+                `scheduled on ${formatCairo(appointment.scheduledAtUTC)} (ID: ${appointment.id}).`,
         )}
       />
     </Shell>

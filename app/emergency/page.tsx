@@ -141,8 +141,12 @@ export default function EmergencyPage() {
                 <Eye className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="font-black text-sm text-teal-950">تمرين التأريض 5-4-3-2-1</h4>
-                <p className="text-[11px] text-teal-700 mt-0.5">تسكين الهلع عبر استدعاء الحواس الخمس</p>
+                <h4 className="font-black text-sm text-teal-950">
+                  {language === "ar" ? "تمرين التأريض 5-4-3-2-1" : "5-4-3-2-1 Sensory Grounding"}
+                </h4>
+                <p className="text-[11px] text-teal-700 mt-0.5">
+                  {language === "ar" ? "تسكين الهلع عبر استدعاء الحواس الخمس" : "Soothe panic by engaging your five senses"}
+                </p>
               </div>
             </button>
 
@@ -154,8 +158,12 @@ export default function EmergencyPage() {
                 <Wind className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="font-black text-sm text-teal-950">تمرين التنفس المهدئ 4-7-8</h4>
-                <p className="text-[11px] text-sage-700 mt-0.5">تحفيز العصب الحائر وتخفيض نبضات القلب</p>
+                <h4 className="font-black text-sm text-teal-950">
+                  {language === "ar" ? "تمرين التنفس المهدئ 4-7-8" : "4-7-8 Relaxing Breath Technique"}
+                </h4>
+                <p className="text-[11px] text-sage-700 mt-0.5">
+                  {language === "ar" ? "تحفيز العصب الحائر وتخفيض نبضات القلب" : "Stimulate vagus nerve and slow heart rate"}
+                </p>
               </div>
             </button>
           </div>
@@ -201,14 +209,20 @@ export default function EmergencyPage() {
         {/* Safety Plan Handoff */}
         <div className="bg-teal-900 text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
           <div className="space-y-1 text-center sm:text-start rtl:sm:text-right ltr:sm:text-left">
-            <h4 className="font-black text-base">هل قمت بإعداد خطة الأمان النفسي المعتمدة؟</h4>
-            <p className="text-xs text-sage-200">يمكنك كتابة مؤشراتك التحذيرية وأرقام المقربين وتنزيل بطاقة الأمان الشخصية.</p>
+            <h4 className="font-black text-base">
+              {language === "ar" ? "هل قمت بإعداد خطة الأمان النفسي المعتمدة؟" : "Have you created your personalized safety plan?"}
+            </h4>
+            <p className="text-xs text-sage-200">
+              {language === "ar"
+                ? "يمكنك كتابة مؤشراتك التحذيرية وأرقام المقربين وتنزيل بطاقة الأمان الشخصية."
+                : "Identify warning triggers, coping strategies, and trusted contacts."}
+            </p>
           </div>
           <Link
             href="/safety-plan"
             className="px-6 py-3 bg-terracotta-600 hover:bg-terracotta-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition whitespace-nowrap"
           >
-            فتح خطة الأمان الشخصية
+            {language === "ar" ? "فتح خطة الأمان الشخصية" : "Open Crisis Safety Plan"}
           </Link>
         </div>
       </div>

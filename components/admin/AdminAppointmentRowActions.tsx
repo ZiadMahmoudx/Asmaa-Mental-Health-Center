@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   Ban,
   CalendarClock,
-  KeyRound,
-  Link as LinkIcon,
   Loader2,
-  MoreHorizontal,
   Unlock,
   Video,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { AdminAppointmentRow } from "@/app/actions/roster.actions";
 import { adminCancelAppointmentAction, assignMeetingLinkAction } from "@/app/actions/admin.actions";
 import { releaseReservationAction } from "@/app/actions/doctor.actions";
@@ -25,6 +23,8 @@ interface Props {
 }
 
 export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
 
   const [showReschedule, setShowReschedule] = useState(false);
@@ -66,7 +66,8 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
         <button
           type="button"
           onClick={() => setShowReschedule(true)}
-          title="إعادة جدولة الموعد"
+          title={isAr ? "إعادة جدولة الموعد" : "Reschedule Consultation"}
+          aria-label={isAr ? "إعادة جدولة الموعد" : "Reschedule Consultation"}
           className="p-1.5 text-slate-700 hover:text-teal-900 hover:bg-slate-100 rounded-lg transition"
         >
           <CalendarClock className="w-4 h-4" />
@@ -78,7 +79,8 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
         <button
           type="button"
           onClick={() => setShowZoomModal(true)}
-          title="إضافة / تعديل رابط زووم"
+          title={isAr ? "إضافة / تعديل رابط زووم" : "Edit Zoom Meeting Link"}
+          aria-label={isAr ? "إضافة / تعديل رابط زووم" : "Edit Zoom Meeting Link"}
           className="p-1.5 text-blue-700 hover:bg-blue-50 rounded-lg transition"
         >
           <Video className="w-4 h-4" />
@@ -93,7 +95,8 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
           <button
             type="submit"
             disabled={isReleasePending}
-            title="تحرير الحجز المعلق فوراً"
+            title={isAr ? "تحرير الحجز المعلق فوراً" : "Release Pending Slot Lock"}
+            aria-label={isAr ? "تحرير الحجز المعلق فوراً" : "Release Pending Slot Lock"}
             className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg transition"
           >
             {isReleasePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
@@ -106,7 +109,8 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
         <button
           type="button"
           onClick={() => setShowCancelModal(true)}
-          title="إلغاء الحجز إدارياً"
+          title={isAr ? "إلغاء الحجز إدارياً" : "Admin Cancel Consultation"}
+          aria-label={isAr ? "إلغاء الحجز إدارياً" : "Admin Cancel Consultation"}
           className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
         >
           <Ban className="w-4 h-4" />
@@ -131,16 +135,17 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
       {/* Admin Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-red-600 text-sm flex items-center gap-2">
                 <Ban className="w-4 h-4" />
-                إلغاء الحجز إدارياً
+                <span>{isAr ? "إلغاء الحجز إدارياً" : "Admin Cancellation"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCancelModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -150,20 +155,20 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
               <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
               <input type="hidden" name="appointmentId" value={appointment.id} />
 
-              {!cancelState?.ok && cancelState?.messageAr && (
+              {!cancelState?.ok && cancelState && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                  {cancelState.messageAr}
+                  {isAr ? cancelState.messageAr : cancelState.messageEn ?? cancelState.messageAr}
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  سبب الإلغاء
+                  {isAr ? "سبب الإلغاء" : "Cancellation Reason"}
                 </label>
                 <textarea
                   name="reason"
                   rows={3}
-                  placeholder="سبب إلغاء الحجز من الإدارة..."
+                  placeholder={isAr ? "سبب إلغاء الحجز من الإدارة..." : "Admin reason for cancellation..."}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
@@ -174,7 +179,7 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
                   onClick={() => setShowCancelModal(false)}
                   className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                 >
-                  تراجع
+                  {isAr ? "تراجع" : "Cancel"}
                 </button>
                 <button
                   type="submit"
@@ -182,7 +187,7 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
                   className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
                 >
                   {isCancelPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  تأكيد الإلغاء
+                  <span>{isAr ? "تأكيد الإلغاء" : "Confirm Cancellation"}</span>
                 </button>
               </div>
             </form>
@@ -193,16 +198,17 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
       {/* Zoom Modal */}
       {showZoomModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Video className="w-4 h-4 text-blue-600" />
-                رابط جلسة زووم
+                <span>{isAr ? "رابط جلسة زووم" : "Zoom Meeting Link"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowZoomModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -212,15 +218,15 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
               <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
               <input type="hidden" name="appointmentId" value={appointment.id} />
 
-              {!zoomState?.ok && zoomState?.messageAr && (
+              {!zoomState?.ok && zoomState && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                  {zoomState.messageAr}
+                  {isAr ? zoomState.messageAr : zoomState.messageEn ?? zoomState.messageAr}
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رابط زووم (نطاق zoom.us حصراً)
+                  {isAr ? "رابط زووم (نطاق zoom.us حصراً)" : "Zoom URL (Must belong to zoom.us domain)"}
                 </label>
                 <input
                   type="url"
@@ -229,6 +235,7 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
                   defaultValue={appointment.zoomMeetingUrl ?? ""}
                   placeholder="https://us04web.zoom.us/j/..."
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900"
+                  dir="ltr"
                 />
               </div>
 
@@ -238,7 +245,7 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
                   onClick={() => setShowZoomModal(false)}
                   className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                 >
-                  إلغاء
+                  {isAr ? "إلغاء" : "Cancel"}
                 </button>
                 <button
                   type="submit"
@@ -246,7 +253,7 @@ export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
                   className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
                 >
                   {isZoomPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  حفظ الرابط
+                  <span>{isAr ? "حفظ الرابط" : "Save Meeting Link"}</span>
                 </button>
               </div>
             </form>

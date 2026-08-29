@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { getAuthContext } from "@/lib/auth/session";
 import { readCsrfToken } from "@/lib/auth/csrf";
+import { getLanguage, getDirection } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "مركز أسما للصحة النفسية | Asmaa Mental Health Center",
@@ -18,14 +19,9 @@ export const metadata: Metadata = {
 /**
  * Root layout.
  *
- * This is a Server Component so the session can be resolved once per request and
- * handed to the navbar as data. That is what replaced the old client-side role
- * switcher: identity now originates on the server and the client cannot choose
- * it. `getAuthContext` is wrapped in React `cache`, so pages that also need the
- * session share this single database round-trip.
- *
- * `force-dynamic` because every request renders the signed-in user's name; a
- * cached shell would show one visitor's identity to another.
+ * Server Component resolving auth, CSRF token, and the visitor's language
+ * (via the `asmaa_lang` cookie). Renders <html lang={lang} dir={dir}> on the
+ * server so English users receive LTR markup on first paint with zero hydration flash.
  */
 export const dynamic = "force-dynamic";
 
@@ -34,7 +30,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [auth, csrfToken] = await Promise.all([getAuthContext(), readCsrfToken()]);
+  const [auth, csrfToken, lang] = await Promise.all([
+    getAuthContext(),
+    readCsrfToken(),
+    getLanguage(),
+  ]);
+  const dir = getDirection(lang);
 
   const navUser = auth
     ? {
@@ -45,7 +46,7 @@ export default async function RootLayout({
     : null;
 
   return (
-    <html lang="ar" dir="rtl">
+    <html lang={lang} dir={dir}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -55,7 +56,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased bg-alabaster-base text-gray-800 selection:bg-teal-100 selection:text-teal-900">
-        <LanguageProvider>
+        <LanguageProvider initialLanguage={lang}>
           <div className="flex flex-col min-h-screen">
             <CrisisBanner />
             <Navbar user={navUser} csrfToken={csrfToken} />

@@ -9,16 +9,30 @@ import {
 } from "@/app/actions/doctor.actions";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { DoctorWorkspace } from "@/components/dashboard/DoctorWorkspace";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "لوحة الاستشاري | مركز أسما للصحة النفسية",
-  description: "جدول جلساتك، مواعيد عملك الأسبوعية، وتقاريرك الإكلينيكية.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "لوحة الاستشاري | مركز أسما للصحة النفسية"
+        : "Doctor Workspace | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "جدول جلساتك، مواعيد عملك الأسبوعية، وتقاريرك الإكلينيكية."
+        : "Consultant agenda, weekly scheduling rules, patient charts, and electronic clinical records.",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function DoctorDashboardPage() {
-  const auth = await requireRolePage(["DOCTOR"], "/dashboard/doctor");
+  const [auth, lang] = await Promise.all([
+    requireRolePage(["DOCTOR"], "/dashboard/doctor"),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
   const [agendaResult, availabilityResult, timeOffResult, csrfToken] = await Promise.all([
     getMyAgendaAction(),
@@ -28,19 +42,32 @@ export default async function DoctorDashboardPage() {
   ]);
 
   if (!agendaResult.ok || !availabilityResult.ok || !timeOffResult.ok) {
-    const message = !agendaResult.ok
+    const messageAr = !agendaResult.ok
       ? agendaResult.messageAr
       : !availabilityResult.ok
-        ? availabilityResult.messageAr
-        : !timeOffResult.ok
-          ? timeOffResult.messageAr
-          : "";
+      ? availabilityResult.messageAr
+      : !timeOffResult.ok
+      ? timeOffResult.messageAr
+      : "";
+
+    const messageEn = !agendaResult.ok
+      ? agendaResult.messageEn
+      : !availabilityResult.ok
+      ? availabilityResult.messageEn
+      : !timeOffResult.ok
+      ? timeOffResult.messageEn
+      : "";
+
     return (
       <div className="min-h-screen py-16 bg-alabaster-base">
         <div className="max-w-lg mx-auto px-4 text-center space-y-3">
           <ShieldCheck className="w-10 h-10 text-crisis mx-auto" />
-          <h1 className="text-lg font-black text-crisis-dark">تعذّر تحميل لوحة الاستشاري</h1>
-          <p className="text-xs text-gray-600 leading-relaxed">{message}</p>
+          <h1 className="text-lg font-black text-crisis-dark">
+            {isAr ? "تعذّر تحميل لوحة الاستشاري" : "Unable to load consultant workspace"}
+          </h1>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            {isAr ? messageAr : messageEn ?? messageAr}
+          </p>
         </div>
       </div>
     );
@@ -72,8 +99,12 @@ export default async function DoctorDashboardPage() {
               <h1 className="text-xl sm:text-2xl font-black">{auth.user.fullName}</h1>
               <p className="text-xs text-teal-300">
                 {nextSession
-                  ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC))} مع ${nextSession.patientName}`
-                  : "لا توجد جلسات قادمة مجدولة."}
+                  ? isAr
+                    ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC))} مع ${nextSession.patientName}`
+                    : `Next session: ${formatCairo(new Date(nextSession.scheduledAtUTC))} with ${nextSession.patientName}`
+                  : isAr
+                  ? "لا توجد جلسات قادمة مجدولة."
+                  : "No upcoming consultations scheduled."}
               </p>
             </div>
           </div>
@@ -82,19 +113,23 @@ export default async function DoctorDashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Stat
             icon={CalendarCheck}
-            label="جلسات قادمة"
+            label={isAr ? "جلسات قادمة" : "Upcoming Sessions"}
             value={String(upcoming.length)}
           />
-          <Stat icon={Users} label="مرضى في الفترة" value={String(uniquePatients)} />
+          <Stat
+            icon={Users}
+            label={isAr ? "مرضى في الفترة" : "Active Patients"}
+            value={String(uniquePatients)}
+          />
           <Stat
             icon={Stethoscope}
-            label="تقارير بانتظار التوقيع"
+            label={isAr ? "تقارير بانتظار التوقيع" : "Pending Signatures"}
             value={String(pendingNotes)}
             tone={pendingNotes > 0 ? "warn" : undefined}
           />
           <Stat
             icon={ShieldCheck}
-            label="إيراد الجلسات المكتملة"
+            label={isAr ? "إيراد الجلسات المكتملة" : "Completed Revenue"}
             value={formatEgp(monthEarnings)}
           />
         </div>

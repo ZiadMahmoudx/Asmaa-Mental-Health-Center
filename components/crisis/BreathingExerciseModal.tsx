@@ -78,7 +78,7 @@ export const BreathingExerciseModal: React.FC<BreathingExerciseModalProps> = ({ 
 
         <button
           onClick={onClose}
-          className="absolute top-4 left-4 p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition z-10"
+          className="absolute top-4 end-4 p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition z-10"
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />

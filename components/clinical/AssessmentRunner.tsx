@@ -113,7 +113,7 @@ export function AssessmentRunner({ csrfToken, isAuthenticated, history }: Props)
               type="button"
               onClick={() => setActiveType(type)}
               aria-pressed={active}
-              className={`p-4 rounded-3xl border text-right transition flex flex-col justify-between gap-3 ${
+              className={`p-4 rounded-3xl border text-start transition flex flex-col justify-between gap-3 ${
                 active
                   ? "bg-teal-800 text-white border-teal-900 shadow-md ring-2 ring-teal-600/30"
                   : "bg-white text-slate-800 border-slate-200 hover:border-teal-600 hover:shadow-sm"

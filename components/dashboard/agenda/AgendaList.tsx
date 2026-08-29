@@ -17,6 +17,7 @@ import {
   Video,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { ClinicalRecordView, DoctorAgendaEntry } from "@/app/actions/doctor.actions";
 import {
   getPatientHistoryAction,
@@ -42,6 +43,8 @@ interface Props {
 }
 
 export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
 
   // Active drawer & active SOAP note states
@@ -110,7 +113,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
       <div className={`space-y-6 ${activePatientId ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"}`}>
         {/* Filters */}
         <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/90 rounded-2xl shadow-sm">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setStatusFilter("ALL")}
@@ -120,7 +123,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              جميع الجلسات ({agenda.length})
+              {isAr ? `جميع الجلسات (${agenda.length})` : `All Sessions (${agenda.length})`}
             </button>
 
             <button
@@ -132,7 +135,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              القادمة والمؤكدة
+              {isAr ? "القادمة والمؤكدة" : "Upcoming & Confirmed"}
             </button>
 
             <button
@@ -144,7 +147,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              المكتملة
+              {isAr ? "المكتملة" : "Completed"}
             </button>
           </div>
         </div>
@@ -162,10 +165,11 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
               <div>
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                   <FileSignature className="w-5 h-5 text-teal-700" />
-                  توثيق التقرير الإكلينيكي (Clinical SOAP Note)
+                  <span>{isAr ? "توثيق التقرير الإكلينيكي (Clinical SOAP Note)" : "Clinical SOAP Note Documentation"}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  المريض: <strong className="text-slate-800">{activeAppointmentForNote.patientName}</strong> ·{" "}
+                  {isAr ? "المريض: " : "Patient: "}
+                  <strong className="text-slate-800">{activeAppointmentForNote.patientName}</strong> ·{" "}
                   {formatCairo(new Date(activeAppointmentForNote.scheduledAtUTC))}
                 </p>
               </div>
@@ -173,25 +177,26 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                 type="button"
                 onClick={() => setActiveAppointmentForNote(null)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {!noteState?.ok && noteState?.messageAr && (
+            {!noteState?.ok && noteState && (
               <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                {noteState.messageAr}
+                {isAr ? noteState.messageAr : noteState.messageEn ?? noteState.messageAr}
               </div>
             )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                الشكوى الرئيسية (Chief Complaint)
+                {isAr ? "الشكوى الرئيسية (Chief Complaint)" : "Chief Complaint"}
               </label>
               <textarea
                 name="chiefComplaint"
                 rows={2}
-                placeholder="أعراض المريض كما يصفها..."
+                placeholder={isAr ? "أعراض المريض كما يصفها..." : "Patient symptoms in their own words..."}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
               />
             </div>
@@ -199,20 +204,21 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  التشخيص الطبي الإكلينيكي (Diagnosis) <span className="text-red-500">*</span>
+                  {isAr ? "التشخيص الطبي الإكلينيكي (Diagnosis)" : "Clinical Diagnosis"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="diagnosis"
                   rows={2}
                   required
-                  placeholder="التشخيص المعتمد للجلسة..."
+                  placeholder={isAr ? "التشخيص المعتمد للجلسة..." : "Formal clinical assessment..."}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  أكواد DSM-5 (مفصولة بفواصل)
+                  {isAr ? "أكواد DSM-5 (مفصولة بفواصل)" : "DSM-5 Diagnostic Codes (Comma-separated)"}
                 </label>
                 <input
                   type="text"
@@ -227,24 +233,24 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  الخطة الدوائية والعلاجية (Plan / Prescription)
+                  {isAr ? "الخطة الدوائية والعلاجية (Plan / Prescription)" : "Treatment & Medication Plan"}
                 </label>
                 <textarea
                   name="prescriptionNotes"
                   rows={3}
-                  placeholder="الجرعات والتعليمات..."
+                  placeholder={isAr ? "الجرعات والتعليمات..." : "Dosages, titration, instructions..."}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  توصيات المتابعة (Follow-up)
+                  {isAr ? "توصيات المتابعة (Follow-up)" : "Follow-up & Psychoeducation"}
                 </label>
                 <textarea
                   name="followUpPlan"
                   rows={3}
-                  placeholder="موعد المتابعة، الواجبات السلوكية..."
+                  placeholder={isAr ? "موعد المتابعة، الواجبات السلوكية..." : "Next session timing, behavioural homework..."}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
@@ -252,17 +258,17 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                تقييم درجة الخطورة (Risk Level)
+                {isAr ? "تقييم درجة الخطورة (Risk Level)" : "Clinical Risk Assessment Level"}
               </label>
               <select
                 name="riskLevel"
                 defaultValue="LOW"
                 className="w-full sm:w-1/2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
               >
-                <option value="LOW">منخفضة (Low)</option>
-                <option value="MODERATE">متوسطة (Moderate)</option>
-                <option value="HIGH">مرتفعة (High)</option>
-                <option value="CRITICAL">حرجة / طوارئ (Critical)</option>
+                <option value="LOW">{isAr ? "منخفضة (Low)" : "Low"}</option>
+                <option value="MODERATE">{isAr ? "متوسطة (Moderate)" : "Moderate"}</option>
+                <option value="HIGH">{isAr ? "مرتفعة (High)" : "High"}</option>
+                <option value="CRITICAL">{isAr ? "حرجة / طوارئ (Critical)" : "Critical / Crisis"}</option>
               </select>
             </div>
 
@@ -274,7 +280,9 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                 className="rounded border-amber-300 text-teal-600 w-4 h-4"
               />
               <span className="text-xs font-bold text-amber-900">
-                توقيع التقرير الطبي نهائياً. بعد التوقيع لا يمكن تعديله، ويصبح جزءاً من السجل القانوني للمركز.
+                {isAr
+                  ? "توقيع التقرير الطبي نهائياً. بعد التوقيع لا يمكن تعديله، ويصبح جزءاً من السجل القانوني للمركز."
+                  : "Electronically sign clinical note. Once signed, the record is immutable in the permanent medical registry."}
               </span>
             </label>
 
@@ -282,9 +290,9 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
               <button
                 type="button"
                 onClick={() => setActiveAppointmentForNote(null)}
-                className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700"
+                className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
               >
-                إلغاء
+                {isAr ? "إلغاء" : "Cancel"}
               </button>
               <button
                 type="submit"
@@ -292,7 +300,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                 className="inline-flex items-center gap-2 px-6 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
               >
                 {isNotePending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                حفظ التقرير
+                <span>{isAr ? "حفظ التقرير" : "Save Clinical Note"}</span>
               </button>
             </div>
           </form>
@@ -304,13 +312,13 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
             <div className="text-center py-16 bg-white border border-slate-200/90 rounded-3xl text-slate-400 shadow-sm">
               <Calendar className="w-12 h-12 mx-auto mb-2 opacity-30 text-slate-400" />
               <p className="text-base font-bold text-slate-600">
-                لا توجد جلسات تطابق التصفية.
+                {isAr ? "لا توجد جلسات تطابق التصفية." : "No consultations match your selected filter."}
               </p>
             </div>
           ) : (
             filteredAgenda.map((item) => {
               const dateObj = new Date(item.scheduledAtUTC);
-              const statusBadge = APPOINTMENT_STATUS_LABELS[item.status] || { ar: item.status };
+              const statusBadge = APPOINTMENT_STATUS_LABELS[item.status] || { ar: item.status, en: item.status };
 
               return (
                 <div
@@ -327,10 +335,12 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                           <h4 className="font-bold text-slate-900 text-sm">
                             {item.patientName}
                           </h4>
-                          <span className="text-xs font-mono text-slate-400">({item.patientPhone})</span>
+                          <span className="text-xs font-mono text-slate-400" dir="ltr">({item.patientPhone})</span>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {item.type === "ONLINE" ? "جلسة أونلاين عبر زووم" : "زيارة حضورية بالعيادة"} ·{" "}
+                          {item.type === "ONLINE"
+                            ? isAr ? "جلسة أونلاين عبر زووم" : "Online Zoom Session"
+                            : isAr ? "زيارة حضورية بالعيادة" : "In-Clinic Consultation"} ·{" "}
                           <span className="font-mono font-bold text-slate-700">{formatEgp(item.priceEGP)}</span>
                         </p>
                       </div>
@@ -342,12 +352,12 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                           {item.clinicalRecordSigned ? (
                             <>
                               <FileCheck2 className="w-3 h-3 text-emerald-600" />
-                              تقرير موقّع
+                              <span>{isAr ? "تقرير موقّع" : "Signed"}</span>
                             </>
                           ) : (
                             <>
                               <FileSignature className="w-3 h-3 text-amber-600" />
-                              مسودة تقرير
+                              <span>{isAr ? "مسودة تقرير" : "Draft Note"}</span>
                             </>
                           )}
                         </span>
@@ -364,7 +374,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                             : "bg-amber-50 text-amber-800 border-amber-200"
                         }`}
                       >
-                        {statusBadge.ar}
+                        {isAr ? statusBadge.ar : statusBadge.en}
                       </span>
                     </div>
                   </div>
@@ -374,12 +384,15 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                     <div className="flex items-center gap-2 font-bold text-slate-800">
                       <Clock className="w-4 h-4 text-teal-700" />
                       <span>{formatCairo(dateObj)}</span>
-                      <span className="text-slate-500 font-mono">({item.durationMinutes} دقيقة)</span>
+                      <span className="text-slate-500 font-mono">
+                        ({item.durationMinutes} {isAr ? "دقيقة" : "min"})
+                      </span>
                     </div>
 
                     {item.rescheduledFromUTC && (
                       <span className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 font-semibold">
-                        معدل من: {formatCairo(new Date(item.rescheduledFromUTC))}
+                        {isAr ? "معدل من: " : "Rescheduled from: "}
+                        {formatCairo(new Date(item.rescheduledFromUTC))}
                       </span>
                     )}
 
@@ -392,7 +405,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                         className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        إرسال تذكير بالواتساب
+                        <span>{isAr ? "إرسال تذكير بالواتساب" : "Send WhatsApp Reminder"}</span>
                       </a>
                     )}
                   </div>
@@ -421,7 +434,9 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
             <div className="h-full flex items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl">
               <div className="text-center space-y-2">
                 <Loader2 className="w-6 h-6 animate-spin text-teal-700 mx-auto" />
-                <p className="text-xs text-slate-500 font-semibold">جاري فتح الملف السريري والمقاييس...</p>
+                <p className="text-xs text-slate-500 font-semibold">
+                  {isAr ? "جاري فتح الملف السريري والمقاييس..." : "Opening patient clinical chart..."}
+                </p>
               </div>
             </div>
           ) : (

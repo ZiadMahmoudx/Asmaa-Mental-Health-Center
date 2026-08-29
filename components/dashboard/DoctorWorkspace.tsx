@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Calendar, CalendarClock, CalendarOff } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type {
   AvailabilityRuleView,
   DoctorAgendaEntry,
@@ -32,13 +33,15 @@ export function DoctorWorkspace({
   doctorId,
   doctorName,
 }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [tab, setTab] = useState<WorkspaceTab>("AGENDA");
 
   return (
     <div className="space-y-6">
       {/* Workspace Tabs Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-3">
-        <div className="flex gap-2 p-1.5 bg-slate-100 border border-slate-200/80 rounded-2xl">
+        <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 border border-slate-200/80 rounded-2xl">
           <button
             type="button"
             onClick={() => setTab("AGENDA")}
@@ -49,7 +52,9 @@ export function DoctorWorkspace({
             }`}
           >
             <Calendar className="w-4 h-4" />
-            الجدول اليومي ({agenda.length})
+            <span>
+              {isAr ? `الجدول اليومي (${agenda.length})` : `Agenda (${agenda.length})`}
+            </span>
           </button>
 
           <button
@@ -62,7 +67,11 @@ export function DoctorWorkspace({
             }`}
           >
             <CalendarClock className="w-4 h-4" />
-            مواعيد العمل الأسبوعية ({availability.length})
+            <span>
+              {isAr
+                ? `مواعيد العمل الأسبوعية (${availability.length})`
+                : `Weekly Schedule (${availability.length})`}
+            </span>
           </button>
 
           <button
@@ -75,13 +84,18 @@ export function DoctorWorkspace({
             }`}
           >
             <CalendarOff className="w-4 h-4" />
-            الإجازات والإغلاق ({timeOff.length})
+            <span>
+              {isAr
+                ? `الإجازات والإغلاق (${timeOff.length})`
+                : `Time Off & Blocks (${timeOff.length})`}
+            </span>
           </button>
         </div>
 
         {doctorName && (
           <div className="text-xs font-semibold text-slate-500">
-            ملف الاستشاري: <strong className="text-teal-900">{doctorName}</strong>
+            {isAr ? "ملف الاستشاري: " : "Consultant: "}
+            <strong className="text-teal-900">{doctorName}</strong>
           </div>
         )}
       </div>
@@ -100,16 +114,8 @@ export function DoctorWorkspace({
       )}
 
       {tab === "TIME_OFF" && (
-        <TimeOffManager
-          timeOff={timeOff}
-          csrfToken={csrfToken}
-          isAdmin={isAdmin}
-          doctorId={doctorId}
-        />
+        <TimeOffManager timeOff={timeOff} csrfToken={csrfToken} doctorId={doctorId} />
       )}
     </div>
   );
 }
-
-// Backward compatibility export
-export const DoctorAgenda = DoctorWorkspace;

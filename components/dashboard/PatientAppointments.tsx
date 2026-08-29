@@ -231,7 +231,7 @@ export function PatientAppointments({
                           <span>
                             {clinicAddressAr}
                             {appointment.roomNumber
-                              ? ` — ${isAr ? "غرفة" : "room"} ${appointment.roomNumber}`
+                              ? ` — ${isAr ? "غرفة" : "Room"} ${appointment.roomNumber}`
                               : ""}
                           </span>
                         </p>

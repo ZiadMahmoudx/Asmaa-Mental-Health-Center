@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Banknote,
   BellRing,
   Building2,
@@ -19,20 +20,33 @@ import {
 import { requireRolePage } from "@/lib/auth/guards";
 import { readCsrfToken } from "@/lib/auth/csrf";
 import { getClinicMetricsAction, getDoctorRosterAction } from "@/app/actions/metrics.actions";
-import { getFlaggedIntakesAction } from "@/app/actions/intake.actions";
 import { getOpenSafetyAlertsAction } from "@/app/actions/safety.actions";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { SafetyAlertQueue } from "@/components/admin/SafetyAlertQueue";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "لوحة الإدارة | مركز أسما للصحة النفسية",
-  description: "مؤشرات التشغيل، قائمة الاستشاريين، وطابور طوارئ الأمان النفسي الموحد.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "لوحة الإدارة | مركز أسما للصحة النفسية"
+        : "Admin Dashboard | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "مؤشرات التشغيل، قائمة الاستشاريين، وطابور طوارئ الأمان النفسي الموحد."
+        : "Operational health metrics, clinical roster, payment audit desk, and unified safety triage.",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  await requireRolePage(["ADMIN"], "/dashboard/admin");
+  const [_, lang] = await Promise.all([
+    requireRolePage(["ADMIN"], "/dashboard/admin"),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
   const [metricsResult, rosterResult, safetyAlertsResult, csrfToken] = await Promise.all([
     getClinicMetricsAction(),
@@ -45,8 +59,12 @@ export default async function AdminDashboardPage() {
     return (
       <div className="min-h-screen py-16 bg-alabaster-base">
         <div className="max-w-lg mx-auto px-4 text-center space-y-2">
-          <h1 className="text-lg font-black text-crisis-dark">تعذّر تحميل مؤشرات المركز</h1>
-          <p className="text-xs text-gray-600">{metricsResult.messageAr}</p>
+          <h1 className="text-lg font-black text-crisis-dark">
+            {isAr ? "تعذّر تحميل مؤشرات المركز" : "Unable to load clinic metrics"}
+          </h1>
+          <p className="text-xs text-gray-600">
+            {isAr ? metricsResult.messageAr : metricsResult.messageEn ?? metricsResult.messageAr}
+          </p>
         </div>
       </div>
     );
@@ -62,9 +80,13 @@ export default async function AdminDashboardPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-7">
         <header className="bg-teal-950 text-white rounded-3xl p-6 sm:p-8 border border-teal-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-2xl font-black">لوحة إدارة المركز</h1>
+            <h1 className="text-xl sm:text-2xl font-black">
+              {isAr ? "لوحة إدارة المركز" : "Clinic Administration Portal"}
+            </h1>
             <p className="text-xs text-teal-300">
-              مؤشرات تشغيلية محدّثة لحظياً من قاعدة البيانات
+              {isAr
+                ? "مؤشرات تشغيلية محدّثة لحظياً من قاعدة البيانات"
+                : "Real-time clinical operations and revenue registry"}
             </p>
           </div>
 
@@ -74,42 +96,42 @@ export default async function AdminDashboardPage() {
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >
               <Users className="w-4 h-4" />
-              إدارة طاقم العمل
+              <span>{isAr ? "إدارة طاقم العمل" : "Staff Directory"}</span>
             </Link>
             <Link
               href="/dashboard/admin/appointments"
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >
               <CalendarCheck className="w-4 h-4" />
-              سجل الحجوزات
+              <span>{isAr ? "سجل الحجوزات" : "Bookings Ledger"}</span>
             </Link>
             <Link
               href="/dashboard/admin/schedule"
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >
               <Clock3 className="w-4 h-4" />
-              إدارة جداول الأطباء
+              <span>{isAr ? "إدارة جداول الأطباء" : "Roster Schedules"}</span>
             </Link>
             <Link
               href="/dashboard/admin/credits"
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >
               <Coins className="w-4 h-4" />
-              أرصدة المرضى
+              <span>{isAr ? "أرصدة المرضى" : "Wallet Balances"}</span>
             </Link>
             <Link
               href="/dashboard/admin/reminders"
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >
               <BellRing className="w-4 h-4" />
-              تذكيرات الجلسات
+              <span>{isAr ? "تذكيرات الجلسات" : "Reminders Queue"}</span>
             </Link>
             <Link
               href="/dashboard/admin/verification"
               className="px-4 py-2.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-sm"
             >
               <Receipt className="w-4 h-4" />
-              مكتب مراجعة المدفوعات
+              <span>{isAr ? "مكتب مراجعة المدفوعات" : "Payment Verification"}</span>
               {metrics.pendingReceipts > 0 && (
                 <span className="px-1.5 py-0.5 rounded-lg bg-white text-terracotta-700 text-[10px] font-black">
                   {metrics.pendingReceipts}
@@ -125,29 +147,37 @@ export default async function AdminDashboardPage() {
             {metrics.pendingReceipts > 0 && (
               <Link
                 href="/dashboard/admin/verification"
-                className="p-5 rounded-3xl bg-amber-50 border border-amber-200 hover:border-amber-400 transition flex items-center gap-4"
+                className="p-5 rounded-3xl bg-amber-50 border border-amber-200 hover:border-amber-400 transition flex items-center gap-4 shadow-xs"
               >
                 <Receipt className="w-8 h-8 text-amber-600 shrink-0" />
                 <div>
                   <p className="text-sm font-black text-amber-900">
-                    {metrics.pendingReceipts} إيصال بانتظار المراجعة
+                    {isAr
+                      ? `${metrics.pendingReceipts} إيصال بانتظار المراجعة`
+                      : `${metrics.pendingReceipts} payment receipts awaiting review`}
                   </p>
                   <p className="text-[11px] text-amber-800">
-                    كل إيصال يمثل مريضاً ينتظر تأكيد حجزه.
+                    {isAr
+                      ? "كل إيصال يمثل مريضاً ينتظر تأكيد حجزه."
+                      : "Each proof requires review to confirm slot booking and issue WhatsApp link."}
                   </p>
                 </div>
               </Link>
             )}
 
             {unacknowledgedAlerts.length > 0 && (
-              <div className="p-5 rounded-3xl bg-red-50 border border-red-200 flex items-center gap-4">
+              <div className="p-5 rounded-3xl bg-red-50 border border-red-200 flex items-center gap-4 shadow-xs">
                 <ShieldAlert className="w-8 h-8 text-red-600 shrink-0" />
                 <div>
                   <p className="text-sm font-black text-red-950">
-                    {unacknowledgedAlerts.length} بلاغ طوارئ أمان نفسي بانتظار الاستلام
+                    {isAr
+                      ? `${unacknowledgedAlerts.length} بلاغ طوارئ أمان نفسي بانتظار الاستلام`
+                      : `${unacknowledgedAlerts.length} unacknowledged safety alerts`}
                   </p>
                   <p className="text-[11px] text-red-800">
-                    مرضى أشاروا لأفكار إيذاء النفس في المقاييس أو الاستبيان.
+                    {isAr
+                      ? "مرضى أشاروا لأفكار إيذاء النفس في المقاييس أو الاستبيان."
+                      : "Patients who endorsed self-harm items on validated scales or intake triage."}
                   </p>
                 </div>
               </div>
@@ -159,18 +189,22 @@ export default async function AdminDashboardPage() {
         <section className="space-y-3">
           <h2 className="text-base font-black text-teal-950 flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-red-600" />
-            طوارئ الأمان النفسي وبلاغات الخطورة
+            <span>{isAr ? "طوارئ الأمان النفسي وبلاغات الخطورة" : "Psychological Safety Alert Desk"}</span>
           </h2>
           <SafetyAlertQueue alerts={openSafetyAlerts} csrfToken={csrfToken} />
         </section>
 
         {/* Roster */}
         <section className="space-y-3">
-          <h2 className="text-base font-black text-teal-950">الاستشاريون وأحمال العمل</h2>
+          <h2 className="text-base font-black text-teal-950">
+            {isAr ? "الاستشاريون وأحمال العمل" : "Consultant Roster & Workload"}
+          </h2>
 
           {roster.length === 0 ? (
             <div className="bg-white rounded-3xl border border-alabaster-border p-10 text-center">
-              <p className="text-sm text-gray-500 font-semibold">لا يوجد استشاريون مسجّلون.</p>
+              <p className="text-sm text-gray-500 font-semibold">
+                {isAr ? "لا يوجد استشاريون مسجّلون." : "No consultants registered on roster."}
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-alabaster-border shadow-sm overflow-hidden">
@@ -178,14 +212,14 @@ export default async function AdminDashboardPage() {
                 <table className="w-full text-xs min-w-[720px]">
                   <thead className="bg-alabaster-base text-gray-500">
                     <tr>
-                      <Th>الاستشاري</Th>
-                      <Th>الترخيص</Th>
-                      <Th>نوافذ العمل</Th>
-                      <Th>جلسات قادمة</Th>
-                      <Th>جلسات مكتملة</Th>
-                      <Th>السعر (أونلاين / عيادة)</Th>
-                      <Th>الحالة</Th>
-                      <Th>الإجراء</Th>
+                      <Th>{isAr ? "الاستشاري" : "Consultant"}</Th>
+                      <Th>{isAr ? "الترخيص" : "License"}</Th>
+                      <Th>{isAr ? "نوافذ العمل" : "Windows"}</Th>
+                      <Th>{isAr ? "جلسات قادمة" : "Upcoming"}</Th>
+                      <Th>{isAr ? "جلسات مكتملة" : "Completed"}</Th>
+                      <Th>{isAr ? "السعر (أونلاين / عيادة)" : "Rate (Online / Clinic)"}</Th>
+                      <Th>{isAr ? "الحالة" : "Status"}</Th>
+                      <Th>{isAr ? "الإجراء" : "Action"}</Th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -213,16 +247,16 @@ export default async function AdminDashboardPage() {
                         <td className="px-4 py-3 align-top">
                           {doctor.isAcceptingPatients ? (
                             <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold whitespace-nowrap">
-                              يستقبل حجوزات
+                              {isAr ? "يستقبل حجوزات" : "Accepting"}
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-lg bg-alabaster-muted text-gray-600 border border-alabaster-border text-[10px] font-bold whitespace-nowrap">
-                              متوقف
+                              {isAr ? "متوقف" : "Paused"}
                             </span>
                           )}
                           {doctor.availabilityWindows === 0 && (
                             <p className="text-[10px] text-amber-700 font-bold mt-1">
-                              لا توجد نوافذ عمل — لن يظهر في الحجز
+                              {isAr ? "لا توجد نوافذ عمل — لن يظهر في الحجز" : "No active windows — hidden in directory"}
                             </p>
                           )}
                         </td>
@@ -231,7 +265,7 @@ export default async function AdminDashboardPage() {
                             href={`/dashboard/admin/schedule?doctorId=${doctor.id}`}
                             className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200"
                           >
-                            إدارة الجدول
+                            {isAr ? "إدارة الجدول" : "Manage Schedule"}
                           </Link>
                         </td>
                       </tr>
@@ -247,62 +281,9 @@ export default async function AdminDashboardPage() {
           href="/dashboard/admin/verification"
           className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 hover:text-teal-950"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          الانتقال لمكتب مراجعة المدفوعات
+          {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+          <span>{isAr ? "الانتقال لمكتب مراجعة المدفوعات" : "Go to Payment Verification Desk"}</span>
         </Link>
-      </div>
-    </div>
-  );
-}
-
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string;
-  tone?: "warn";
-}) {
-  return (
-    <div className="bg-white p-4 rounded-2xl border border-alabaster-border shadow-sm space-y-1.5">
-      <Icon className={`w-4 h-4 ${tone === "warn" ? "text-amber-600" : "text-sage-700"}`} />
-      <p className="text-[10px] text-gray-400 font-bold leading-snug">{label}</p>
-      <p
-        className={`text-xl font-black tabular-nums ${
-          tone === "warn" ? "text-amber-700" : "text-teal-950"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ShareBar({
-  icon: Icon,
-  label,
-  percent,
-  className,
-}: {
-  icon: typeof Video;
-  label: string;
-  percent: number;
-  className: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-bold text-gray-700 flex items-center gap-1.5">
-          <Icon className="w-3.5 h-3.5 text-sage-700" />
-          {label}
-        </span>
-        <span className="font-black text-teal-950 tabular-nums">{percent}%</span>
-      </div>
-      <div className="h-2 bg-alabaster-muted rounded-full overflow-hidden">
-        <div className={`h-full ${className}`} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );

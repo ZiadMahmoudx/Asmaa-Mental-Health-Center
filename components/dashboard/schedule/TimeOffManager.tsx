@@ -15,6 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { ForceTimeOffResult, TimeOffView } from "@/app/actions/doctor.actions";
 import {
   addTimeOffAction,
@@ -36,7 +37,10 @@ interface Props {
 }
 
 export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
+
   const [isAdding, setIsAdding] = useState(false);
   const [showForceModal, setShowForceModal] = useState(false);
 
@@ -78,10 +82,12 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <div>
           <h3 className="font-bold text-slate-900 text-base">
-            إدارة الإجازات والإغلاق المؤقت (Blackout Dates)
+            {isAr ? "إدارة الإجازات والإغلاق المؤقت (Blackout Dates)" : "Time Off & Temporary Blockout Dates"}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            تسجيل فترات السفر والمؤتمرات وإجازات العيادة لحجب المواعيد عن المرضى.
+            {isAr
+              ? "تسجيل فترات السفر والمؤتمرات وإجازات العيادة لحجب المواعيد عن المرضى."
+              : "Register conferences, annual leave, and clinic closures to block booking slots."}
           </p>
         </div>
 
@@ -92,7 +98,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            تسجيل إجازة جديدة
+            <span>{isAr ? "تسجيل إجازة جديدة" : "Register Time Off"}</span>
           </button>
         )}
       </div>
@@ -101,7 +107,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
       {isAdding && (
         <form
           action={addAction}
-          className="p-6 bg-white border-2 border-teal-600 rounded-2xl space-y-4 shadow-xl text-right"
+          className="p-6 bg-white border-2 border-teal-600 rounded-2xl space-y-4 shadow-xl text-start"
         >
           <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
           {doctorId && <input type="hidden" name="doctorId" value={doctorId} />}
@@ -109,20 +115,21 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <CalendarOff className="w-4 h-4 text-teal-700" />
-              تسجيل فترة إجازة / إغلاق
+              <span>{isAr ? "تسجيل فترة إجازة / إغلاق" : "New Time Off Entry"}</span>
             </h4>
             <button
               type="button"
               onClick={() => setIsAdding(false)}
               className="text-slate-400 hover:text-slate-600 p-1"
+              aria-label={isAr ? "إغلاق" : "Close"}
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {!addState?.ok && addState?.messageAr && (
+          {!addState?.ok && addState && (
             <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-              {addState.messageAr}
+              {isAr ? addState.messageAr : addState.messageEn ?? addState.messageAr}
             </div>
           )}
 
@@ -130,14 +137,18 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-xs">
               <p className="font-bold text-amber-900 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                توجد مواعيد محجوزة في هذه الفترة. كمدير للنظام، يمكنك فرض الإجازة وإلغاء المواعيد المتعارضة مع إرسال إشعارات اعتذار للمرضى.
+                <span>
+                  {isAr
+                    ? "توجد مواعيد محجوزة في هذه الفترة. كمدير للنظام، يمكنك فرض الإجازة وإلغاء المواعيد المتعارضة مع إرسال إشعارات اعتذار للمرضى."
+                    : "Appointments are already scheduled during this window. As an admin, you can force blackout and cancel conflicts."}
+                </span>
               </p>
               <button
                 type="button"
                 onClick={() => setShowForceModal(true)}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold"
               >
-                المتابعة كإلغاء إداري قسري
+                {isAr ? "المتابعة كإلغاء إداري قسري" : "Proceed with Admin Force Blackout"}
               </button>
             </div>
           )}
@@ -145,7 +156,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                بداية الإجازة (بتوقيت القاهرة)
+                {isAr ? "بداية الإجازة (بتوقيت القاهرة)" : "Start Time (Cairo)"}
               </label>
               <input
                 type="datetime-local"
@@ -168,7 +179,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                نهاية الإجازة (بتوقيت القاهرة)
+                {isAr ? "نهاية الإجازة (بتوقيت القاهرة)" : "End Time (Cairo)"}
               </label>
               <input
                 type="datetime-local"
@@ -192,12 +203,12 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              السبب (اختياري / للعلم الداخلي)
+              {isAr ? "السبب (اختياري / للعلم الداخلي)" : "Reason (Optional / Internal note)"}
             </label>
             <input
               type="text"
               name="reason"
-              placeholder="مثال: مؤتمر الجمعية النفسية، إجازة سنوية، إلخ..."
+              placeholder={isAr ? "مثال: مؤتمر الجمعية النفسية، إجازة سنوية، إلخ..." : "e.g. Annual conference, holiday..."}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
             />
           </div>
@@ -206,9 +217,9 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50"
             >
-              إلغاء
+              {isAr ? "إلغاء" : "Cancel"}
             </button>
             <button
               type="submit"
@@ -216,7 +227,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
               className="inline-flex items-center gap-2 px-6 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
             >
               {isAddPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              حفظ الإجازة
+              <span>{isAr ? "حفظ الإجازة" : "Save Time Off"}</span>
             </button>
           </div>
         </form>
@@ -226,7 +237,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
       {showForceModal && doctorId && (
         <form
           action={forceAction}
-          className="p-6 bg-amber-50/95 border-2 border-amber-500 rounded-2xl space-y-4 shadow-xl text-right"
+          className="p-6 bg-amber-50/95 border-2 border-amber-500 rounded-2xl space-y-4 shadow-xl text-start"
         >
           <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
           <input type="hidden" name="doctorId" value={doctorId} />
@@ -245,12 +256,13 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
           <div className="flex items-center justify-between border-b border-amber-200 pb-3">
             <h4 className="font-bold text-amber-900 text-sm flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-amber-600" />
-              تأكيد الإجازة القسرية وإلغاء الحجوزات المتعارضة
+              <span>{isAr ? "تأكيد الإجازة القسرية وإلغاء الحجوزات المتعارضة" : "Confirm Force Blackout & Cancel Conflicts"}</span>
             </h4>
             <button
               type="button"
               onClick={() => setShowForceModal(false)}
               className="text-slate-400 hover:text-slate-600 p-1"
+              aria-label={isAr ? "إغلاق" : "Close"}
             >
               <X className="w-4 h-4" />
             </button>
@@ -258,13 +270,19 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              رسالة سبب الإلغاء للمرضى المتأثرين (ستصلهم بالواتساب)
+              {isAr
+                ? "رسالة سبب الإلغاء للمرضى المتأثرين (ستصلهم بالواتساب)"
+                : "Cancellation Reason Message for WhatsApp"}
             </label>
             <textarea
               name="cancellationReason"
               rows={3}
               required
-              defaultValue="ظرف طارئ للعيادة يستلزم إلغاء الموعد. نعتذر بشدة وسيتم تسوية حجزكم فوراً."
+              defaultValue={
+                isAr
+                  ? "ظرف طارئ للعيادة يستلزم إلغاء الموعد. نعتذر بشدة وسيتم تسوية حجزكم فوراً."
+                  : "Clinical emergency requires appointment cancellation. We apologize for the inconvenience; your fee will be refunded/credited immediately."
+              }
               className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900"
             />
           </div>
@@ -273,9 +291,9 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
             <button
               type="button"
               onClick={() => setShowForceModal(false)}
-              className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700"
+              className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
             >
-              تراجع
+              {isAr ? "تراجع" : "Cancel"}
             </button>
             <button
               type="submit"
@@ -283,7 +301,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
               className="inline-flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
             >
               {isForcePending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              تأكيد الإلغاء وحجب المواعيد
+              <span>{isAr ? "تأكيد الإلغاء وحجب المواعيد" : "Confirm Force Blackout"}</span>
             </button>
           </div>
         </form>
@@ -294,7 +312,11 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3">
           <h4 className="font-bold text-emerald-900 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            تم تسجيل الإجازة وإلغاء {forceState.data.cancelledAppointments.length} حجز. يرجى إرسال رسائل الاعتذار للمرضى:
+            <span>
+              {isAr
+                ? `تم تسجيل الإجازة وإلغاء ${forceState.data.cancelledAppointments.length} حجز. يرجى إرسال رسائل الاعتذار للمرضى:`
+                : `Time off saved and ${forceState.data.cancelledAppointments.length} bookings cancelled. Send apologies via WhatsApp:`}
+            </span>
           </h4>
           <div className="space-y-2">
             {forceState.data.cancelledAppointments.map((c) => (
@@ -304,7 +326,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
               >
                 <div>
                   <span className="font-bold text-slate-900">{c.patientName}</span>
-                  <span className="text-slate-400 font-mono mr-2">{c.patientPhone}</span>
+                  <span className="text-slate-400 font-mono mx-2" dir="ltr">{c.patientPhone}</span>
                 </div>
                 <a
                   href={c.whatsappCancelUrl}
@@ -313,7 +335,7 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
                   className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-sm"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
-                  إرسال واتساب
+                  <span>{isAr ? "إرسال واتساب" : "Send WhatsApp"}</span>
                 </a>
               </div>
             ))}
@@ -326,7 +348,9 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
         {timeOff.length === 0 ? (
           <div className="col-span-full text-center py-12 bg-white border border-slate-200 rounded-2xl text-slate-400 shadow-sm">
             <CalendarOff className="w-10 h-10 mx-auto mb-2 opacity-40 text-slate-400" />
-            <p className="text-sm font-bold text-slate-600">لا توجد إجازات أو فترات إغلاق مسجلة.</p>
+            <p className="text-sm font-bold text-slate-600">
+              {isAr ? "لا توجد إجازات أو فترات إغلاق مسجلة." : "No time off or closure periods recorded."}
+            </p>
           </div>
         ) : (
           timeOff.map((item) => (
@@ -337,11 +361,14 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
                   <Calendar className="w-4 h-4 text-teal-700" />
-                  {formatCairo(new Date(item.startsAtUTC))}
+                  <span>{formatCairo(new Date(item.startsAtUTC))}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-600 mt-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  إلى: {formatCairo(new Date(item.endsAtUTC))}
+                  <span>
+                    {isAr ? "إلى: " : "To: "}
+                    {formatCairo(new Date(item.endsAtUTC))}
+                  </span>
                 </div>
                 {item.reason && (
                   <p className="text-xs text-slate-600 mt-1.5 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded inline-block font-semibold">
@@ -357,7 +384,8 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
                 <button
                   type="submit"
                   disabled={isCancelPending}
-                  title="إلغاء الإجازة وفتح المواعيد"
+                  title={isAr ? "إلغاء الإجازة وفتح المواعيد" : "Delete time off & unblock slots"}
+                  aria-label={isAr ? "إلغاء الإجازة وفتح المواعيد" : "Delete time off & unblock slots"}
                   className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition"
                 >
                   <Trash2 className="w-4 h-4" />

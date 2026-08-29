@@ -1,20 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ShieldAlert, Users } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { requireRolePage } from "@/lib/auth/guards";
 import { readCsrfToken } from "@/lib/auth/csrf";
 import { getStaffRosterAction } from "@/app/actions/staff.actions";
 import { StaffManagementDashboard } from "@/components/admin/staff/StaffManagementDashboard";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "إدارة طاقم العمل والأطباء | لوحة الإدارة",
-  description: "إضافة استشاريين، تعيين موظفي الإدارة، وتعديل الصلاحيات وبيانات التراخيص.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "إدارة طاقم العمل والأطباء | لوحة الإدارة"
+        : "Staff & Doctor Management | Admin Portal",
+    description:
+      lang === "ar"
+        ? "إضافة استشاريين، تعيين موظفي الإدارة، وتعديل الصلاحيات وبيانات التراخيص."
+        : "Manage healthcare providers, admin credentials, license records, and user status.",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminStaffPage() {
-  await requireRolePage(["ADMIN"], "/dashboard/admin/staff");
+  const [_, lang] = await Promise.all([
+    requireRolePage(["ADMIN"], "/dashboard/admin/staff"),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
   const [staffResult, csrfToken] = await Promise.all([
     getStaffRosterAction(),
@@ -26,8 +40,12 @@ export default async function AdminStaffPage() {
       <div className="min-h-screen py-16 bg-slate-50">
         <div className="max-w-lg mx-auto px-4 text-center space-y-3">
           <ShieldAlert className="w-10 h-10 text-red-600 mx-auto" />
-          <h1 className="text-lg font-black text-red-700">تعذّر تحميل قائمة طاقم العمل</h1>
-          <p className="text-xs text-slate-600">{staffResult.messageAr}</p>
+          <h1 className="text-lg font-black text-red-700">
+            {isAr ? "تعذّر تحميل قائمة طاقم العمل" : "Unable to load staff roster"}
+          </h1>
+          <p className="text-xs text-slate-600">
+            {isAr ? staffResult.messageAr : staffResult.messageEn ?? staffResult.messageAr}
+          </p>
         </div>
       </div>
     );
@@ -41,10 +59,12 @@ export default async function AdminStaffPage() {
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           <Link href="/dashboard/admin" className="hover:text-teal-800 transition">
-            لوحة الإدارة
+            {isAr ? "لوحة الإدارة" : "Admin Dashboard"}
           </Link>
           <span>/</span>
-          <span className="text-slate-900 font-bold">إدارة طاقم العمل</span>
+          <span className="text-slate-900 font-bold">
+            {isAr ? "إدارة طاقم العمل" : "Staff Directory"}
+          </span>
         </div>
 
         <StaffManagementDashboard

@@ -2,26 +2,35 @@ import type { Metadata } from "next";
 import { getClinicConfig } from "@/lib/clinic-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { FAQContent } from "@/components/faq/FAQContent";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "ميثاق السرية والأسئلة الشائعة | مركز أسما للصحة النفسية",
-  description: "إجابات عن السرية الطبية، طرق الدفع، أنواع الجلسات، وسياسة الإلغاء في مركز أسما للصحة النفسية.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "ميثاق السرية والأسئلة الشائعة | مركز أسما للصحة النفسية"
+        : "Clinical FAQ & Privacy Standards | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "إجابات عن السرية الطبية، طرق الدفع، أنواع الجلسات، وسياسة الإلغاء في مركز أسما للصحة النفسية."
+        : "Frequently asked questions regarding telepsychiatry consultations, medical confidentiality, payments, and clinic policies.",
+  };
+}
 
-/**
- * FAQ. A server shell so the clinic's real WhatsApp number can come from the
- * environment rather than being hard-coded into the page.
- */
 export const dynamic = "force-dynamic";
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const [lang] = await Promise.all([getLanguage()]);
   const clinic = getClinicConfig();
 
   return (
     <FAQContent
       clinicWhatsappUrl={buildWhatsAppLink(
         clinic.whatsappNumber,
-        "مرحباً، لدي استفسار بخصوص خدمات مركز أسما للصحة النفسية.",
+        lang === "ar"
+          ? "مرحباً، لدي استفسار بخصوص خدمات مركز أسما للصحة النفسية."
+          : "Hello, I have an inquiry regarding Asmaa Mental Health Center services.",
       )}
     />
   );

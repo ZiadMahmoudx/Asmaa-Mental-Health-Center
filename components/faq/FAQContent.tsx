@@ -168,8 +168,16 @@ export function FAQContent({ clinicWhatsappUrl }: { clinicWhatsappUrl: string })
         {/* Quick Contact Box */}
         <div className="bg-teal-900 text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
           <div className="space-y-1 text-center sm:text-start rtl:sm:text-right ltr:sm:text-left">
-            <h4 className="font-black text-base">هل لديك استفسار طبي أو تقني إضافي؟</h4>
-            <p className="text-xs text-sage-200">فريق الرعاية الطبية متواجد لمساعدتك على مدار الساعة.</p>
+            <h4 className="font-black text-base">
+              {language === "ar"
+                ? "هل لديك استفسار طبي أو تقني إضافي؟"
+                : "Have an additional medical or technical question?"}
+            </h4>
+            <p className="text-xs text-sage-200">
+              {language === "ar"
+                ? "فريق الرعاية الطبية متواجد لمساعدتك على مدار الساعة."
+                : "Our clinical care team is available to assist you."}
+            </p>
           </div>
           <a
             href={clinicWhatsappUrl}
@@ -177,7 +185,7 @@ export function FAQContent({ clinicWhatsappUrl }: { clinicWhatsappUrl: string })
             rel="noopener noreferrer"
             className="px-6 py-3 bg-terracotta-600 hover:bg-terracotta-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition whitespace-nowrap"
           >
-            تواصل مع فريق المركز على واتساب
+            {language === "ar" ? "تواصل مع فريق المركز على واتساب" : "Contact Care Team on WhatsApp"}
           </a>
         </div>
       </div>

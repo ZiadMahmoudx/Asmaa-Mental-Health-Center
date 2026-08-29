@@ -5,22 +5,33 @@ import { ensureCsrfToken } from "@/lib/auth/csrf";
 import { getAuthContext } from "@/lib/auth/session";
 import { dashboardPathForRole } from "@/lib/auth/guards";
 import { RegisterForm } from "@/components/auth/AuthForms";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "إنشاء حساب | مركز أسما للصحة النفسية",
-  description: "أنشئ حسابك لحجز جلسة أونلاين أو زيارة حضورية بالعيادة.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "إنشاء حساب جديد | مركز أسما للصحة النفسية"
+        : "Create Account | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "أنشئ حسابك لحجز جلسة أونلاين أو زيارة حضورية بالعيادة."
+        : "Create your confidential account to book telepsychiatry and in-clinic consultations.",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function RegisterPage() {
-  // Validated against the database, not against the cookie: a stale or revoked
-  // cookie must land on the form, not bounce back to a dashboard that will
-  // immediately reject it.
-  const auth = await getAuthContext();
-  if (auth) redirect(dashboardPathForRole(auth.user.role));
+  const [auth, csrfToken, lang] = await Promise.all([
+    getAuthContext(),
+    ensureCsrfToken(),
+    getLanguage(),
+  ]);
+  const isAr = lang === "ar";
 
-  const csrfToken = await ensureCsrfToken();
+  if (auth) redirect(dashboardPathForRole(auth.user.role));
 
   return (
     <div className="min-h-screen py-12 bg-alabaster-base">
@@ -30,9 +41,13 @@ export default async function RegisterPage() {
             <div className="w-14 h-14 rounded-2xl bg-sage-50 flex items-center justify-center mx-auto">
               <HeartHandshake className="w-7 h-7 text-sage-700" />
             </div>
-            <h1 className="text-xl font-black text-teal-950">إنشاء حساب جديد</h1>
+            <h1 className="text-xl font-black text-teal-950">
+              {isAr ? "إنشاء حساب جديد" : "Create Account"}
+            </h1>
             <p className="text-xs text-gray-500 leading-relaxed">
-              خطوة واحدة تفصلك عن حجز جلستك مع نخبة استشاريي الصحة النفسية.
+              {isAr
+                ? "خطوة واحدة تفصلك عن حجز جلستك مع نخبة استشاريي الصحة النفسية."
+                : "One simple step to begin your confidential mental health care journey."}
             </p>
           </div>
 
