@@ -4,6 +4,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { CrisisBanner } from "@/components/layout/CrisisBanner";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { CsrfSync } from "@/components/common/CsrfSync";
 import { getAuthContext } from "@/lib/auth/session";
 import { readCsrfToken } from "@/lib/auth/csrf";
 import { getLanguage, getDirection } from "@/lib/i18n/server";
@@ -57,6 +58,7 @@ export default async function RootLayout({
       </head>
       <body className="antialiased bg-alabaster-base text-gray-800 selection:bg-teal-100 selection:text-teal-900">
         <LanguageProvider initialLanguage={lang}>
+          <CsrfSync />
           <div className="flex flex-col min-h-screen">
             <CrisisBanner />
             <Navbar user={navUser} csrfToken={csrfToken} />
