@@ -33,7 +33,7 @@ import {
   appointmentRescheduledMessage,
   clinicCancellationMessage,
 } from "@/lib/whatsapp";
-import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel } from "@/lib/time/cairo";
+import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel, startOfCairoDayUtc } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
 import {
@@ -991,6 +991,19 @@ async function main() {
 
     assert.equal(alertsByPatient.get("p1"), "CRISIS");
     assert.equal(alertsByPatient.get("p2"), "ELEVATED");
+  });
+
+  await check("R2: startOfCairoDayUtc maps Cairo midnight to exact previous 22:00 UTC", () => {
+    // 2026-08-29 14:30:00 UTC -> 16:30 Cairo (same calendar day in Cairo)
+    const testInstant = new Date("2026-08-29T14:30:00.000Z");
+    const startUtc = startOfCairoDayUtc(testInstant);
+
+    // Midnight Cairo on 2026-08-29 is 2026-08-28T22:00:00.000Z
+    assert.equal(startUtc.toISOString(), "2026-08-28T22:00:00.000Z");
+
+    // 1-day range (Today) spans 2026-08-28T22:00:00.000Z -> 2026-08-29T22:00:00.000Z
+    const endUtc = new Date(startUtc.getTime() + 1 * 24 * 60 * 60 * 1000);
+    assert.equal(endUtc.toISOString(), "2026-08-29T22:00:00.000Z");
   });
 
   console.log(`\n${passed} checks passed.\n`);

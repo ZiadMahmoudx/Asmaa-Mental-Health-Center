@@ -99,7 +99,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
 
   // SOAP Note Form state
   const [noteState, noteAction, isNotePending] = useActionState(saveClinicalRecordAction, null);
-  const noteFormRef = useRef<HTMLFormElement>(null);
+  const noteFormRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (noteState?.ok) {
@@ -428,61 +428,74 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
             </div>
           </div>
 
-          {/* Active SOAP Note Form with Complete Prefill & Unsaved Guard (D1 & E6) */}
+          {/* Active SOAP Note Form with Complete Prefill & Unsaved Guard (D1 & E6 & R1) */}
           {activeAppointmentForNote && (
-            <form
-              ref={noteFormRef}
-              key={activeAppointmentForNote.appointmentId + (existingRecord ? `-${existingRecord.id}` : "-new")}
-              action={noteAction}
-              onChange={() => setIsFormDirty(true)}
-              className="p-6 bg-white border-2 border-teal-600 rounded-3xl space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150"
-            >
-              <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
-              <input type="hidden" name="appointmentId" value={activeAppointmentForNote.appointmentId} />
-
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                      <FileSignature className="w-5 h-5 text-teal-700" />
-                      <span>
-                        {existingRecord
-                          ? isAr ? "تعديل التقرير الإكلينيكي (Clinical SOAP Note)" : "Edit Clinical SOAP Note"
-                          : isAr ? "توثيق التقرير الإكلينيكي (Clinical SOAP Note)" : "Clinical SOAP Note Documentation"}
-                      </span>
+            <div ref={noteFormRef}>
+              {isLoadingRecord ? (
+                <div className="p-8 bg-white border-2 border-teal-600 rounded-3xl space-y-4 shadow-xl text-center animate-pulse">
+                  <Loader2 className="w-8 h-8 animate-spin text-teal-700 mx-auto" />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black text-teal-950">
+                      {isAr ? "جاري استرجاع بيانات التقرير الطبي السابق..." : "Loading previous clinical note..."}
                     </h3>
-                    {isLoadingRecord && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-bold">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        {isAr ? "جاري تحميل التقرير السابق..." : "Loading previous note..."}
-                      </span>
-                    )}
-                    {existingRecord && !isLoadingRecord && (
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                        {isAr ? "تقرير مسجل مسبقاً" : "Existing note loaded"}
-                      </span>
-                    )}
-                    {isFormDirty && (
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        {isAr ? "تعديلات غير محفوظة" : "Unsaved edits"}
-                      </span>
-                    )}
+                    <p className="text-xs text-gray-500">
+                      {isAr
+                        ? "يتم تحميل التشخيص ومستوى الخطورة والأدوية لحماية السجل الطبي..."
+                        : "Retrieving diagnosis, risk level, and treatment plan to protect clinical registry..."}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {isAr ? "المريض: " : "Patient: "}
-                    <strong className="text-slate-800">{activeAppointmentForNote.patientName}</strong> ·{" "}
-                    {formatCairo(new Date(activeAppointmentForNote.scheduledAtUTC), isAr ? "ar" : "en")}
-                  </p>
+                  <div className="space-y-2 pt-2 max-w-md mx-auto">
+                    <div className="h-3 bg-slate-100 rounded-full w-3/4 mx-auto" />
+                    <div className="h-3 bg-slate-100 rounded-full w-1/2 mx-auto" />
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCloseSoapNote}
-                  className="text-slate-400 hover:text-slate-600 p-1"
-                  aria-label={isAr ? "إغلاق" : "Close"}
+              ) : (
+                <form
+                  key={activeAppointmentForNote.appointmentId + (existingRecord ? `-${existingRecord.id}` : "-new")}
+                  action={noteAction}
+                  onChange={() => setIsFormDirty(true)}
+                  className="p-6 bg-white border-2 border-teal-600 rounded-3xl space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+                  <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
+                  <input type="hidden" name="appointmentId" value={activeAppointmentForNote.appointmentId} />
+
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <FileSignature className="w-5 h-5 text-teal-700" />
+                        <span>
+                          {existingRecord
+                            ? isAr ? "تعديل التقرير الإكلينيكي (Clinical SOAP Note)" : "Edit Clinical SOAP Note"
+                            : isAr ? "توثيق التقرير الإكلينيكي (Clinical SOAP Note)" : "Clinical SOAP Note Documentation"}
+                        </span>
+                      </h3>
+                      {existingRecord && (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          {isAr ? "تقرير مسجل مسبقاً" : "Existing note loaded"}
+                        </span>
+                      )}
+                      {isFormDirty && (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          {isAr ? "تعديلات غير محفوظة" : "Unsaved edits"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {isAr ? "المريض: " : "Patient: "}
+                      <strong className="text-slate-800">{activeAppointmentForNote.patientName}</strong> ·{" "}
+                      {formatCairo(new Date(activeAppointmentForNote.scheduledAtUTC), isAr ? "ar" : "en")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCloseSoapNote}
+                    className="text-slate-400 hover:text-slate-600 p-1"
+                    aria-label={isAr ? "إغلاق" : "Close"}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
               {!noteState?.ok && noteState && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
@@ -602,7 +615,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isNotePending}
+                  disabled={isNotePending || isLoadingRecord}
                   className="inline-flex items-center gap-2 px-6 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
                 >
                   {isNotePending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -611,6 +624,8 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
               </div>
             </form>
           )}
+        </div>
+      )}
 
           {/* Agenda List Items */}
           <div className="space-y-4">

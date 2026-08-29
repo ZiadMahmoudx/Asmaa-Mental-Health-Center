@@ -86,3 +86,12 @@ export function utcDateToCairoDateTimeLocal(date: Date): string {
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
+
+/** Returns the start of the current Cairo wall-clock day in UTC. */
+export function startOfCairoDayUtc(date: Date = new Date()): Date {
+  const cairoTime = new Date(date.getTime() + CAIRO_WINTER_OFFSET_HOURS * 60 * 60 * 1000);
+  const year = cairoTime.getUTCFullYear();
+  const month = cairoTime.getUTCMonth();
+  const day = cairoTime.getUTCDate();
+  return new Date(Date.UTC(year, month, day, -CAIRO_WINTER_OFFSET_HOURS, 0, 0, 0));
+}

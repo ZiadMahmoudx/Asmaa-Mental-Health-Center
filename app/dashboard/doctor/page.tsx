@@ -12,6 +12,8 @@ import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { DoctorWorkspace } from "@/components/dashboard/DoctorWorkspace";
 import { getLanguage } from "@/lib/i18n/server";
 
+import { startOfCairoDayUtc } from "@/lib/time/cairo";
+
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLanguage();
   return {
@@ -41,14 +43,10 @@ export default async function DoctorDashboardPage({ searchParams }: PageProps) {
   let days: number = 30;
 
   if (rangePreset === "today") {
-    const startOfToday = new Date(now);
-    startOfToday.setUTCHours(0, 0, 0, 0);
-    fromUTC = startOfToday.toISOString();
+    fromUTC = startOfCairoDayUtc(now).toISOString();
     days = 1;
   } else if (rangePreset === "week") {
-    const startOfToday = new Date(now);
-    startOfToday.setUTCHours(0, 0, 0, 0);
-    fromUTC = startOfToday.toISOString();
+    fromUTC = startOfCairoDayUtc(now).toISOString();
     days = 7;
   } else if (rangePreset === "all") {
     const past30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
