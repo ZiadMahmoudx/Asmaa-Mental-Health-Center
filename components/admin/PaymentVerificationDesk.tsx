@@ -23,6 +23,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { PendingPaymentRow } from "@/app/actions/payment.actions";
 import type { ReviewedProofRow } from "@/app/actions/admin.actions";
 import { approvePaymentAction, rejectPaymentAction } from "@/app/actions/admin.actions";
+import { markSessionDispatchAction } from "@/app/actions/dispatch.actions";
 import type { ActionResult } from "@/lib/result";
 import type { ApprovalPayload, RejectionPayload } from "@/app/actions/admin.actions";
 import { CSRF_FIELD, PAYMENT_METHOD_LABELS } from "@/lib/constants";
@@ -339,11 +340,15 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
               href: approvalState.data.whatsappConfirmationUrl,
               label: isAr ? "إرسال تأكيد الحجز للمريض" : "Send confirmation to patient",
               variant: "patient",
+              appointmentId: approvalState.data.appointmentId,
+              party: "PATIENT",
             },
             {
               href: approvalState.data.whatsappDoctorUrl,
               label: isAr ? "إرسال موجز الجلسة للطبيب" : "Send session brief to doctor",
               variant: "doctor",
+              appointmentId: approvalState.data.appointmentId,
+              party: "DOCTOR",
             },
             {
               href: approvalState.data.whatsappReminderUrl,
@@ -850,8 +855,16 @@ function SuccessBanner({
   tone: "approved" | "rejected";
   title: string;
   description: string;
-  links: { href: string; label: string; variant?: "patient" | "doctor" | "neutral" }[];
+  links: {
+    href: string;
+    label: string;
+    variant?: "patient" | "doctor" | "neutral";
+    appointmentId?: string;
+    party?: "PATIENT" | "DOCTOR";
+  }[];
 }) {
+  const [dispatched, setDispatched] = useState<Record<string, boolean>>({});
+
   return (
     <div
       role="status"
@@ -882,6 +895,8 @@ function SuccessBanner({
             btnClass = "bg-white hover:bg-slate-100 text-slate-800 border border-slate-200";
           }
 
+          const isSent = Boolean(dispatched[link.href]);
+
           return (
             <a
               key={link.href}
@@ -889,10 +904,21 @@ function SuccessBanner({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={link.label}
+              onClick={() => {
+                if (link.appointmentId && link.party) {
+                  setDispatched((prev) => ({ ...prev, [link.href]: true }));
+                  markSessionDispatchAction(link.appointmentId, link.party).catch(() => {});
+                }
+              }}
               className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 shadow-sm ${btnClass}`}
             >
               <MessageCircle className="w-4 h-4 shrink-0" />
               <span>{link.label}</span>
+              {isSent && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-md font-bold">
+                  ✓ {isAr ? "تم الفتح" : "Opened"}
+                </span>
+              )}
             </a>
           );
         })}
