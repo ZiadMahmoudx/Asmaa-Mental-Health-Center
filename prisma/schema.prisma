@@ -42,7 +42,13 @@
 // =============================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Lets lib/prisma.ts swap in the Neon serverless driver on Vercel. A pooled
+  // TCP connection does not survive a frozen serverless container: the socket is
+  // gone when the container thaws and the next query fails with P1017
+  // ("Server has closed the connection"). The Neon adapter issues each query
+  // over HTTP instead, so there is no long-lived socket to lose.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

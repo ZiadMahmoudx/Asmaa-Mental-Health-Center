@@ -19,7 +19,9 @@
     "db:use:postgres": "node scripts/use-db-provider.mjs postgresql"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@node-rs/argon2": "^2.1.0",
+    "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "^6.19.3",
     "@vercel/blob": "^2.8.0",
     "canvas-confetti": "^1.9.4",
