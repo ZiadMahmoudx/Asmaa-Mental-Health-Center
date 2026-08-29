@@ -37,6 +37,7 @@ import {
   paymentInstructionsLink,
   buildWhatsAppLink,
 } from "@/lib/whatsapp";
+import { reverseAppliedCredit } from "@/lib/credits/reversals";
 
 /**
  * Booking engine.
@@ -226,6 +227,8 @@ export interface ReservationPayload {
   whatsappClinicUrl: string;
   uploadUrl: string;
   isCreditApplied?: boolean;
+  creditAppliedEGP?: number;
+  cashDueEGP?: number;
 }
 
 /**
@@ -392,7 +395,7 @@ export async function reserveSlotAction(
     type === "ONLINE" ? doctor.sessionPriceOnline : doctor.sessionPriceOffline,
   );
 
-  // Credit-covered booking execution (Option A)
+  // Credit-covered booking execution (Option A: Full or Partial credit)
   if (applyCredit) {
     try {
       const outcome = await prisma.$transaction(
@@ -407,9 +410,18 @@ export async function reserveSlotAction(
             currentBalance = currentBalance.add(c.amountEGP);
           }
 
-          if (currentBalance.lt(priceEGP)) {
+          if (currentBalance.lte(0)) {
             throw new Error("INSUFFICIENT_CREDIT");
           }
+
+          const priceDecimal = new Prisma.Decimal(priceEGP);
+          const creditApplied = Prisma.Decimal.min(currentBalance, priceDecimal);
+          const cashDue = priceDecimal.sub(creditApplied);
+          const isFullCover = cashDue.eq(0);
+
+          const holdExpiresAt = isFullCover
+            ? null
+            : new Date(now.getTime() + bookingPolicy.holdMinutes * MINUTE_MS);
 
           const appointment = await tx.appointment.create({
             data: {
@@ -418,45 +430,59 @@ export async function reserveSlotAction(
               type,
               scheduledAtUTC,
               durationMinutes,
-              status: type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED",
-              priceEGP: new Prisma.Decimal(priceEGP),
+              status: isFullCover
+                ? type === "ONLINE"
+                  ? "PAYMENT_UNDER_REVIEW"
+                  : "CONFIRMED"
+                : "PENDING_PAYMENT_PROOF",
+              priceEGP: priceDecimal,
               slotLockKey: ACTIVE_SLOT_LOCK,
-              holdExpiresAt: null,
+              holdExpiresAt,
             },
             select: { id: true },
           });
 
-          // Ledger deduction
+          // Ledger deduction for the credit portion
           await tx.patientCredit.create({
             data: {
               patientId: user.id,
               appointmentId: appointment.id,
-              amountEGP: new Prisma.Decimal(priceEGP).negated(),
+              amountEGP: creditApplied.negated(),
               kind: "APPLIED_TO_BOOKING",
-              reason: `استخدام الرصيد لحجز جلسة ${type === "ONLINE" ? "أونلاين" : "حضوري"} مع ${doctor.user.fullName}`,
+              reason: isFullCover
+                ? `استخدام الرصيد كاملاً لحجز جلسة ${type === "ONLINE" ? "أونلاين" : "حضوري"} مع ${doctor.user.fullName}`
+                : `استخدام جزئي للرصيد (${creditApplied} ج.م) لحجز جلسة ${type === "ONLINE" ? "أونلاين" : "حضوري"} مع ${doctor.user.fullName}`,
               issuedById: user.id,
             },
           });
 
-          // PaymentProof row (F13: ONLINE sessions enter UNDER_REVIEW so admin attaches Zoom link)
-          await tx.paymentProof.create({
-            data: {
-              appointmentId: appointment.id,
-              method: "CREDIT",
-              senderIdentifier: user.phone,
-              transactionRef: `CREDIT-${appointment.id}`,
-              amountClaimedEGP: new Prisma.Decimal(priceEGP),
-              receiptImageUrl: "SYSTEM_CREDIT",
-              receiptMimeType: "application/system",
-              receiptSizeBytes: 0,
-              receiptSha256: `SYSTEM_CREDIT_${appointment.id}`,
-              status: type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED",
-              reviewedAt: type === "OFFLINE" ? now : null,
-              reviewedById: null, // System auto-approved; prevents attributing review to the patient (F18)
-            },
-          });
+          // PaymentProof row (F13: Full-cover ONLINE sessions enter UNDER_REVIEW so admin attaches Zoom link)
+          if (isFullCover) {
+            await tx.paymentProof.create({
+              data: {
+                appointmentId: appointment.id,
+                method: "CREDIT",
+                senderIdentifier: user.phone,
+                transactionRef: `CREDIT-${appointment.id}`,
+                amountClaimedEGP: creditApplied,
+                receiptImageUrl: "SYSTEM_CREDIT",
+                receiptMimeType: "application/system",
+                receiptSizeBytes: 0,
+                receiptSha256: `SYSTEM_CREDIT_${appointment.id}`,
+                status: type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED",
+                reviewedAt: type === "OFFLINE" ? now : null,
+                reviewedById: null, // System auto-approved; prevents attributing review to the patient (F18)
+              },
+            });
+          }
 
-          return appointment;
+          return {
+            appointmentId: appointment.id,
+            creditApplied: creditApplied.toNumber(),
+            cashDue: cashDue.toNumber(),
+            isFullCover,
+            holdExpiresAt,
+          };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
@@ -465,13 +491,15 @@ export async function reserveSlotAction(
         actorId: user.id,
         action: "APPOINTMENT_RESERVED",
         entityType: "Appointment",
-        entityId: outcome.id,
+        entityId: outcome.appointmentId,
         metadata: {
           doctorId,
           type,
           priceEGP,
+          creditAppliedEGP: outcome.creditApplied,
+          cashDueEGP: outcome.cashDue,
           scheduledAtUTC: scheduledAtUTC.toISOString(),
-          paymentMethod: "CREDIT",
+          paymentMethod: outcome.isFullCover ? "CREDIT" : "PARTIAL_CREDIT",
         },
       });
 
@@ -480,33 +508,79 @@ export async function reserveSlotAction(
       revalidatePath("/dashboard/admin/verification");
 
       const clinic = getClinicConfig();
-      const uploadUrl = `${env.APP_URL}/payment/${outcome.id}`;
+      const uploadUrl = `${env.APP_URL}/payment/${outcome.appointmentId}`;
+
+      if (outcome.isFullCover) {
+        const clinicWhatsapp = buildWhatsAppLink(
+          clinic.whatsappNumber,
+          `مرحباً، قمت بحجز موعد باستخدام رصيدي المالي لدى المركز. رقم الحجز: ${outcome.appointmentId}`,
+        );
+
+        return success({
+          appointmentId: outcome.appointmentId,
+          status: (type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED") as AppointmentStatus,
+          scheduledAtUTC: scheduledAtUTC.toISOString(),
+          durationMinutes,
+          type,
+          priceEGP,
+          doctorName: doctor.user.fullName,
+          holdExpiresAtUTC: null,
+          paymentInstructions: null,
+          whatsappInstructionsUrl: "",
+          whatsappClinicUrl: clinicWhatsapp,
+          uploadUrl,
+          isCreditApplied: true,
+          creditAppliedEGP: outcome.creditApplied,
+          cashDueEGP: 0,
+        });
+      }
+
+      // Partial credit booking: patient transfers cashDue
       const clinicWhatsapp = buildWhatsAppLink(
         clinic.whatsappNumber,
-        `مرحباً، قمت بحجز موعد باستخدام رصيدي المالي لدى المركز. رقم الحجز: ${outcome.id}`,
+        `مرحباً، أنا ${user.fullName}. حجزت موعداً مع ${doctor.user.fullName} ` +
+          `باستخدام رصيد جزئي (${outcome.creditApplied} ج.م) وأحتاج مساعدة بخصوص تحويل المتبقي (${outcome.cashDue} ج.م). رقم الحجز: ${outcome.appointmentId}.`,
       );
 
       return success({
-        appointmentId: outcome.id,
-        status: (type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED") as AppointmentStatus,
+        appointmentId: outcome.appointmentId,
+        status: "PENDING_PAYMENT_PROOF",
         scheduledAtUTC: scheduledAtUTC.toISOString(),
         durationMinutes,
         type,
         priceEGP,
         doctorName: doctor.user.fullName,
-        holdExpiresAtUTC: null,
-        paymentInstructions: null,
-        whatsappInstructionsUrl: "",
+        holdExpiresAtUTC: outcome.holdExpiresAt?.toISOString() ?? null,
+        paymentInstructions: {
+          instapayHandle: clinic.instapayHandle,
+          vodafoneCashNumbers: clinic.vodafoneCashNumbers,
+          amountEGP: outcome.cashDue,
+          holdMinutes: clinic.holdMinutes,
+        },
+        whatsappInstructionsUrl: paymentInstructionsLink({
+          patientName: user.fullName,
+          patientPhone: user.phone,
+          doctorName: doctor.user.fullName,
+          scheduledAtUTC,
+          type,
+          priceEGP: outcome.cashDue,
+          instapayHandle: clinic.instapayHandle,
+          vodafoneCashNumbers: clinic.vodafoneCashNumbers,
+          holdMinutes: clinic.holdMinutes,
+          uploadUrl,
+        }),
         whatsappClinicUrl: clinicWhatsapp,
         uploadUrl,
         isCreditApplied: true,
+        creditAppliedEGP: outcome.creditApplied,
+        cashDueEGP: outcome.cashDue,
       });
     } catch (error) {
       if (error instanceof Error && error.message === "INSUFFICIENT_CREDIT") {
         return failure(
           "INVALID_STATE",
-          "رصيدك المالي المتاح لدى المركز غير كافٍ لتغطية قيمة الجلسة. يرجى إتمام الحجز بالدفع اليدوي.",
-          "Your available credit balance is insufficient to cover this booking.",
+          "لا يوجد رصيد متاح في حسابك لتطبيقه على هذا الحجز. يرجى إتمام الحجز بالدفع اليدوي.",
+          "You do not have available credit balance to apply to this booking.",
         );
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -514,6 +588,13 @@ export async function reserveSlotAction(
           "SLOT_TAKEN",
           "تم حجز هذا الموعد للتو من مريض آخر. يرجى اختيار موعد بديل.",
           "This slot was just taken by another patient. Please pick another time.",
+        );
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+        return failure(
+          "CONFLICT",
+          "حدث تعارض متزامن في معالجة الرصيد. يرجى إعادة المحاولة.",
+          "A concurrent balance conflict occurred. Please retry.",
         );
       }
       console.error("[booking] credit reservation failed", error);
@@ -601,6 +682,8 @@ export async function reserveSlotAction(
     ),
     uploadUrl,
     isCreditApplied: false,
+    creditAppliedEGP: 0,
+    cashDueEGP: priceEGP,
   });
 }
 
@@ -767,21 +850,44 @@ export async function cancelMyAppointmentAction(
     );
   }
 
-  // TODO(policy): Patient-initiated cancellation does not auto-issue credit pending clinic policy decision
-  // on refundable notice windows. Currently, only staff-initiated cancellations auto-issue credits.
-  const updated = await prisma.appointment.updateMany({
-    where: { id: appointmentId, status: appointment.status },
-    data: {
-      status: "CANCELLED",
-      cancelledAt: new Date(),
-      cancellationReason: reason ?? "ألغى المريض الحجز",
-      // Free the slot without deleting the historical row.
-      slotLockKey: appointmentId,
-      holdExpiresAt: null,
-    },
+  let reversalResult = { reversed: false, amountEGP: 0 };
+  const updated = await prisma.$transaction(async (tx) => {
+    const res = await tx.appointment.updateMany({
+      where: { id: appointmentId, status: appointment.status },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+        cancellationReason: reason ?? "ألغى المريض الحجز",
+        slotLockKey: appointmentId,
+        holdExpiresAt: null,
+      },
+    });
+
+    if (res.count > 0) {
+      await tx.paymentProof.updateMany({
+        where: { appointmentId, status: "UNDER_REVIEW" },
+        data: {
+          status: "REJECTED",
+          reviewedAt: new Date(),
+          reviewedById: user.id,
+          rejectionReason: "ألغى المريض الحجز",
+        },
+      });
+
+      reversalResult = await reverseAppliedCredit(tx, {
+        appointmentId,
+        patientId: user.id,
+        actorId: user.id,
+        reason: "استرجاع الرصيد المستخدم عند إلغاء المريض للحجز",
+      });
+
+      return res.count;
+    }
+
+    return 0;
   });
 
-  if (updated.count === 0) {
+  if (updated === 0) {
     return failure(
       "CONFLICT",
       "تم تحديث حالة الحجز بالفعل. يرجى تحديث الصفحة.",
@@ -796,6 +902,19 @@ export async function cancelMyAppointmentAction(
     entityId: appointmentId,
     metadata: { by: "PATIENT", previousStatus: appointment.status },
   });
+
+  if (reversalResult.reversed) {
+    await recordAudit({
+      actorId: user.id,
+      action: "CREDIT_REVERSED",
+      entityType: "PatientCredit",
+      entityId: appointmentId,
+      metadata: {
+        amountEGP: reversalResult.amountEGP,
+        reason: "PATIENT_CANCELLED",
+      },
+    });
+  }
 
   revalidatePath("/dashboard/patient");
   revalidatePath("/dashboard/admin/verification");
@@ -1034,21 +1153,48 @@ export async function releaseExpiredHoldsAction(): Promise<
       holdExpiresAt: { lt: graceThreshold },
       slotLockKey: ACTIVE_SLOT_LOCK,
     },
-    select: { id: true },
+    select: { id: true, patientId: true },
     take: 500,
   });
 
   let releasedCount = 0;
   for (const app of lapsedHolds) {
-    const updated = await prisma.appointment.updateMany({
-      where: { id: app.id, status: "PENDING_PAYMENT_PROOF", slotLockKey: ACTIVE_SLOT_LOCK },
-      data: {
-        status: "EXPIRED",
-        slotLockKey: app.id,
-        holdExpiresAt: null,
-      },
+    let reversalResult = { reversed: false, amountEGP: 0 };
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.appointment.updateMany({
+        where: { id: app.id, status: "PENDING_PAYMENT_PROOF", slotLockKey: ACTIVE_SLOT_LOCK },
+        data: {
+          status: "EXPIRED",
+          slotLockKey: app.id,
+          holdExpiresAt: null,
+        },
+      });
+
+      if (res.count > 0) {
+        reversalResult = await reverseAppliedCredit(tx, {
+          appointmentId: app.id,
+          patientId: app.patientId,
+          actorId: null,
+          reason: "استرجاع الرصيد المستخدم لانتهاء مهلة حجز الموعد",
+        });
+        return res.count;
+      }
+      return 0;
     });
-    releasedCount += updated.count;
+
+    releasedCount += updated;
+    if (updated > 0 && reversalResult.reversed) {
+      await recordAudit({
+        actorId: null,
+        action: "CREDIT_REVERSED",
+        entityType: "PatientCredit",
+        entityId: app.id,
+        metadata: {
+          amountEGP: reversalResult.amountEGP,
+          reason: "HOLD_EXPIRED",
+        },
+      });
+    }
   }
 
   // Pass 2: Stale review holds (PAYMENT_UNDER_REVIEW past SLA, A1 fix).
@@ -1073,6 +1219,7 @@ export async function releaseExpiredHoldsAction(): Promise<
     },
     select: {
       id: true,
+      patientId: true,
       paymentProofs: {
         where: { status: "UNDER_REVIEW" },
         orderBy: { uploadedAt: "desc" },
@@ -1085,16 +1232,31 @@ export async function releaseExpiredHoldsAction(): Promise<
 
   let slaReclaimedCount = 0;
   for (const app of staleUnderReview) {
-    const updated = await prisma.appointment.updateMany({
-      where: { id: app.id, status: "PAYMENT_UNDER_REVIEW", slotLockKey: ACTIVE_SLOT_LOCK },
-      data: {
-        status: "EXPIRED",
-        slotLockKey: app.id,
-        holdExpiresAt: null,
-      },
+    let reversalResult = { reversed: false, amountEGP: 0 };
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.appointment.updateMany({
+        where: { id: app.id, status: "PAYMENT_UNDER_REVIEW", slotLockKey: ACTIVE_SLOT_LOCK },
+        data: {
+          status: "EXPIRED",
+          slotLockKey: app.id,
+          holdExpiresAt: null,
+        },
+      });
+
+      if (res.count > 0) {
+        reversalResult = await reverseAppliedCredit(tx, {
+          appointmentId: app.id,
+          patientId: app.patientId,
+          actorId: null,
+          reason: "استرجاع الرصيد المستخدم لانتهاء مهلة مراجعة الإيصال",
+        });
+        return res.count;
+      }
+      return 0;
     });
-    if (updated.count > 0) {
-      slaReclaimedCount += updated.count;
+
+    if (updated > 0) {
+      slaReclaimedCount += updated;
       await recordAudit({
         actorId: null,
         action: "HOLD_EXPIRED_RECLAIMED",
@@ -1105,6 +1267,18 @@ export async function releaseExpiredHoldsAction(): Promise<
           paymentProofId: app.paymentProofs[0]?.id ?? null,
         },
       });
+      if (reversalResult.reversed) {
+        await recordAudit({
+          actorId: null,
+          action: "CREDIT_REVERSED",
+          entityType: "PatientCredit",
+          entityId: app.id,
+          metadata: {
+            amountEGP: reversalResult.amountEGP,
+            reason: "UNDER_REVIEW_SLA_EXPIRED",
+          },
+        });
+      }
     }
   }
 

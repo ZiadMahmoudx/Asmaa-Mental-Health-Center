@@ -55,6 +55,10 @@ export default async function PaymentPage({
       zoomPasscode: true,
       clinicNotes: true,
       doctor: { select: { roomNumber: true, user: { select: { fullName: true } } } },
+      credits: {
+        where: { kind: "APPLIED_TO_BOOKING" },
+        select: { amountEGP: true },
+      },
       paymentProofs: {
         orderBy: { uploadedAt: "desc" },
         take: 1,
@@ -70,6 +74,11 @@ export default async function PaymentPage({
   const type = asAppointmentType(appointment.type);
   const clinic = getClinicConfig();
   const priceEGP = toEgp(appointment.priceEGP);
+  let creditAppliedEGP = 0;
+  for (const c of appointment.credits) {
+    creditAppliedEGP += toEgp(c.amountEGP.abs());
+  }
+  const cashDueEGP = Math.max(0, priceEGP - creditAppliedEGP);
   const doctorName = appointment.doctor.user.fullName;
 
   const header = (
@@ -102,6 +111,18 @@ export default async function PaymentPage({
           }
         />
         <Row label={isAr ? "قيمة الجلسة" : "Consultation Fee"} value={formatEgp(priceEGP, lang)} />
+        {creditAppliedEGP > 0 && (
+          <>
+            <Row
+              label={isAr ? "الرصيد المالي المخصوم" : "Credit Applied"}
+              value={formatEgp(creditAppliedEGP, lang)}
+            />
+            <Row
+              label={isAr ? "المتبقي للتحويل" : "Remaining to Transfer"}
+              value={formatEgp(cashDueEGP, lang)}
+            />
+          </>
+        )}
       </dl>
     </div>
   );
@@ -227,7 +248,9 @@ export default async function PaymentPage({
       <PaymentUploadForm
         appointmentId={appointment.id}
         csrfToken={csrfToken}
-        priceEGP={priceEGP}
+        priceEGP={cashDueEGP}
+        creditAppliedEGP={creditAppliedEGP}
+        fullPriceEGP={priceEGP}
         holdExpiresAtUTC={appointment.holdExpiresAt?.toISOString() ?? null}
         instapayHandle={clinic.instapayHandle}
         vodafoneCashNumbers={clinic.vodafoneCashNumbers}

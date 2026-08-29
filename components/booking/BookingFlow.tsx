@@ -99,14 +99,10 @@ export function BookingFlow({
 
   const price = type === "ONLINE" ? doctor.priceOnlineEGP : doctor.priceOfflineEGP;
   const hasCredit = typeof creditBalanceEGP === "number" && creditBalanceEGP > 0;
-  const isCreditSufficient = hasCredit && creditBalanceEGP >= price;
-
-  // Auto-disable useCredit if price exceeds credit balance upon type change
-  useEffect(() => {
-    if (!isCreditSufficient) {
-      setUseCredit(false);
-    }
-  }, [isCreditSufficient]);
+  const isFullCover = hasCredit && creditBalanceEGP >= price;
+  const isPartial = hasCredit && creditBalanceEGP < price;
+  const creditApplied = hasCredit ? Math.min(creditBalanceEGP, price) : 0;
+  const cashDue = Math.max(0, price - creditApplied);
 
   // Re-fetch on every type change: online and in-clinic are separate calendars.
   useEffect(() => {
@@ -127,7 +123,10 @@ export function BookingFlow({
   // Handle post-reservation routing
   useEffect(() => {
     if (reservation?.ok) {
-      if (reservation.data.isCreditApplied || reservation.data.holdExpiresAtUTC === null) {
+      if (
+        reservation.data.isCreditApplied &&
+        (reservation.data.cashDueEGP === 0 || reservation.data.holdExpiresAtUTC === null)
+      ) {
         router.push(
           `/dashboard/patient?booked=true&appointmentId=${reservation.data.appointmentId}&credit=true&type=${reservation.data.type}`,
         );
@@ -309,57 +308,43 @@ export function BookingFlow({
           {/* Credit Payment Option */}
           {isAuthenticated && hasCredit && (
             <div className="space-y-2 pt-2 border-t border-alabaster-border">
-              {isCreditSufficient ? (
-                <div
-                  className={`p-4 rounded-2xl border transition ${
-                    useCredit
-                      ? "bg-teal-50/90 border-teal-600 ring-1 ring-teal-600 shadow-sm"
-                      : "bg-alabaster-base border-alabaster-border hover:border-teal-400"
-                  }`}
-                >
-                  <label className="flex items-start gap-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={useCredit}
-                      onChange={(e) => setUseCredit(e.target.checked)}
-                      className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-800 focus:ring-teal-700 accent-teal-800 cursor-pointer"
-                    />
-                    <div className="space-y-1">
-                      <span className="text-xs font-black text-teal-950 flex items-center gap-1.5">
-                        <Wallet className="w-3.5 h-3.5 text-teal-800" />
-                        {isAr ? "استخدام رصيدي المالي لدى المركز" : "Use my clinic credit balance"}
-                      </span>
-                      <p className="text-[11px] text-teal-900 leading-snug">
-                        {isAr
+              <div
+                className={`p-4 rounded-2xl border transition ${
+                  useCredit
+                    ? "bg-teal-50/90 border-teal-600 ring-1 ring-teal-600 shadow-sm"
+                    : "bg-alabaster-base border-alabaster-border hover:border-teal-400"
+                }`}
+              >
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={useCredit}
+                    onChange={(e) => setUseCredit(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-800 focus:ring-teal-700 accent-teal-800 cursor-pointer"
+                  />
+                  <div className="space-y-1">
+                    <span className="text-xs font-black text-teal-950 flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5 text-teal-800" />
+                      {isFullCover
+                        ? isAr
+                          ? "استخدام رصيدي المالي لدى المركز (تغطية كاملة)"
+                          : "Use my clinic credit balance (Full cover)"
+                        : isAr
+                        ? "استخدام رصيدي المالي جزئياً لدى المركز"
+                        : "Use my clinic credit towards this booking"}
+                    </span>
+                    <p className="text-[11px] text-teal-900 leading-snug">
+                      {isFullCover
+                        ? isAr
                           ? `رصيدك ${formatEgp(creditBalanceEGP, "ar")} — بعد الحجز يتبقى ${formatEgp(creditBalanceEGP - price, "ar")}`
-                          : `Your credit is ${formatEgp(creditBalanceEGP, "en")} — Remaining after booking: ${formatEgp(creditBalanceEGP - price, "en")}`}
-                      </p>
-                    </div>
-                  </label>
-                </div>
-              ) : (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block mb-0.5">
-                      {isAr ? "رصيدك الحالي لا يغطي قيمة هذه الجلسة" : "Your current balance is insufficient"}
-                    </span>
-                    <span>
-                      {isAr
-                        ? `رصيدك المتاح هو ${formatEgp(creditBalanceEGP, "ar")} بينما قيمة الجلسة ${formatEgp(price, "ar")}. ${
-                            type === "OFFLINE" && doctor.offersOnline && creditBalanceEGP >= doctor.priceOnlineEGP
-                              ? "يمكنك استخدامه في جلسة أونلاين."
-                              : ""
-                          }`
-                        : `Your available balance is ${formatEgp(creditBalanceEGP, "en")} while this session fee is ${formatEgp(price, "en")}. ${
-                            type === "OFFLINE" && doctor.offersOnline && creditBalanceEGP >= doctor.priceOnlineEGP
-                              ? "You can use it for an online session."
-                              : ""
-                          }`}
-                    </span>
+                          : `Your credit is ${formatEgp(creditBalanceEGP, "en")} — Remaining after booking: ${formatEgp(creditBalanceEGP - price, "en")}`
+                        : isAr
+                        ? `رصيدك ${formatEgp(creditBalanceEGP, "ar")} — المتبقي للتحويل ${formatEgp(cashDue, "ar")}`
+                        : `Your credit is ${formatEgp(creditBalanceEGP, "en")} — Remaining to transfer: ${formatEgp(cashDue, "en")}`}
+                    </p>
                   </div>
-                </div>
-              )}
+                </label>
+              </div>
             </div>
           )}
 
@@ -372,9 +357,18 @@ export function BookingFlow({
                 <span className="text-xs line-through text-gray-400 block">
                   {formatEgp(price, isAr ? "ar" : "en")}
                 </span>
-                <span className="text-sm font-black text-emerald-800">
-                  {isAr ? "٠ ج.م (مغطى بالرصيد)" : "0 EGP (Covered by credit)"}
-                </span>
+                {isFullCover ? (
+                  <span className="text-sm font-black text-emerald-800">
+                    {isAr ? "٠ ج.م (مغطى بالرصيد)" : "0 EGP (Covered by credit)"}
+                  </span>
+                ) : (
+                  <span className="text-sm font-black text-teal-950">
+                    {formatEgp(cashDue, isAr ? "ar" : "en")}{" "}
+                    <span className="text-[10px] text-teal-700 font-bold">
+                      ({isAr ? `تم تطبيق ${formatEgp(creditApplied, "ar")} من الرصيد` : `${formatEgp(creditApplied, "en")} applied from credit`})
+                    </span>
+                  </span>
+                )}
               </div>
             ) : (
               <span className="text-xl font-black text-teal-900">
@@ -410,7 +404,7 @@ export function BookingFlow({
                 type="submit"
                 disabled={!selectedSlot || reserving || !doctor.isAcceptingPatients}
                 className={`w-full py-3.5 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-sm transition flex items-center justify-center gap-2 ${
-                  useCredit
+                  useCredit && isFullCover
                     ? "bg-teal-800 hover:bg-teal-900 shadow-sm"
                     : "bg-terracotta-600 hover:bg-terracotta-700"
                 }`}
@@ -421,8 +415,14 @@ export function BookingFlow({
                   <CheckCircle2 className="w-4 h-4" />
                 )}
                 {useCredit
-                  ? isAr ? "أكّد الحجز من رصيدك" : "Confirm using your credit"
-                  : isAr ? "احجز الموعد وتابع للدفع" : "Hold this time & continue"}
+                  ? isFullCover
+                    ? isAr ? "أكّد الحجز من رصيدك" : "Confirm using your credit"
+                    : isAr
+                    ? `احجز الموعد وتابع لدفع المتبقي (${formatEgp(cashDue, "ar")})`
+                    : `Hold slot & transfer remainder (${formatEgp(cashDue, "en")})`
+                  : isAr
+                  ? "احجز الموعد وتابع للدفع"
+                  : "Hold this time & continue"}
               </button>
             </form>
           ) : (
@@ -442,13 +442,17 @@ export function BookingFlow({
                 {isAr ? "ماذا يحدث بعد الحجز؟" : "What happens next?"}
               </p>
               <p className="text-[11px] text-emerald-900 leading-relaxed">
-                {type === "OFFLINE"
-                  ? isAr
-                    ? "يتم تأكيد الحجز فوراً وخصم المبلغ من رصيدك. ستجد تفاصيل الموعد والغرفة في لوحة تحكمك."
-                    : "Your in-clinic booking is confirmed immediately and deducted from your credit balance."
+                {isFullCover
+                  ? type === "OFFLINE"
+                    ? isAr
+                      ? "يتم تأكيد الحجز فوراً وخصم المبلغ من رصيدك. ستجد تفاصيل الموعد والغرفة في لوحة تحكمك."
+                      : "Your in-clinic booking is confirmed immediately and deducted from your credit balance."
+                    : isAr
+                      ? "تم خصم قيمة الجلسة من رصيدك بالكامل. سيصلك رابط زووم من فريق المركز خلال وقت قصير قبل موعد الجلسة."
+                      : "Session fee deducted from your credit balance in full. The clinic team will send you the Zoom link shortly before your appointment."
                   : isAr
-                    ? "تم خصم قيمة الجلسة من رصيدك بالكامل. سيصلك رابط زووم من فريق المركز خلال وقت قصير قبل موعد الجلسة."
-                    : "Session fee deducted from your credit balance in full. The clinic team will send you the Zoom link shortly before your appointment."}
+                  ? `يُحجز الموعد باسمك لمدة ${holdMinutes} دقيقة، ويُخصم ${formatEgp(creditApplied, "ar")} من رصيدك، وتظهر لك بيانات تحويل المتبقي (${formatEgp(cashDue, "ar")}) عبر إنستا باي أو فودافون كاش. إذا انتهت المهلة يعود رصيدك كاملاً.`
+                  : `Your slot is held for ${holdMinutes} minutes, ${formatEgp(creditApplied, "en")} is applied from your credit balance, and you will proceed to transfer the remaining ${formatEgp(cashDue, "en")}. If the hold expires, your credit is restored in full.`}
               </p>
             </div>
           ) : (

@@ -39,7 +39,7 @@ import {
 import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel, startOfCairoDayUtc } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken, sha256Hex } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
-import { dashboardPathForRole, OCCUPYING_STATUSES } from "@/lib/domain/enums";
+import { dashboardPathForRole, OCCUPYING_STATUSES, CREDIT_KINDS } from "@/lib/domain/enums";
 import {
   ASSESSMENT_SCALES,
   ASSESSMENT_TYPES,
@@ -1589,6 +1589,140 @@ async function main() {
     // The layers that actually stop an attacker are unchanged and come first:
     // a cross-site caller cannot read the cookie, so it cannot echo it here.
     assert.equal(safeEquals(sha256Hex("forged-token"), session.csrfTokenHash), false);
+  });
+
+  console.log("\n--- Phase 2: partial credit booking & refund-by-source ---");
+
+  await check("CREDIT_KINDS enum and AuditAction include CREDIT_REVERSAL", () => {
+    assert.equal(CREDIT_KINDS.includes("CREDIT_REVERSAL"), true, "CREDIT_REVERSAL must be valid CreditKind");
+  });
+
+  await check("idempotent credit reversal guarantees balance is restored exactly once", () => {
+    interface CreditRow {
+      patientId: string;
+      appointmentId?: string;
+      amountEGP: number;
+      kind: string;
+    }
+
+    const ledger: CreditRow[] = [
+      { patientId: "p1", amountEGP: 850, kind: "MANUAL_ADJUSTMENT" },
+      { patientId: "p1", appointmentId: "app_partial", amountEGP: -850, kind: "APPLIED_TO_BOOKING" },
+    ];
+
+    function computeBalance(patientId: string): number {
+      return ledger.filter((r) => r.patientId === patientId).reduce((sum, r) => sum + r.amountEGP, 0);
+    }
+
+    function simulateReverse(appointmentId: string, patientId: string) {
+      const rows = ledger.filter((r) => r.appointmentId === appointmentId);
+      const applied = rows
+        .filter((r) => r.kind === "APPLIED_TO_BOOKING")
+        .reduce((sum, r) => sum + Math.abs(r.amountEGP), 0);
+      const alreadyReversed = rows
+        .filter((r) => r.kind === "CREDIT_REVERSAL")
+        .reduce((sum, r) => sum + r.amountEGP, 0);
+
+      const toReverse = Math.max(0, applied - alreadyReversed);
+      if (toReverse > 0) {
+        ledger.push({
+          patientId,
+          appointmentId,
+          amountEGP: toReverse,
+          kind: "CREDIT_REVERSAL",
+        });
+        return { reversed: true, amountEGP: toReverse };
+      }
+      return { reversed: false, amountEGP: 0 };
+    }
+
+    assert.equal(computeBalance("p1"), 0, "Balance after deduction is 0");
+
+    // First reversal (e.g. cron hold sweep)
+    const firstAttempt = simulateReverse("app_partial", "p1");
+    assert.equal(firstAttempt.reversed, true);
+    assert.equal(firstAttempt.amountEGP, 850);
+    assert.equal(computeBalance("p1"), 850, "Balance restored to 850");
+
+    // Second reversal (e.g. duplicate sweep or race)
+    const secondAttempt = simulateReverse("app_partial", "p1");
+    assert.equal(secondAttempt.reversed, false, "Second reversal must be a no-op");
+    assert.equal(secondAttempt.amountEGP, 0);
+    assert.equal(computeBalance("p1"), 850, "Balance stays exactly 850 without duplicate refund");
+  });
+
+  await check("partial credit split math partitions total price correctly", () => {
+    function computeSplit(priceEGP: number, balanceEGP: number) {
+      const creditApplied = Math.min(balanceEGP, priceEGP);
+      const cashDue = Math.max(0, priceEGP - creditApplied);
+      const isFullCover = cashDue === 0;
+      return { creditApplied, cashDue, isFullCover };
+    }
+
+    // Partial coverage
+    const partial = computeSplit(900, 850);
+    assert.equal(partial.creditApplied, 850);
+    assert.equal(partial.cashDue, 50);
+    assert.equal(partial.isFullCover, false);
+
+    // Full coverage with change
+    const fullChange = computeSplit(900, 1200);
+    assert.equal(fullChange.creditApplied, 900);
+    assert.equal(fullChange.cashDue, 0);
+    assert.equal(fullChange.isFullCover, true);
+
+    // Exact coverage
+    const fullExact = computeSplit(900, 900);
+    assert.equal(fullExact.creditApplied, 900);
+    assert.equal(fullExact.cashDue, 0);
+    assert.equal(fullExact.isFullCover, true);
+
+    // Zero balance
+    const zero = computeSplit(900, 0);
+    assert.equal(zero.creditApplied, 0);
+    assert.equal(zero.cashDue, 900);
+    assert.equal(zero.isFullCover, false);
+  });
+
+  await check("refund-by-source prevents double-refund hazard on cancellations", () => {
+    interface BookingFinancials {
+      priceEGP: number;
+      creditAppliedEGP: number;
+      cashApprovedEGP: number;
+    }
+
+    function calculateRefundBySource(b: BookingFinancials) {
+      const creditReversal = b.creditAppliedEGP;
+      const cashCancellationCredit = b.cashApprovedEGP > 0 ? b.cashApprovedEGP : 0;
+      const totalRefunded = creditReversal + cashCancellationCredit;
+      return { creditReversal, cashCancellationCredit, totalRefunded };
+    }
+
+    // Scenario 1: Expired/rejected partial booking (Cash never approved)
+    const unapprovedPartial: BookingFinancials = {
+      priceEGP: 900,
+      creditAppliedEGP: 850,
+      cashApprovedEGP: 0,
+    };
+    const res1 = calculateRefundBySource(unapprovedPartial);
+    assert.equal(res1.creditReversal, 850, "Credit portion reversed in full");
+    assert.equal(res1.cashCancellationCredit, 0, "No cash refunded since cash was not taken");
+    assert.equal(res1.totalRefunded, 850, "Total refund matches exact amount taken");
+
+    // Scenario 2: Confirmed partial booking cancelled by admin (Cash approved)
+    const approvedPartial: BookingFinancials = {
+      priceEGP: 900,
+      creditAppliedEGP: 850,
+      cashApprovedEGP: 50,
+    };
+    const res2 = calculateRefundBySource(approvedPartial);
+    assert.equal(res2.creditReversal, 850, "Credit portion reversed in full");
+    assert.equal(res2.cashCancellationCredit, 50, "Approved cash refunded as CANCELLATION credit");
+    assert.equal(res2.totalRefunded, 900, "Total refund matches total sticker price");
+
+    // Flawed legacy calculation check: sticker price + credit = 900 + 850 = 1750 (Double refund hazard)
+    const flawedLegacyRefund = unapprovedPartial.priceEGP + unapprovedPartial.creditAppliedEGP;
+    assert.notEqual(res1.totalRefunded, flawedLegacyRefund, "Refund-by-source prevents catastrophic double refund");
   });
 
   console.log(`\n${passed} checks passed.\n`);

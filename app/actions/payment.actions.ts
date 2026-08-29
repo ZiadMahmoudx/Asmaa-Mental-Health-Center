@@ -279,6 +279,8 @@ export interface PendingPaymentRow {
   /** Authorised, non-public URL for the receipt image. */
   receiptUrl: string;
   receiptMimeType: string;
+  creditAppliedEGP: number;
+  cashDueEGP: number;
   patient: { id: string; fullName: string; phone: string; email: string };
   doctor: { id: string; fullName: string; roomNumber: string | null };
   appointment: {
@@ -291,7 +293,7 @@ export interface PendingPaymentRow {
     rescheduledFromUTC: string | null;
     rescheduledAtUTC: string | null;
   };
-  /** True when the declared amount does not match the frozen session price. */
+  /** True when the declared amount does not match the cash due amount. */
   amountMismatch: boolean;
 }
 
@@ -326,6 +328,10 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
           zoomMeetingUrl: true,
           rescheduledFromUTC: true,
           rescheduledAt: true,
+          credits: {
+            where: { kind: "APPLIED_TO_BOOKING" },
+            select: { amountEGP: true },
+          },
           patient: { select: { id: true, fullName: true, phone: true, email: true } },
           doctor: {
             select: { id: true, roomNumber: true, user: { select: { fullName: true } } },
@@ -338,6 +344,11 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
   return success(
     proofs.map((proof) => {
       const priceEGP = toEgp(proof.appointment.priceEGP);
+      let creditAppliedSum = 0;
+      for (const c of proof.appointment.credits) {
+        creditAppliedSum += toEgp(c.amountEGP.abs());
+      }
+      const cashDueEGP = Math.max(0, priceEGP - creditAppliedSum);
       const claimed = proof.amountClaimedEGP ? toEgp(proof.amountClaimedEGP) : null;
 
       return {
@@ -350,6 +361,8 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
         amountClaimedEGP: claimed,
         receiptUrl: `/api/receipts/${proof.id}`,
         receiptMimeType: proof.receiptMimeType,
+        creditAppliedEGP: creditAppliedSum,
+        cashDueEGP,
         patient: proof.appointment.patient,
         doctor: {
           id: proof.appointment.doctor.id,
@@ -370,7 +383,7 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
             ? proof.appointment.rescheduledAt.toISOString()
             : null,
         },
-        amountMismatch: claimed !== null && claimed !== priceEGP,
+        amountMismatch: claimed !== null && claimed !== cashDueEGP,
       };
     }),
   );

@@ -95,6 +95,7 @@ export const CREDIT_KINDS = [
   "MANUAL_ADJUSTMENT",
   "APPLIED_TO_BOOKING",
   "PAID_OUT",
+  "CREDIT_REVERSAL",
 ] as const;
 export type CreditKind = (typeof CREDIT_KINDS)[number];
 

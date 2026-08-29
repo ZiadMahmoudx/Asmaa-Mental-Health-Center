@@ -30,6 +30,10 @@ import { recordAudit } from "@/lib/security/audit";
 import { fromStringArray, toEgp, toStringArray } from "@/lib/serialization";
 import { bookingPolicy, getClinicConfig } from "@/lib/clinic-config";
 import {
+  reverseAppliedCredit,
+  getAppointmentFinancialBreakdown,
+} from "@/lib/credits/reversals";
+import {
   appointmentRescheduledLink,
   clinicCancellationLink,
   doctorSessionBriefLink,
@@ -906,18 +910,34 @@ export async function forceTimeOffAction(
         },
       });
 
-      // Auto-issue patient credit for confirmed appointments cancelled by emergency time-off
+      // 1. Reverse credit portion
+      await reverseAppliedCredit(tx, {
+        appointmentId: app.id,
+        patientId: app.patientId,
+        actorId: guard.data.user.id,
+        reason: `استرجاع الرصيد المستخدم بسبب إجازة طارئة للعيادة: ${cancellationReason}`,
+      });
+
+      // 2. Cash portion refund for confirmed appointments with approved payment
       if (app.status === "CONFIRMED") {
-        await tx.patientCredit.create({
-          data: {
-            patientId: app.patientId,
-            appointmentId: app.id,
-            amountEGP: app.priceEGP,
-            kind: "CANCELLATION",
-            reason: `إلغاء جلسة بسبب إجازة طارئة للعيادة: ${cancellationReason}`,
-            issuedById: guard.data.user.id,
-          },
-        });
+        const breakdown = await getAppointmentFinancialBreakdown(
+          tx,
+          app.id,
+          app.priceEGP,
+        );
+
+        if (breakdown.cashActuallyTakenEGP.gt(0)) {
+          await tx.patientCredit.create({
+            data: {
+              patientId: app.patientId,
+              appointmentId: app.id,
+              amountEGP: breakdown.cashActuallyTakenEGP,
+              kind: "CANCELLATION",
+              reason: `إلغاء جلسة بسبب إجازة طارئة للعيادة: ${cancellationReason}`,
+              issuedById: guard.data.user.id,
+            },
+          });
+        }
       }
     }
 
@@ -1280,18 +1300,34 @@ export async function doctorCancelAppointmentAction(
       },
     });
 
-    // Auto-issue patient credit if the cancelled appointment was confirmed and paid for
+    // 1. Reverse credit portion
+    await reverseAppliedCredit(tx, {
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      actorId: guard.data.user.id,
+      reason: `استرجاع الرصيد المستخدم لإلغاء الموعد من الطبيب: ${reason}`,
+    });
+
+    // 2. Cash portion refund for confirmed appointments with approved payment
     if (appointment.status === "CONFIRMED") {
-      await tx.patientCredit.create({
-        data: {
-          patientId: appointment.patientId,
-          appointmentId: appointment.id,
-          amountEGP: appointment.priceEGP,
-          kind: "CANCELLATION",
-          reason: `إلغاء جلسة من قبل الطبيب/الإدارة: ${reason}`,
-          issuedById: guard.data.user.id,
-        },
-      });
+      const breakdown = await getAppointmentFinancialBreakdown(
+        tx,
+        appointment.id,
+        appointment.priceEGP,
+      );
+
+      if (breakdown.cashActuallyTakenEGP.gt(0)) {
+        await tx.patientCredit.create({
+          data: {
+            patientId: appointment.patientId,
+            appointmentId: appointment.id,
+            amountEGP: breakdown.cashActuallyTakenEGP,
+            kind: "CANCELLATION",
+            reason: `إلغاء جلسة من قبل الطبيب/الإدارة (استرداد المبلغ المدفوع): ${reason}`,
+            issuedById: guard.data.user.id,
+          },
+        });
+      }
     }
   });
 

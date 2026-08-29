@@ -44,6 +44,8 @@ interface Props {
   appointmentId: string;
   csrfToken: string;
   priceEGP: number;
+  creditAppliedEGP?: number;
+  fullPriceEGP?: number;
   holdExpiresAtUTC: string | null;
   instapayHandle: string;
   vodafoneCashNumbers: string[];
@@ -60,6 +62,8 @@ export function PaymentUploadForm({
   appointmentId,
   csrfToken,
   priceEGP,
+  creditAppliedEGP = 0,
+  fullPriceEGP,
   holdExpiresAtUTC,
   instapayHandle,
   vodafoneCashNumbers,
@@ -159,7 +163,13 @@ export function PaymentUploadForm({
 
   return (
     <div className="space-y-5">
-      {holdExpiresAtUTC && <HoldCountdown expiresAtUTC={holdExpiresAtUTC} isAr={isAr} />}
+      {holdExpiresAtUTC && (
+        <HoldCountdown
+          expiresAtUTC={holdExpiresAtUTC}
+          isAr={isAr}
+          creditAppliedEGP={creditAppliedEGP}
+        />
+      )}
 
       {rejectionReason && (
         <div
@@ -180,8 +190,27 @@ export function PaymentUploadForm({
           {isAr ? "١ · حوّل قيمة الجلسة" : "1 · Transfer the session fee"}
         </h2>
 
+        {creditAppliedEGP > 0 && (
+          <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-200 text-[11px] text-teal-950 font-bold space-y-0.5">
+            <p>
+              {isAr
+                ? `تم تطبيق ${formatEgp(creditAppliedEGP, "ar")} من رصيدك المالي على هذا الحجز.`
+                : `${formatEgp(creditAppliedEGP, "en")} applied from your credit balance.`}
+            </p>
+            <p className="text-teal-800 font-normal">
+              {isAr
+                ? `المطلوب تحويله عبر المحفظة أو إنستا باي هو ${formatEgp(priceEGP, "ar")} فقط.`
+                : `The remaining cash to transfer is ${formatEgp(priceEGP, "en")}.`}
+            </p>
+          </div>
+        )}
+
         <div className="p-4 rounded-2xl bg-teal-950 text-white flex items-center justify-between">
-          <span className="text-xs text-teal-300">{isAr ? "المبلغ المطلوب" : "Amount due"}</span>
+          <span className="text-xs text-teal-300">
+            {creditAppliedEGP > 0
+              ? isAr ? "المبلغ المتبقي للتحويل" : "Remaining cash due"
+              : isAr ? "المبلغ المطلوب" : "Amount due"}
+          </span>
           <span className="text-2xl font-black">{formatEgp(priceEGP, isAr ? "ar" : "en")}</span>
         </div>
 
@@ -476,7 +505,15 @@ function WalletRow({
 }
 
 /** Live countdown on the slot hold. Client-only to avoid a hydration mismatch. */
-function HoldCountdown({ expiresAtUTC, isAr }: { expiresAtUTC: string; isAr: boolean }) {
+function HoldCountdown({
+  expiresAtUTC,
+  isAr,
+  creditAppliedEGP = 0,
+}: {
+  expiresAtUTC: string;
+  isAr: boolean;
+  creditAppliedEGP?: number;
+}) {
   const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
@@ -494,30 +531,43 @@ function HoldCountdown({ expiresAtUTC, isAr }: { expiresAtUTC: string; isAr: boo
   const expired = remaining === 0;
 
   return (
-    <div
-      role="status"
-      className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
-        expired
-          ? "bg-crisis-light border-crisis/20 text-crisis-dark"
-          : "bg-sage-50 border-sage-200 text-teal-950"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <Clock className="w-4 h-4 text-sage-700 shrink-0" />
-        <span>
+    <div className="space-y-2">
+      <div
+        role="status"
+        className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+          expired
+            ? "bg-crisis-light border-crisis/20 text-crisis-dark"
+            : "bg-sage-50 border-sage-200 text-teal-950"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-sage-700 shrink-0" />
+          <span>
+            {expired
+              ? isAr
+                ? "انتهت مهلة حجز الموعد. قد يُتاح الموعد لمريض آخر."
+                : "Hold time expired. This slot may be released."
+              : isAr
+              ? "الموعد محجوز لك مؤقتاً لمدة:"
+              : "Slot held for you for:"}
+          </span>
+        </div>
+        {!expired && (
+          <span className="font-black font-mono text-sm">
+            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+          </span>
+        )}
+      </div>
+      {creditAppliedEGP > 0 && (
+        <p className="text-[11px] text-teal-900 bg-teal-50/80 border border-teal-200/80 rounded-xl px-3.5 py-2 leading-relaxed">
           {expired
             ? isAr
-              ? "انتهت مهلة حجز الموعد. قد يُتاح الموعد لمريض آخر."
-              : "Hold time expired. This slot may be released."
+              ? "تم تحرير الموعد واسترجاع رصيدك كاملاً إلى حسابك."
+              : "Slot released and your credit has been refunded to your balance."
             : isAr
-            ? "الموعد محجوز لك مؤقتاً لمدة:"
-            : "Slot held for you for:"}
-        </span>
-      </div>
-      {!expired && (
-        <span className="font-black font-mono text-sm">
-          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-        </span>
+            ? "إذا انتهت المهلة دون تحويل المتبقي، يعود رصيدك كاملاً لحسابك."
+            : "If the hold expires, your applied credit is refunded to your balance in full."}
+        </p>
       )}
     </div>
   );

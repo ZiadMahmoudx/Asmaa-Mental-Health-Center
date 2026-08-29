@@ -267,8 +267,13 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
                           </div>
                           <div className="text-end shrink-0">
                             <span className="block text-sm font-black text-teal-900">
-                              {formatEgp(row.appointment.priceEGP, isAr ? "ar" : "en")}
+                              {formatEgp(row.cashDueEGP, isAr ? "ar" : "en")}
                             </span>
+                            {row.creditAppliedEGP > 0 && (
+                              <span className="text-[10px] text-teal-700 font-bold block">
+                                {isAr ? `+ ${formatEgp(row.creditAppliedEGP, "ar")} رصيد` : `+ ${formatEgp(row.creditAppliedEGP, "en")} credit`}
+                              </span>
+                            )}
                             <span className="text-[10px] text-gray-400 flex items-center gap-1 justify-end mt-1">
                               <Clock className="w-3 h-3" />
                               <WaitingFor sinceIso={row.uploadedAtUTC} isAr={isAr} />
@@ -437,10 +442,14 @@ function ReviewPanel({
           </div>
           <div className="text-end">
             <span className="block text-2xl font-black text-teal-900">
-              {formatEgp(row.appointment.priceEGP, isAr ? "ar" : "en")}
+              {formatEgp(row.cashDueEGP, isAr ? "ar" : "en")}
             </span>
             <span className="text-[11px] text-gray-500">
-              {isAr ? "قيمة الجلسة المستحقة" : "Session fee due"}
+              {row.creditAppliedEGP > 0
+                ? isAr
+                  ? `المتبقي للتحويل (${formatEgp(row.creditAppliedEGP, "ar")} رصيد + ${formatEgp(row.cashDueEGP, "ar")} تحويل)`
+                  : `Cash remainder (${formatEgp(row.creditAppliedEGP, "en")} credit + ${formatEgp(row.cashDueEGP, "en")} cash)`
+                : isAr ? "قيمة الجلسة المستحقة" : "Session fee due"}
             </span>
           </div>
         </div>
@@ -468,6 +477,12 @@ function ReviewPanel({
             label={isAr ? "وسيلة الدفع" : "Payment method"}
             value={isAr ? PAYMENT_METHOD_LABELS[row.method].ar : PAYMENT_METHOD_LABELS[row.method].en}
           />
+          {row.creditAppliedEGP > 0 && (
+            <Field
+              label={isAr ? "الرصيد المالي المخصوم" : "Credit applied"}
+              value={formatEgp(row.creditAppliedEGP, isAr ? "ar" : "en")}
+            />
+          )}
           <Field
             label={isAr ? "حساب المُرسِل" : "Sender account"}
             value={row.senderIdentifier}
@@ -498,8 +513,8 @@ function ReviewPanel({
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               {isAr
-                ? "المبلغ الذي أدخله المريض لا يطابق قيمة الجلسة. تحقق من الإيصال قبل الاعتماد."
-                : "The amount the patient declared does not match the session fee. Check the receipt before approving."}
+                ? `المبلغ الذي أدخله المريض لا يطابق المبلغ المطلوب تحويله (${formatEgp(row.cashDueEGP, "ar")}). تحقق من الإيصال قبل الاعتماد.`
+                : `The amount the patient declared does not match the cash due (${formatEgp(row.cashDueEGP, "en")}). Check the receipt before approving.`}
             </span>
           </div>
         )}

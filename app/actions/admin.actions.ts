@@ -25,6 +25,10 @@ import {
   paymentRejectedLink,
   sessionReminderLink,
 } from "@/lib/whatsapp";
+import {
+  reverseAppliedCredit,
+  getAppointmentFinancialBreakdown,
+} from "@/lib/credits/reversals";
 
 /**
  * Admin Verification Desk - steps 4 and 5 of the manual payment flow.
@@ -338,6 +342,7 @@ export async function rejectPaymentAction(
       appointment: {
         select: {
           id: true,
+          patientId: true,
           status: true,
           scheduledAtUTC: true,
           patient: { select: { fullName: true, phone: true } },
@@ -364,8 +369,10 @@ export async function rejectPaymentAction(
   const graceDeadline = new Date(Date.now() + graceMinutes * MINUTE_MS);
   const sessionIsFuture = appointment.scheduledAtUTC.getTime() > Date.now();
 
+  let reversalResult = { reversed: false, amountEGP: 0 };
+
   try {
-    await prisma.$transaction(async (tx) => {
+    reversalResult = await prisma.$transaction(async (tx) => {
       const proofUpdated = await tx.paymentProof.updateMany({
         where: { id: paymentProofId, status: "UNDER_REVIEW" },
         data: {
@@ -405,6 +412,14 @@ export async function rejectPaymentAction(
           clientVersion: Prisma.prismaVersion.client,
         });
       }
+
+      // Reverse credit deduction if this was a partial/credit booking
+      return reverseAppliedCredit(tx, {
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        actorId: admin.id,
+        reason: `استرجاع الرصيد لرفض إيصال الدفع: ${rejectionReason}`,
+      });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
@@ -416,6 +431,19 @@ export async function rejectPaymentAction(
     }
     console.error("[admin] rejection failed", error);
     return Failures.internal();
+  }
+
+  if (reversalResult.reversed) {
+    await recordAudit({
+      actorId: admin.id,
+      action: "CREDIT_REVERSED",
+      entityType: "PatientCredit",
+      entityId: appointment.id,
+      metadata: {
+        amountEGP: reversalResult.amountEGP,
+        reason: "PAYMENT_REJECTED",
+      },
+    });
   }
 
   await recordAudit({
@@ -643,18 +671,34 @@ export async function adminCancelAppointmentAction(
         },
       });
 
-      // Auto-issue patient credit for confirmed appointments
+      // 1. Reverse credit portion (if any credit was applied at booking)
+      await reverseAppliedCredit(tx, {
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        actorId: admin.id,
+        reason: reason ?? "استرجاع الرصيد عند إلغاء إدارة المركز للحجز",
+      });
+
+      // 2. Refund cash portion only for confirmed appointments where cash was actually taken
       if (appointment.status === "CONFIRMED") {
-        await tx.patientCredit.create({
-          data: {
-            patientId: appointment.patientId,
-            appointmentId: appointment.id,
-            amountEGP: appointment.priceEGP,
-            kind: "CANCELLATION",
-            reason: reason ?? "ألغت إدارة المركز الحجز",
-            issuedById: admin.id,
-          },
-        });
+        const breakdown = await getAppointmentFinancialBreakdown(
+          tx,
+          appointment.id,
+          appointment.priceEGP,
+        );
+
+        if (breakdown.cashActuallyTakenEGP.gt(0)) {
+          await tx.patientCredit.create({
+            data: {
+              patientId: appointment.patientId,
+              appointmentId: appointment.id,
+              amountEGP: breakdown.cashActuallyTakenEGP,
+              kind: "CANCELLATION",
+              reason: reason ?? "ألغت إدارة المركز الحجز (استرداد المبلغ المدفوع)",
+              issuedById: admin.id,
+            },
+          });
+        }
       }
     }
 
