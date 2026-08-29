@@ -9,6 +9,8 @@ import {
   Clock,
   Copy,
   CreditCard,
+  FileCheck,
+  FileX,
   Loader2,
   MessageCircle,
   Smartphone,
@@ -21,7 +23,7 @@ import {
 } from "@/app/actions/payment.actions";
 import type { ActionResult } from "@/lib/result";
 import type { PaymentMethod } from "@/lib/domain/enums";
-import { CSRF_FIELD } from "@/lib/constants";
+import { ALLOWED_RECEIPT_MIME_TYPES, AllowedReceiptMimeType, CSRF_FIELD } from "@/lib/constants";
 import { formatEgp } from "@/lib/whatsapp";
 
 /**
@@ -50,6 +52,8 @@ interface Props {
   rejectionReason: string | null;
 }
 
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 const initialState: ActionResult<PaymentProofPayload> | null = null;
 
 export function PaymentUploadForm({
@@ -67,7 +71,11 @@ export function PaymentUploadForm({
   const router = useRouter();
 
   const [method, setMethod] = useState<PaymentMethod>("INSTAPAY");
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [selectedFileMeta, setSelectedFileMeta] = useState<{
+    name: string;
+    sizeFormatted: string;
+  } | null>(null);
+  const [clientFileError, setClientFileError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const [state, formAction, pending] = useActionState(submitPaymentProofAction, initialState);
@@ -81,6 +89,40 @@ export function PaymentUploadForm({
   }, [state, router]);
 
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setSelectedFileMeta(null);
+      setClientFileError(null);
+      return;
+    }
+
+    const sizeInMB = file.size / (1024 * 1024);
+    const sizeFormatted =
+      sizeInMB >= 1 ? `${sizeInMB.toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`;
+
+    setSelectedFileMeta({
+      name: file.name,
+      sizeFormatted,
+    });
+
+    if (file.size > MAX_FILE_BYTES) {
+      setClientFileError(
+        isAr
+          ? `حجم الملف (${sizeFormatted}) كبير جداً ويتجاوز الحد الأقصى المسموح به (5 ميجابايت). يرجى تقليل جودة الصورة أو اختيار ملف أصغر.`
+          : `The selected file (${sizeFormatted}) is too large. Maximum allowed size is 5 MB. Please compress the file or choose a smaller one.`,
+      );
+    } else if (!ALLOWED_RECEIPT_MIME_TYPES.includes(file.type as AllowedReceiptMimeType)) {
+      setClientFileError(
+        isAr
+          ? "صيغة الملف غير مدعومة. الصيغ المسموح بها فقط: JPG, PNG, WEBP, PDF."
+          : "Unsupported file format. Only JPG, PNG, WEBP or PDF are allowed.",
+      );
+    } else {
+      setClientFileError(null);
+    }
+  }
 
   async function copyValue(value: string) {
     try {
@@ -150,101 +192,110 @@ export function PaymentUploadForm({
             value={instapayHandle}
             copied={copied === instapayHandle}
             onCopy={() => copyValue(instapayHandle)}
-            copyLabel={isAr ? "نسخ" : "Copy"}
-            copiedLabel={isAr ? "تم النسخ" : "Copied"}
+            copyLabel={isAr ? "نسخ المعرّف" : "Copy handle"}
+            copiedLabel={isAr ? "تم النسخ ✓" : "Copied ✓"}
           />
-          {vodafoneCashNumbers.map((number) => (
+
+          {vodafoneCashNumbers.map((phone) => (
             <WalletRow
-              key={number}
+              key={phone}
               icon={Smartphone}
-              label={isAr ? "فودافون كاش" : "Vodafone Cash"}
-              value={number}
-              copied={copied === number}
-              onCopy={() => copyValue(number)}
-              copyLabel={isAr ? "نسخ" : "Copy"}
-              copiedLabel={isAr ? "تم النسخ" : "Copied"}
+              label={isAr ? "فودافون كاش (Vodafone Cash)" : "Vodafone Cash"}
+              value={phone}
+              copied={copied === phone}
+              onCopy={() => copyValue(phone)}
+              copyLabel={isAr ? "نسخ الرقم" : "Copy number"}
+              copiedLabel={isAr ? "تم النسخ ✓" : "Copied ✓"}
             />
           ))}
         </div>
-
-        <p className="text-[11px] text-gray-500 leading-relaxed">
-          {isAr
-            ? "حوّل المبلغ بالضبط كما هو موضح. التحويل بمبلغ مختلف يؤخّر مراجعة الإيصال."
-            : "Transfer the exact amount shown. A different amount will delay the review."}
-        </p>
       </section>
 
-      {/* Upload */}
+      {/* Proof upload form */}
       <section className="bg-white p-6 rounded-3xl border border-alabaster-border shadow-sm space-y-4">
         <h2 className="font-extrabold text-sm text-teal-950">
-          {isAr ? "٢ · ارفع إيصال التحويل" : "2 · Upload your receipt"}
+          {isAr ? "٢ · أرسل بيانات وإيصال التحويل" : "2 · Submit your receipt details"}
         </h2>
 
         {state && !state.ok && (
-          <p
+          <div
             role="alert"
-            className="p-3.5 rounded-2xl bg-crisis-light border border-crisis/20 text-xs font-bold text-crisis-dark flex items-start gap-2"
+            className="p-4 rounded-2xl bg-crisis-light border border-crisis/20 text-crisis-dark text-xs font-bold space-y-1"
           >
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{isAr ? state.messageAr : state.messageEn}</span>
-          </p>
+            <div className="flex items-center gap-1.5 font-black">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-crisis" />
+              <span>{isAr ? state.messageAr : state.messageEn}</span>
+            </div>
+          </div>
         )}
 
         <form action={formAction} className="space-y-4">
           <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
           <input type="hidden" name="appointmentId" value={appointmentId} />
 
-          <fieldset className="space-y-2">
-            <legend className="text-[11px] font-bold text-gray-700 mb-1.5">
-              {isAr ? "وسيلة الدفع المستخدمة *" : "Payment method used *"}
-            </legend>
-            <div className="grid grid-cols-2 gap-2.5">
-              {(["INSTAPAY", "VODAFONE_CASH"] as const).map((option) => (
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5">
+              {isAr ? "طريقة التحويل التي استخدمتها *" : "Transfer method used *"}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "INSTAPAY", labelAr: "إنستا باي", labelEn: "InstaPay" },
+                  { id: "VODAFONE_CASH", labelAr: "فودافون كاش", labelEn: "Vodafone Cash" },
+                ] as const
+              ).map((opt) => (
                 <label
-                  key={option}
-                  className={`p-3 rounded-2xl border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${
-                    method === option
-                      ? "bg-teal-800 text-white border-teal-800"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-sage-400"
+                  key={opt.id}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-center cursor-pointer transition ${
+                    method === opt.id
+                      ? "bg-teal-950 text-white border-teal-950 shadow-sm"
+                      : "bg-alabaster-base text-gray-700 border-alabaster-border hover:border-sage-400"
                   }`}
                 >
                   <input
                     type="radio"
                     name="method"
-                    value={option}
-                    checked={method === option}
-                    onChange={() => setMethod(option)}
+                    value={opt.id}
+                    checked={method === opt.id}
+                    onChange={() => setMethod(opt.id)}
                     className="sr-only"
                   />
-                  {option === "INSTAPAY" ? (
-                    <CreditCard className="w-4 h-4" />
-                  ) : (
-                    <Smartphone className="w-4 h-4" />
-                  )}
-                  {option === "INSTAPAY"
-                    ? isAr ? "إنستا باي" : "InstaPay"
-                    : isAr ? "فودافون كاش" : "Vodafone Cash"}
+                  <span>{isAr ? opt.labelAr : opt.labelEn}</span>
                 </label>
               ))}
             </div>
-          </fieldset>
+          </div>
 
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-gray-700">
               {method === "INSTAPAY"
-                ? isAr ? "معرّف إنستا باي الذي حوّلت منه *" : "The InstaPay handle you sent from *"
-                : isAr ? "رقم محفظة فودافون كاش المُرسِل *" : "The Vodafone Cash number you sent from *"}
+                ? isAr
+                  ? "حسابك أو عنوان الدفع على إنستا باي (IPA) أو رقم هاتفك *"
+                  : "Your InstaPay IPA address, username, or phone *"
+                : isAr
+                ? "رقم محفظة فودافون كاش التي حوّلت منها *"
+                : "Your sending Vodafone Cash phone number *"}
             </span>
             <input
               type="text"
               name="senderIdentifier"
               required
               dir="ltr"
-              placeholder={method === "INSTAPAY" ? "ahmed.ali@instapay" : "01001234567"}
+              placeholder={
+                method === "INSTAPAY"
+                  ? isAr
+                    ? "مثال: name@instapay أو 01012345678"
+                    : "e.g. name@instapay or 01012345678"
+                  : isAr
+                  ? "مثال: 01012345678"
+                  : "e.g. 01012345678"
+              }
               className="w-full bg-alabaster-muted px-4 py-2.5 rounded-xl text-xs border border-alabaster-border focus:outline-none focus:border-teal-700 font-mono"
             />
             {fieldErrors?.senderIdentifier && (
-              <span className="text-[11px] text-crisis font-bold">{fieldErrors.senderIdentifier}</span>
+              <span className="text-[11px] text-crisis font-bold">
+                {fieldErrors.senderIdentifier}
+              </span>
             )}
           </label>
 
@@ -257,6 +308,7 @@ export function PaymentUploadForm({
                 type="text"
                 name="transactionRef"
                 dir="ltr"
+                placeholder={isAr ? "مثال: IP-948291048" : "e.g. IP-948291048"}
                 className="w-full bg-alabaster-muted px-4 py-2.5 rounded-xl text-xs border border-alabaster-border focus:outline-none focus:border-teal-700 font-mono"
               />
             </label>
@@ -281,35 +333,87 @@ export function PaymentUploadForm({
             <span className="text-[11px] font-bold text-gray-700">
               {isAr ? "صورة الإيصال *" : "Receipt image *"}
             </span>
-            <div className="relative border-2 border-dashed border-alabaster-border rounded-2xl p-6 text-center hover:border-sage-400 transition">
+            <div
+              className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition ${
+                clientFileError
+                  ? "border-red-400 bg-red-50/50"
+                  : selectedFileMeta
+                  ? "border-emerald-500 bg-emerald-50/30"
+                  : "border-alabaster-border hover:border-sage-400 bg-white"
+              }`}
+            >
               <input
                 type="file"
                 name="receipt"
                 required
                 accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={(event) => setFileName(event.target.files?.[0]?.name ?? null)}
+                onChange={handleFileChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              <Upload className="w-7 h-7 text-sage-600 mx-auto mb-2" />
+              
+              {selectedFileMeta ? (
+                clientFileError ? (
+                  <FileX className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                ) : (
+                  <FileCheck className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                )
+              ) : (
+                <Upload className="w-7 h-7 text-sage-600 mx-auto mb-2" />
+              )}
+
               <p className="text-xs font-bold text-teal-950">
-                {fileName ?? (isAr ? "اضغط لاختيار صورة الإيصال" : "Click to choose your receipt")}
+                {selectedFileMeta ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <span>{selectedFileMeta.name}</span>
+                    <span className="font-mono text-[11px] text-gray-500 font-normal">
+                      ({selectedFileMeta.sizeFormatted})
+                    </span>
+                  </span>
+                ) : isAr ? (
+                  "اضغط لاختيار صورة الإيصال أو اسحبها هنا"
+                ) : (
+                  "Click to choose your receipt or drop it here"
+                )}
               </p>
+              
               <p className="text-[10px] text-gray-400 mt-1">
-                {isAr ? "JPG أو PNG أو WEBP أو PDF — حتى 5 ميجابايت" : "JPG, PNG, WEBP or PDF — up to 5 MB"}
+                {isAr
+                  ? "JPG أو PNG أو WEBP أو PDF — الحد الأقصى: 5 ميجابايت"
+                  : "JPG, PNG, WEBP or PDF — Max size: 5 MB"}
               </p>
             </div>
-            {fieldErrors?.receipt && (
-              <span className="text-[11px] text-crisis font-bold">{fieldErrors.receipt}</span>
+
+            {/* Instant client-side file error feedback */}
+            {clientFileError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold flex items-center gap-1.5 mt-1">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{clientFileError}</span>
+              </div>
+            )}
+
+            {fieldErrors?.receipt && !clientFileError && (
+              <span className="text-[11px] text-crisis font-bold block mt-1">
+                {fieldErrors.receipt}
+              </span>
             )}
           </label>
 
           <button
             type="submit"
-            disabled={pending}
-            className="w-full py-3.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-sm transition flex items-center justify-center gap-2"
+            disabled={pending || !!clientFileError}
+            className="w-full py-3.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-sm transition flex items-center justify-center gap-2 shadow-sm"
           >
-            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {isAr ? "إرسال الإيصال للمراجعة" : "Submit receipt for review"}
+            {pending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{isAr ? "جاري رفع ومراجعة الإيصال..." : "Uploading receipt..."}</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>{isAr ? "إرسال الإيصال للمراجعة" : "Submit receipt for review"}</span>
+              </>
+            )}
           </button>
         </form>
 
@@ -320,7 +424,9 @@ export function PaymentUploadForm({
           className="w-full py-2.5 rounded-2xl border border-alabaster-border hover:bg-alabaster-base text-xs font-bold text-gray-700 transition flex items-center justify-center gap-2"
         >
           <MessageCircle className="w-4 h-4 text-[#25D366]" />
-          {isAr ? "تواجه مشكلة؟ تواصل مع المركز على واتساب" : "Need help? Message the clinic on WhatsApp"}
+          <span>
+            {isAr ? "تواجه مشكلة؟ تواصل مع المركز على واتساب" : "Need help? Message the clinic on WhatsApp"}
+          </span>
         </a>
       </section>
     </div>
@@ -363,7 +469,7 @@ function WalletRow({
         className="px-2.5 py-1.5 rounded-lg bg-white border border-alabaster-border text-[10px] font-bold text-gray-700 hover:border-sage-400 transition flex items-center gap-1 shrink-0"
       >
         <Copy className="w-3 h-3" />
-        {copied ? copiedLabel : copyLabel}
+        <span>{copied ? copiedLabel : copyLabel}</span>
       </button>
     </div>
   );
@@ -383,42 +489,36 @@ function HoldCountdown({ expiresAtUTC, isAr }: { expiresAtUTC: string; isAr: boo
 
   if (remaining === null) return null;
 
+  const minutes = Math.floor(remaining / 60_000);
+  const seconds = Math.floor((remaining % 60_000) / 1000);
   const expired = remaining === 0;
-  const minutes = Math.floor(remaining / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
 
   return (
     <div
-      className={`p-4 rounded-2xl border flex items-center gap-3 ${
+      role="status"
+      className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
         expired
           ? "bg-crisis-light border-crisis/20 text-crisis-dark"
-          : "bg-sage-50 border-sage-200 text-sage-900"
+          : "bg-sage-50 border-sage-200 text-teal-950"
       }`}
     >
-      <Clock className="w-5 h-5 shrink-0" />
-      <div className="text-xs">
-        {expired ? (
-          <p className="font-bold">
-            {isAr
-              ? "انتهت مهلة حجز الموعد. قد يكون الموعد أُتيح لمريض آخر — يمكنك المحاولة أو حجز موعد جديد."
-              : "The hold has expired. The slot may have been released — try again or book a new time."}
-          </p>
-        ) : (
-          <>
-            <p className="font-bold">
-              {isAr ? "الموعد محجوز باسمك لمدة" : "Your slot is held for"}{" "}
-              <span className="font-mono tabular-nums text-sm" dir="ltr">
-                {minutes}:{String(seconds).padStart(2, "0")}
-              </span>
-            </p>
-            <p className="text-[11px] opacity-80">
-              {isAr
-                ? "أكمل التحويل وارفع الإيصال قبل انتهاء المهلة."
-                : "Complete the transfer and upload the receipt before it runs out."}
-            </p>
-          </>
-        )}
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4 text-sage-700 shrink-0" />
+        <span>
+          {expired
+            ? isAr
+              ? "انتهت مهلة حجز الموعد. قد يُتاح الموعد لمريض آخر."
+              : "Hold time expired. This slot may be released."
+            : isAr
+            ? "الموعد محجوز لك مؤقتاً لمدة:"
+            : "Slot held for you for:"}
+        </span>
       </div>
+      {!expired && (
+        <span className="font-black font-mono text-sm">
+          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+        </span>
+      )}
     </div>
   );
 }
