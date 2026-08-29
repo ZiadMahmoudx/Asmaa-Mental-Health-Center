@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -77,10 +77,17 @@ export function TherapistsDirectory({ doctors, errorMessage }: Props) {
     [pathname, router],
   );
 
+  // Debounce search query syncing to URL to avoid churn on rapid typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      pushFiltersToUrl(searchQuery, selectedSpecialty, sessionFormat, availabilityOnly);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedSpecialty, sessionFormat, availabilityOnly, pushFiltersToUrl]);
+
   // Handlers
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
-    pushFiltersToUrl(val, selectedSpecialty, sessionFormat, availabilityOnly);
   };
 
   const handleSpecialtyChange = (spec: string) => {
@@ -234,7 +241,6 @@ export function TherapistsDirectory({ doctors, errorMessage }: Props) {
               {/* Availability Toggle with aria-pressed */}
               <button
                 type="button"
-                role="button"
                 aria-pressed={availabilityOnly}
                 aria-label={isAr ? "تصفية الأطباء المتاحين للحجز فقط" : "Filter by available consultants only"}
                 onClick={handleAvailabilityToggle}
@@ -268,7 +274,6 @@ export function TherapistsDirectory({ doctors, errorMessage }: Props) {
                   <button
                     key={fmt.id}
                     type="button"
-                    role="button"
                     aria-pressed={sessionFormat === fmt.id}
                     aria-label={isAr ? `تصفية: ${fmt.labelAr}` : `Filter: ${fmt.labelEn}`}
                     onClick={() => handleFormatChange(fmt.id)}

@@ -26,8 +26,14 @@ export default async function TherapistsPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Suspense
           fallback={
-            <div className="p-12 text-center text-xs text-gray-500 font-bold">
-              جاري تحميل قائمة الأطباء والمعالجين...
+            <div className="space-y-6 animate-pulse">
+              <div className="h-8 bg-gray-200 rounded-2xl w-1/3" />
+              <div className="h-4 bg-gray-200 rounded-xl w-2/3" />
+              <div className="h-20 bg-white rounded-3xl border border-alabaster-border" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="h-64 bg-white rounded-3xl border border-alabaster-border" />
+                <div className="h-64 bg-white rounded-3xl border border-alabaster-border" />
+              </div>
             </div>
           }
         >

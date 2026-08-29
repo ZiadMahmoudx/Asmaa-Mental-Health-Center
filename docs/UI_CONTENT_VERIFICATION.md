@@ -85,3 +85,38 @@ everywhere else and `as any` in new code is how that line starts moving.
 4. **U4** — one line.
 
 Gates unchanged.
+
+---
+
+# Addendum — U1–U4 verified closed (commit `b6bad19`)
+
+Source-inspected. `test:logic` 56/56, `tsc --noEmit` clean. Working tree clean.
+
+| # | Status | Evidence |
+|---|---|---|
+| U1 | Closed | Header and intro moved into `TherapistsDirectory` (:173–183) and both follow `isAr`. The error state was additionally restructured: the page now passes `doctors: null` plus a bilingual `errorMessage` object rather than early-returning an Arabic-only branch, so the header renders in the active language even on failure. Better than specified. |
+| U2 | Closed | `useSearchParams` / `usePathname` / `router.replace` under `useTransition` (:42–78). Params are omitted when at their default, so a clean directory has a clean URL. Local state is kept for typing latency and seeded from the URL on mount. |
+| U3 | Closed | `sr-only` label + `aria-label` on the search input, `aria-label` on the clear button with `aria-hidden` on the glyph, `aria-pressed` on both toggle groups, `role="group"` on the format pills, real `<label htmlFor>` on the select, and `aria-hidden` applied consistently to decorative icons throughout the card grid. |
+| U4 | Closed | `SessionFormat` union and typed `SESSION_FORMATS`; no `as any` remains in the file. |
+
+## Deliberate tradeoff worth recording
+
+`router.replace` is used rather than `push`, so filter changes do not create
+history entries. Shareable, bookmarkable and refresh-stable — all met. The back
+button does **not** step back through filter states.
+
+This is the right call and should stay: `push` on a search input would add a
+history entry per keystroke and trap the user, needing twenty presses to leave
+the page. Recording it so it reads as a decision rather than an oversight.
+
+## Cosmetic only — no action required unless touched anyway
+
+- `role="button"` on native `<button>` elements (:237, :271) is redundant; the
+  implicit role already applies. Harmless.
+- The `<Suspense>` fallback in `app/therapists/page.tsx:30` is Arabic-only. It is
+  a server component and cannot read `useLanguage()`; the string is visible for
+  a fraction of a second. Acceptable.
+- No debounce on the URL write per keystroke. Safe as built — `replace` inside a
+  transition — but a debounce would cut URL churn on low-end devices.
+
+**The public interface workstream is closed.**
