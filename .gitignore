@@ -53,3 +53,6 @@ pnpm-debug.log*
 # Uploaded payment receipts (PHI-adjacent, never committed)
 /.uploads/
 .neon
+
+.vercel
+.env*
