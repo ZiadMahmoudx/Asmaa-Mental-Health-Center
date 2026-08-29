@@ -16,42 +16,34 @@ import { readCsrfToken } from "@/lib/auth/csrf";
 import { getMyAppointmentsAction } from "@/app/actions/booking.actions";
 import { getMyClinicalRecordsAction } from "@/app/actions/records.actions";
 import { getPatientCreditBalanceAction } from "@/app/actions/credits.actions";
+import { getMyAssessmentsAction } from "@/app/actions/assessments.actions";
 import { getClinicConfig } from "@/lib/clinic-config";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { PatientAppointments } from "@/components/dashboard/PatientAppointments";
 
 export const metadata: Metadata = {
   title: "بوابة المريض | مركز أسما للصحة النفسية",
-  description: "مواعيدك، تقاريرك الطبية، وأدوات الدعم النفسي في مكان واحد.",
+  description: "مواعيدك، تقاريرك الطبية، نتائج المقاييس، وأدوات الدعم النفسي في مكان واحد.",
 };
 
-/**
- * Patient portal.
- *
- * Rebuilt as a Server Component over real data. The previous version read
- * appointments and clinical records out of a React context backed by
- * `localStorage`, which meant a patient's own record could be edited from the
- * browser console. Everything shown here is fetched per request, scoped to the
- * session's user id at the database layer.
- *
- * Settles fees by manual InstaPay / Vodafone Cash transfer, with an auditable
- * Patient Credit Ledger for refunds and adjustments.
- */
 export const dynamic = "force-dynamic";
 
 export default async function PatientDashboardPage() {
   const auth = await requireRolePage(["PATIENT"], "/dashboard/patient");
 
-  const [appointmentsResult, recordsResult, creditResult, csrfToken] = await Promise.all([
-    getMyAppointmentsAction(),
-    getMyClinicalRecordsAction(),
-    getPatientCreditBalanceAction(),
-    readCsrfToken(),
-  ]);
+  const [appointmentsResult, recordsResult, creditResult, assessmentsResult, csrfToken] =
+    await Promise.all([
+      getMyAppointmentsAction(),
+      getMyClinicalRecordsAction(),
+      getPatientCreditBalanceAction(),
+      getMyAssessmentsAction(),
+      readCsrfToken(),
+    ]);
 
   const clinic = getClinicConfig();
   const appointments = appointmentsResult.ok ? appointmentsResult.data : [];
   const records = recordsResult.ok ? recordsResult.data : [];
+  const assessments = assessmentsResult.ok ? assessmentsResult.data : [];
   const creditBalance = creditResult.ok ? creditResult.data.balanceEGP : 0;
   const creditEntries = creditResult.ok ? creditResult.data.entries : [];
 
@@ -238,12 +230,75 @@ export default async function PatientDashboardPage() {
           )}
         </section>
 
+        {/* Clinical Assessments */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-black text-teal-950 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-teal-800" />
+              نتائج مقاييسي النفسية
+            </h2>
+            <Link
+              href="/assessments"
+              className="text-xs font-bold text-teal-800 hover:underline"
+            >
+              إجراء مقياس جديد ←
+            </Link>
+          </div>
+
+          {assessments.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-alabaster-border p-8 text-center space-y-2">
+              <Activity className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-xs text-gray-500 font-semibold">
+                لم تقم بإجراء أي مقاييس نفسية معتمدة بعد.
+              </p>
+              <Link
+                href="/assessments"
+                className="inline-block mt-2 px-4 py-2 bg-teal-800 text-white text-xs font-bold rounded-xl hover:bg-teal-900"
+              >
+                بدء التقييم السريري
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {assessments.slice(0, 4).map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-xs font-black text-slate-900">{item.titleAr}</h3>
+                      <p className="text-[11px] text-slate-500 font-mono">
+                        {formatCairo(new Date(item.completedAtUTC))}
+                      </p>
+                    </div>
+                    <span className="text-xs font-black font-mono text-teal-900 tabular-nums">
+                      {item.totalScore}/{item.maxScore}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 text-[10px] font-bold">
+                      {item.labelAr}
+                    </span>
+                    {item.riskItemEndorsed && (
+                      <span className="px-2 py-0.5 rounded-lg bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold">
+                        مؤشر أمان
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Self-help tools */}
         <section className="space-y-4">
           <h2 className="text-base font-black text-teal-950">أدوات الدعم النفسي</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { href: "/assessments", label: "المقاييس النفسية", sub: "PHQ-9 · GAD-7", icon: Activity },
+              { href: "/assessments", label: "المقاييس النفسية", sub: "8 مقاييس معتمدة", icon: Activity },
               { href: "/safety-plan", label: "خطة الأمان النفسي", sub: "Stanley-Brown", icon: HeartPulse },
               { href: "/intake", label: "الاستبيان الطبي", sub: "توجيه للاستشاري", icon: Stethoscope },
               { href: "/emergency", label: "الطوارئ والتهدئة", sub: "تنفس وتأريض", icon: Headphones },

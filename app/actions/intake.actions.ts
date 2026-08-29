@@ -189,29 +189,45 @@ export async function submitIntakeAction(
             yearsOfExperience: doctor.yearsOfExperience,
           }));
 
-  const intake = await prisma.intakeAssessment.create({
-    data: {
-      patientId: user.id,
-      concernsJson: JSON.stringify(input.concerns),
-      ageGroup: input.ageGroup,
-      therapyHistory: input.therapyHistory,
-      medicationHistory: input.medicationHistory,
-      genderPreference: input.genderPreference,
-      answersJson: JSON.stringify(input.answers),
-      severityScore: scored.severityScore,
-      maxScore: scored.maxScore,
-      urgencyLevel: scored.urgencyLevel,
-      crisisFlagged: scored.crisisFlagged,
-      matchedDoctorIdsJson: JSON.stringify(finalMatches.map((match) => match.id)),
-    },
-    select: { id: true },
+  const outcome = await prisma.$transaction(async (tx) => {
+    const intake = await tx.intakeAssessment.create({
+      data: {
+        patientId: user.id,
+        concernsJson: JSON.stringify(input.concerns),
+        ageGroup: input.ageGroup,
+        therapyHistory: input.therapyHistory,
+        medicationHistory: input.medicationHistory,
+        genderPreference: input.genderPreference,
+        answersJson: JSON.stringify(input.answers),
+        severityScore: scored.severityScore,
+        maxScore: scored.maxScore,
+        urgencyLevel: scored.urgencyLevel,
+        crisisFlagged: scored.crisisFlagged,
+        matchedDoctorIdsJson: JSON.stringify(finalMatches.map((match) => match.id)),
+      },
+      select: { id: true },
+    });
+
+    if (scored.crisisFlagged) {
+      await tx.safetyAlert.create({
+        data: {
+          patientId: user.id,
+          source: "INTAKE",
+          sourceId: intake.id,
+          severity: "CRISIS",
+          detail: "INTAKE_SAFETY",
+        },
+      });
+    }
+
+    return { intakeId: intake.id };
   });
 
   await recordAudit({
     actorId: user.id,
     action: "INTAKE_SUBMITTED",
     entityType: "IntakeAssessment",
-    entityId: intake.id,
+    entityId: outcome.intakeId,
     // Identifiers and bands only — never the free-text or item-level answers.
     metadata: {
       urgencyLevel: scored.urgencyLevel,
@@ -224,7 +240,7 @@ export async function submitIntakeAction(
   revalidatePath("/dashboard/admin");
 
   return success({
-    intakeId: intake.id,
+    intakeId: outcome.intakeId,
     severityScore: scored.severityScore,
     maxScore: scored.maxScore,
     urgencyLevel: scored.urgencyLevel,

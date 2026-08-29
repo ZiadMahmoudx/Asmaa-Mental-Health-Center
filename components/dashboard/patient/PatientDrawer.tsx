@@ -19,7 +19,11 @@ import {
 import type { AssessmentHistoryRow } from "@/app/actions/assessments.actions";
 import type { SafetyPlanView } from "@/app/actions/safety-plan.actions";
 import type { ClinicalRecordView } from "@/app/actions/doctor.actions";
-import { ASSESSMENT_SCALES, type AssessmentType } from "@/lib/content/assessment-scales";
+import {
+  ASSESSMENT_SCALES,
+  ASSESSMENT_TYPES,
+  type AssessmentType,
+} from "@/lib/content/assessment-scales";
 
 interface Props {
   patientName: string;
@@ -41,12 +45,16 @@ export function PatientDrawer({
   const [activeTab, setActiveTab] = useState<"SCALES" | "SAFETY_PLAN" | "HISTORY">("SCALES");
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
-  // Group assessments strictly by scale type
-  const phq9List = assessments.filter((a) => a.type === "PHQ9");
-  const gad7List = assessments.filter((a) => a.type === "GAD7");
-  const isiList = assessments.filter((a) => a.type === "ISI");
-
   const hasAnySafetyFlag = assessments.some((a) => a.riskItemEndorsed);
+
+  // Group assessments dynamically by scale type
+  const assessmentsByType = ASSESSMENT_TYPES.reduce((acc, type) => {
+    const list = assessments.filter((a) => a.type === type);
+    if (list.length > 0) acc[type] = list;
+    return acc;
+  }, {} as Record<AssessmentType, AssessmentHistoryRow[]>);
+
+  const activeScaleTypes = Object.keys(assessmentsByType) as AssessmentType[];
 
   return (
     <aside
@@ -67,7 +75,7 @@ export function PatientDrawer({
               {hasAnySafetyFlag && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
                   <ShieldAlert className="w-3 h-3 text-red-600" />
-                  مؤشر أمان سابق
+                  مؤشر أمان سريري
                 </span>
               )}
             </div>
@@ -133,34 +141,20 @@ export function PatientDrawer({
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {/* TAB 1: SCALES */}
         {activeTab === "SCALES" && (
-          <div className="space-y-5">
-            {assessments.length === 0 ? (
+          <div className="space-y-4">
+            {activeScaleTypes.length === 0 ? (
               <div className="text-center py-10 text-slate-400 text-sm">
-                لم يقم المريض بإجراء أي مقاييس مقننة بعد.
+                لم يقم المريض بإجراء أي مقاييس مقننة مكتملة بعد.
               </div>
             ) : (
-              <>
-                {/* PHQ-9 Section */}
+              activeScaleTypes.map((type) => (
                 <ScaleGroupSection
-                  title="مقياس الاكتئاب السريري (PHQ-9)"
-                  type="PHQ9"
-                  items={phq9List}
+                  key={type}
+                  title={ASSESSMENT_SCALES[type].titleAr}
+                  type={type}
+                  items={assessmentsByType[type]}
                 />
-
-                {/* GAD-7 Section */}
-                <ScaleGroupSection
-                  title="مقياس القلق المعمم (GAD-7)"
-                  type="GAD7"
-                  items={gad7List}
-                />
-
-                {/* ISI Section */}
-                <ScaleGroupSection
-                  title="مؤشر شدة الأرق (ISI)"
-                  type="ISI"
-                  items={isiList}
-                />
-              </>
+              ))
             )}
           </div>
         )}
@@ -394,7 +388,6 @@ function ScaleGroupSection({
   items: AssessmentHistoryRow[];
 }) {
   if (items.length === 0) return null;
-  const maxScore = ASSESSMENT_SCALES[type].questions.length * 3;
   const latest = items[0];
 
   return (
@@ -403,7 +396,7 @@ function ScaleGroupSection({
         <div>
           <h4 className="font-bold text-slate-900 text-sm">{title}</h4>
           <p className="text-xs text-slate-500">
-            أحدث نتيجة: <strong>{latest.totalScore} / {maxScore}</strong> — {latest.labelAr}
+            أحدث نتيجة: <strong>{latest.totalScore} / {latest.maxScore}</strong> — {latest.labelAr}
           </p>
         </div>
 
@@ -415,11 +408,26 @@ function ScaleGroupSection({
         )}
       </div>
 
+      {/* Subscale breakdown if present on latest */}
+      {latest.subscaleScores && latest.subscaleScores.length > 0 && (
+        <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1.5">
+          <p className="text-[10px] font-bold text-slate-500 uppercase">الأبعاد السريرية التفصيلية:</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {latest.subscaleScores.map((sub) => (
+              <div key={sub.key} className="text-[11px] flex justify-between">
+                <span className="text-slate-600">{sub.labelAr}:</span>
+                <span className="font-mono font-bold text-slate-900">{sub.score}/{sub.maxScore}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Trajectory Timeline */}
       <div className="space-y-1.5 pt-2 border-t border-slate-200">
         <div className="text-[11px] font-semibold text-slate-500 mb-1">مسار التطور التاريخي:</div>
         {items.slice(0, 5).map((item) => {
-          const percent = Math.min(Math.round((item.totalScore / maxScore) * 100), 100);
+          const percent = Math.min(Math.round((item.totalScore / item.maxScore) * 100), 100);
           return (
             <div key={item.id} className="space-y-0.5">
               <div className="flex items-center justify-between text-[11px]">
@@ -430,7 +438,7 @@ function ScaleGroupSection({
                   })}
                 </span>
                 <span className="font-bold text-slate-800">
-                  {item.totalScore}/{maxScore} ({item.labelAr})
+                  {item.totalScore}/{item.maxScore} ({item.labelAr})
                 </span>
               </div>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -448,3 +456,4 @@ function ScaleGroupSection({
     </div>
   );
 }
+

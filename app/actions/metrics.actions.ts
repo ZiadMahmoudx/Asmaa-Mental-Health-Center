@@ -99,7 +99,7 @@ export async function getClinicMetricsAction(): Promise<ActionResult<ClinicMetri
     }),
     prisma.intakeAssessment.count({ where: { crisisFlagged: true, reviewedAt: null } }),
     prisma.clinicalAssessment.count({
-      where: { riskItemEndorsed: true, completedAt: { gte: thirtyDaysAgo } },
+      where: { status: "COMPLETED", riskItemEndorsed: true, completedAt: { gte: thirtyDaysAgo } },
     }),
     prisma.appointment.count({
       where: { type: "ONLINE", status: { in: ["CONFIRMED", "COMPLETED"] } },

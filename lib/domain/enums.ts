@@ -87,6 +87,39 @@ export const CREDIT_KINDS = [
 export type CreditKind = (typeof CREDIT_KINDS)[number];
 
 // ---------------------------------------------------------------------------
+// Safety Alerts & Clinical Assessment Statuses
+// ---------------------------------------------------------------------------
+
+export const SAFETY_ALERT_SOURCES = ["INTAKE", "ASSESSMENT"] as const;
+export type SafetyAlertSource = (typeof SAFETY_ALERT_SOURCES)[number];
+
+export const SAFETY_ALERT_SEVERITIES = ["CRISIS", "ELEVATED"] as const;
+export type SafetyAlertSeverity = (typeof SAFETY_ALERT_SEVERITIES)[number];
+
+export const SAFETY_ALERT_OUTCOMES = [
+  "CONTACTED",
+  "NO_ANSWER",
+  "ESCALATED_EMERGENCY",
+  "FALSE_POSITIVE",
+] as const;
+export type SafetyAlertOutcome = (typeof SAFETY_ALERT_OUTCOMES)[number];
+
+export const ASSESSMENT_STATUSES = ["DRAFT", "COMPLETED"] as const;
+export type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
+
+export const ASSESSMENT_TYPES = [
+  "PHQ9",
+  "GAD7",
+  "ISI",
+  "PCL5",
+  "OCIR",
+  "AUDIT",
+  "DAST10",
+  "ASRS",
+] as const;
+export type AssessmentType = (typeof ASSESSMENT_TYPES)[number];
+
+// ---------------------------------------------------------------------------
 // Narrowing helpers
 // ---------------------------------------------------------------------------
 
@@ -106,6 +139,11 @@ export const isAppointmentStatus = makeGuard(APPOINTMENT_STATUSES);
 export const isPaymentMethod = makeGuard(PAYMENT_METHODS);
 export const isPaymentProofStatus = makeGuard(PAYMENT_PROOF_STATUSES);
 export const isCreditKind = makeGuard(CREDIT_KINDS);
+export const isSafetyAlertSource = makeGuard(SAFETY_ALERT_SOURCES);
+export const isSafetyAlertSeverity = makeGuard(SAFETY_ALERT_SEVERITIES);
+export const isSafetyAlertOutcome = makeGuard(SAFETY_ALERT_OUTCOMES);
+export const isAssessmentStatus = makeGuard(ASSESSMENT_STATUSES);
+export const isAssessmentType = makeGuard(ASSESSMENT_TYPES);
 
 /**
  * Narrow a database string, falling back to a safe default if the row somehow
@@ -136,4 +174,26 @@ export function asPaymentProofStatus(value: string): PaymentProofStatus {
 export function asCreditKind(value: string): CreditKind {
   return isCreditKind(value) ? value : "MANUAL_ADJUSTMENT";
 }
+
+export function asSafetyAlertSource(value: string): SafetyAlertSource {
+  return isSafetyAlertSource(value) ? value : "ASSESSMENT";
+}
+
+export function asSafetyAlertSeverity(value: string): SafetyAlertSeverity {
+  return isSafetyAlertSeverity(value) ? value : "ELEVATED";
+}
+
+export function asSafetyAlertOutcome(value: string | null): SafetyAlertOutcome | null {
+  if (!value) return null;
+  return isSafetyAlertOutcome(value) ? value : null;
+}
+
+export function asAssessmentStatus(value: string): AssessmentStatus {
+  return isAssessmentStatus(value) ? value : "COMPLETED";
+}
+
+export function asAssessmentType(value: string): AssessmentType {
+  return isAssessmentType(value) ? value : "PHQ9";
+}
+
 

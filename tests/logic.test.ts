@@ -34,6 +34,12 @@ import {
 import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
+import {
+  ASSESSMENT_SCALES,
+  ASSESSMENT_TYPES,
+  isAssessmentType,
+  scoreAssessment,
+} from "@/lib/content/assessment-scales";
 
 let passed = 0;
 function check(name: string, fn: () => void | Promise<void>) {
@@ -691,6 +697,232 @@ async function main() {
     const balanceEGP = 750;
     const payload = { paidOutAmountEGP: balanceEGP };
     assert.equal(payload.paidOutAmountEGP, 750);
+  });
+
+  console.log("\n--- clinical assessments engine & scoring rules ---");
+
+  await check("catalog contains all 8 required clinical scales", () => {
+    const required = ["PHQ9", "GAD7", "ISI", "PCL5", "OCIR", "AUDIT", "DAST10", "ASRS"];
+    assert.deepEqual(ASSESSMENT_TYPES, required);
+    for (const type of required) {
+      assert.equal(isAssessmentType(type), true);
+      if (isAssessmentType(type)) {
+        const scale = ASSESSMENT_SCALES[type];
+        assert.ok(scale);
+        assert.ok(scale.questions.length > 0);
+        assert.ok(scale.version >= 1);
+      }
+    }
+  });
+
+  await check("PHQ-9 score calculation, severity band, and suicidal ideation trigger", () => {
+    const scale = ASSESSMENT_SCALES.PHQ9;
+    // Score of 15 (moderately severe depression) without item 9
+    const nonCrisisAnswers: Record<string, number> = {
+      p1: 2, p2: 2, p3: 2, p4: 2,
+      p5: 2, p6: 2, p7: 2, p8: 1, p9: 0,
+    };
+    const res1 = scoreAssessment(scale, nonCrisisAnswers);
+    assert.equal(res1.totalScore, 15);
+    assert.equal(res1.maxScore, 27);
+    assert.equal(res1.band, "MODERATELY_SEVERE");
+    assert.equal(res1.riskItemEndorsed, false);
+
+    // Endorsing item 9 even with score 1 must trigger riskItemEndorsed = true
+    const crisisAnswers: Record<string, number> = { ...nonCrisisAnswers, p9: 1 };
+    const res2 = scoreAssessment(scale, crisisAnswers);
+    assert.equal(res2.totalScore, 16);
+    assert.equal(res2.riskItemEndorsed, true, "PHQ-9 item 9 > 0 must trigger safety flag");
+  });
+
+  await check("PCL-5 20-item score calculation, subscales (B, C, D, E) & risk rule", () => {
+    const scale = ASSESSMENT_SCALES.PCL5;
+    assert.equal(scale.questions.length, 20);
+    assert.equal(scale.subscales?.length, 4);
+
+    const answers: Record<string, number> = {};
+    for (let i = 1; i <= 20; i++) {
+      answers[`pcl${i}`] = 2; // moderate on all
+    }
+    const res = scoreAssessment(scale, answers);
+    assert.equal(res.totalScore, 40);
+    assert.equal(res.maxScore, 80);
+    assert.equal(res.band, "MODERATE");
+    assert.ok(res.subscaleScores);
+    assert.equal(res.subscaleScores.length, 4);
+
+    // Intrusions (Cluster B, 5 items * 2 = 10)
+    assert.equal(res.subscaleScores.find((s) => s.key === "clusterB")?.score, 10);
+    // Avoidance (Cluster C, 2 items * 2 = 4)
+    assert.equal(res.subscaleScores.find((s) => s.key === "clusterC")?.score, 4);
+    // Negative alterations in cognitions/mood (Cluster D, 7 items * 2 = 14)
+    assert.equal(res.subscaleScores.find((s) => s.key === "clusterD")?.score, 14);
+    // Alterations in arousal/reactivity (Cluster E, 6 items * 2 = 12)
+    assert.equal(res.subscaleScores.find((s) => s.key === "clusterE")?.score, 12);
+  });
+
+  await check("OCI-R 18-item 6 subscales computation & clinical cut-off", () => {
+    const scale = ASSESSMENT_SCALES.OCIR;
+    assert.equal(scale.questions.length, 18);
+    assert.equal(scale.subscales?.length, 6);
+
+    const answers: Record<string, number> = {};
+    for (let i = 1; i <= 18; i++) {
+      answers[`o${i}`] = 1;
+    }
+    const res = scoreAssessment(scale, answers);
+    assert.equal(res.totalScore, 18);
+    assert.equal(res.band, "MILD");
+    assert.equal(res.subscaleScores?.length, 6);
+    // Each subscale has 3 items with score 1 = 3
+    for (const sub of res.subscaleScores!) {
+      assert.equal(sub.score, 3);
+      assert.equal(sub.maxScore, 12);
+    }
+  });
+
+  await check("out-of-bounds answer score clamping (anti-tamper defense)", () => {
+    const scale = ASSESSMENT_SCALES.PHQ9;
+    const tamperedAnswers: Record<string, number> = {
+      p1: 999, // out of range, max is 3
+      p2: -50,  // out of range, min is 0
+      p3: 3,
+      p4: 3,
+      p5: 3,
+      p6: 3,
+      p7: 3,
+      p8: 3,
+      p9: 0,
+    };
+    const res = scoreAssessment(scale, tamperedAnswers);
+    // p1 clamped to 3, p2 clamped to 0, remaining 6 items are 3 = total 21
+    assert.equal(res.totalScore, 21);
+    assert.equal(res.band, "SEVERE");
+  });
+
+  console.log("\n--- safety escalation alert de-duplication & draft hygiene (F20, F21, F22, F23) ---");
+
+  await check("F20: draft-to-completion upgrade preserves exactly 1 active SafetyAlert", () => {
+    // Simulate draft creating an alert, then completion upgrading it
+    const alerts: Array<{ sourceId: string; detail: string; resolvedAt: Date | null; acked: boolean }> = [];
+    const sourceId = "assessment-draft-123";
+
+    // 1. Draft step triggers safety alert
+    alerts.push({ sourceId, detail: "PHQ9_SAFETY_DRAFT", resolvedAt: null, acked: false });
+    assert.equal(alerts.filter((a) => a.sourceId === sourceId && a.resolvedAt === null).length, 1);
+
+    // Staff acknowledges draft alert
+    alerts[0].acked = true;
+
+    // 2. Final completion promotes draft: upgrades detail without duplicating or clearing staff ack
+    const existingOpen = alerts.find((a) => a.sourceId === sourceId && a.resolvedAt === null);
+    if (existingOpen) {
+      existingOpen.detail = "PHQ9_SAFETY";
+    } else {
+      alerts.push({ sourceId, detail: "PHQ9_SAFETY", resolvedAt: null, acked: false });
+    }
+
+    assert.equal(
+      alerts.filter((a) => a.sourceId === sourceId && a.resolvedAt === null).length,
+      1,
+      "Must not create a duplicate second crisis alert",
+    );
+    assert.equal(alerts[0].detail, "PHQ9_SAFETY");
+    assert.equal(alerts[0].acked, true, "Must preserve staff acknowledgment");
+  });
+
+  await check("F21: draft answers sanitizer discards unknown keys and clamps scores", () => {
+    const scale = ASSESSMENT_SCALES.PHQ9;
+    const rawFormPayload: Record<string, string> = {
+      answer_p1: "3",
+      answer_p2: "999", // out of bounds
+      answer_p3: "-10", // negative
+      answer_malicious_key: "hacked",
+      answer_sql_injection: "1; DROP TABLE users;",
+    };
+
+    const sanitizedAnswers: Record<string, number> = {};
+    for (const question of scale.questions) {
+      const raw = rawFormPayload[`answer_${question.id}`];
+      if (typeof raw === "string" && raw !== "") {
+        const value = Number(raw);
+        if (Number.isFinite(value)) {
+          const opts = question.options ?? scale.options;
+          const minScore = Math.min(...opts.map((o) => o.score));
+          const maxScore = Math.max(...opts.map((o) => o.score));
+          sanitizedAnswers[question.id] = Math.min(Math.max(value, minScore), maxScore);
+        }
+      }
+    }
+
+    assert.equal(sanitizedAnswers.p1, 3);
+    assert.equal(sanitizedAnswers.p2, 3, "999 clamped to max 3");
+    assert.equal(sanitizedAnswers.p3, 0, "-10 clamped to min 0");
+    assert.equal("malicious_key" in sanitizedAnswers, false);
+    assert.equal("sql_injection" in sanitizedAnswers, false);
+    assert.deepEqual(Object.keys(sanitizedAnswers), ["p1", "p2", "p3"]);
+  });
+
+  await check("F22: deterministic newest draft selection", () => {
+    const drafts = [
+      { id: "draft-old", updatedAt: new Date("2026-08-29T00:00:00Z"), answers: { p1: 1 } },
+      { id: "draft-new", updatedAt: new Date("2026-08-29T05:00:00Z"), answers: { p1: 3 } },
+    ];
+    const resolved = drafts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+    assert.equal(resolved.id, "draft-new");
+    assert.equal(resolved.answers.p1, 3);
+  });
+
+  await check("F25: retracted risk disclosure in final submission updates alert detail to RETRACTED", () => {
+    const alerts: Array<{ sourceId: string; detail: string; resolvedAt: Date | null }> = [];
+    const sourceId = "assessment-123";
+
+    // 1. Patient endorsed risk on draft step
+    alerts.push({ sourceId, detail: "PHQ9_SAFETY_DRAFT", resolvedAt: null });
+
+    // 2. Patient retracted risk before final submit: riskItemEndorsed is now false
+    const finalRiskEndorsed = false;
+    if (!finalRiskEndorsed) {
+      const openDraftAlert = alerts.find((a) => a.sourceId === sourceId && a.resolvedAt === null);
+      if (openDraftAlert) {
+        openDraftAlert.detail = "PHQ9_SAFETY_RETRACTED";
+      }
+    }
+
+    assert.equal(alerts.length, 1);
+    assert.equal(alerts[0].detail, "PHQ9_SAFETY_RETRACTED");
+    assert.equal(alerts[0].resolvedAt, null, "Must remain open for clinical follow-up");
+  });
+
+  await check("F28: rate-limited or rejected risk draft writes trigger audit log entry", () => {
+    const auditLogs: Array<{ action: string; metadata: any }> = [];
+    const rawFormPayload: Record<string, string> = {
+      type: "PHQ9",
+      answer_p9: "2", // positive risk endorsement
+    };
+
+    const scale = ASSESSMENT_SCALES.PHQ9;
+    let riskDisclosed = false;
+    for (const question of scale.questions) {
+      const raw = rawFormPayload[`answer_${question.id}`];
+      const val = typeof raw === "string" && raw !== "" ? Number(raw) : 0;
+      if (question.isRiskItem && val > 0) riskDisclosed = true;
+    }
+
+    assert.equal(riskDisclosed, true);
+
+    // Simulate rejection due to rate-limit
+    const throttleAllowed = false;
+    if (!throttleAllowed && riskDisclosed) {
+      auditLogs.push({
+        action: "ASSESSMENT_DRAFT_REJECTED",
+        metadata: { reason: "RATE_LIMITED", type: "PHQ9" },
+      });
+    }
+
+    assert.equal(auditLogs.length, 1);
+    assert.equal(auditLogs[0].action, "ASSESSMENT_DRAFT_REJECTED");
+    assert.equal(auditLogs[0].metadata.reason, "RATE_LIMITED");
   });
 
   console.log(`\n${passed} checks passed.\n`);

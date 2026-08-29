@@ -87,6 +87,9 @@ model User {
   patientCredits          PatientCredit[]         @relation("PatientCredits")
   creditsIssued           PatientCredit[]         @relation("CreditIssuer")
   creditsSettled          PatientCredit[]         @relation("CreditSettler")
+  safetyAlerts            SafetyAlert[]           @relation("PatientSafetyAlerts")
+  acknowledgedAlerts      SafetyAlert[]           @relation("SafetyAlertAcknowledger")
+  resolvedAlerts          SafetyAlert[]           @relation("SafetyAlertResolver")
 
   @@index([role])
   @@index([phone])
@@ -425,7 +428,7 @@ model IntakeAssessment {
   @@map("intake_assessments")
 }
 
-/// A completed standardised screening scale (PHQ-9, GAD-7, ISI).
+/// A completed standardised screening scale (PHQ-9, GAD-7, ISI, PCL-5, OCI-R, etc.).
 ///
 /// The score is always recomputed on the server from `answersJson` — a total
 /// posted by the client is never stored, because a doctor reads these numbers.
@@ -433,8 +436,14 @@ model ClinicalAssessment {
   id        String @id @default(cuid()) @db.NVarChar(30)
   patientId String @db.NVarChar(30)
 
-  /// PHQ9 | GAD7 | ISI (lib/content/assessment-scales.ts)
+  /// PHQ9 | GAD7 | ISI | PCL5 | OCIR | AUDIT | DAST10 | ASRS (lib/domain/enums.ts)
   type String @db.NVarChar(20)
+
+  /// Scale definition version administered, to ensure longitudinal comparability (F2.2).
+  scaleVersion Int @default(1)
+
+  /// DRAFT | COMPLETED (lib/domain/enums.ts)
+  status String @default("COMPLETED") @db.NVarChar(20)
 
   answersJson String @default("{}") @db.NVarChar(Max)
   totalScore  Int
@@ -446,14 +455,52 @@ model ClinicalAssessment {
   /// True when a safety-flagged item (e.g. PHQ-9 item 9) was endorsed.
   riskItemEndorsed Boolean @default(false)
 
-  completedAt DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   patient User @relation("PatientAssessments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([patientId, completedAt])
-  @@index([type, completedAt])
-  @@index([riskItemEndorsed, completedAt])
+  @@index([patientId, status, completedAt])
+  @@index([type, status, completedAt])
+  @@index([riskItemEndorsed, status, completedAt])
   @@map("clinical_assessments")
+}
+
+/// Unified clinical safety alert triggered by crisis disclosures in intake or standardized scales.
+model SafetyAlert {
+  id        String @id @default(cuid()) @db.NVarChar(30)
+  patientId String @db.NVarChar(30)
+
+  /// INTAKE | ASSESSMENT (lib/domain/enums.ts)
+  source   String @db.NVarChar(20)
+  sourceId String @db.NVarChar(30)
+
+  /// CRISIS | ELEVATED (lib/domain/enums.ts)
+  severity String @db.NVarChar(20)
+
+  /// Short machine string e.g. "PHQ9_ITEM9", "INTAKE_SAFETY", "PCL5_HIGH" (never free-text PHI)
+  detail String @db.NVarChar(50)
+
+  acknowledgedAt   DateTime?
+  acknowledgedById String?   @db.NVarChar(30)
+
+  resolvedAt      DateTime?
+  resolvedById    String?   @db.NVarChar(30)
+  /// CONTACTED | NO_ANSWER | ESCALATED_EMERGENCY | FALSE_POSITIVE (lib/domain/enums.ts)
+  outcome         String?   @db.NVarChar(30)
+  resolutionNotes String?   @db.NVarChar(500)
+
+  createdAt DateTime @default(now())
+
+  patient        User  @relation("PatientSafetyAlerts", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  acknowledgedBy User? @relation("SafetyAlertAcknowledger", fields: [acknowledgedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolvedBy     User? @relation("SafetyAlertResolver", fields: [resolvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patientId, createdAt])
+  @@index([acknowledgedAt, createdAt])
+  @@index([severity, resolvedAt])
+  @@map("safety_alerts")
 }
 
 /// Stanley-Brown safety plan. One live plan per patient, revised in place —

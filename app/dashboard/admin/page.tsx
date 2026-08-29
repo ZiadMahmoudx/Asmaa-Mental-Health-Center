@@ -20,32 +20,24 @@ import { requireRolePage } from "@/lib/auth/guards";
 import { readCsrfToken } from "@/lib/auth/csrf";
 import { getClinicMetricsAction, getDoctorRosterAction } from "@/app/actions/metrics.actions";
 import { getFlaggedIntakesAction } from "@/app/actions/intake.actions";
+import { getOpenSafetyAlertsAction } from "@/app/actions/safety.actions";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
-import { CrisisIntakeQueue } from "@/components/admin/CrisisIntakeQueue";
+import { SafetyAlertQueue } from "@/components/admin/SafetyAlertQueue";
 
 export const metadata: Metadata = {
   title: "لوحة الإدارة | مركز أسما للصحة النفسية",
-  description: "مؤشرات التشغيل، قائمة الاستشاريين، وحالات الفرز العاجلة.",
+  description: "مؤشرات التشغيل، قائمة الاستشاريين، وطابور طوارئ الأمان النفسي الموحد.",
 };
 
-/**
- * Admin overview.
- *
- * Every number on this page is a query against the live database. The version
- * this replaces displayed hard-coded literals, which looked like reporting but
- * could not be acted on. Where the platform does not yet collect a metric —
- * patient satisfaction ratings, for example — it is simply not shown rather
- * than fabricated.
- */
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requireRolePage(["ADMIN"], "/dashboard/admin");
 
-  const [metricsResult, rosterResult, intakesResult, csrfToken] = await Promise.all([
+  const [metricsResult, rosterResult, safetyAlertsResult, csrfToken] = await Promise.all([
     getClinicMetricsAction(),
     getDoctorRosterAction(),
-    getFlaggedIntakesAction(10),
+    getOpenSafetyAlertsAction(),
     readCsrfToken(),
   ]);
 
@@ -62,8 +54,8 @@ export default async function AdminDashboardPage() {
 
   const metrics = metricsResult.data;
   const roster = rosterResult.ok ? rosterResult.data : [];
-  const flaggedIntakes = intakesResult.ok ? intakesResult.data : [];
-  const unreviewedFlagged = flaggedIntakes.filter((intake) => !intake.reviewedAtUTC);
+  const openSafetyAlerts = safetyAlertsResult.ok ? safetyAlertsResult.data : [];
+  const unacknowledgedAlerts = openSafetyAlerts.filter((alert) => !alert.acknowledgedAtUTC);
 
   return (
     <div className="min-h-screen py-8 bg-alabaster-base">
@@ -128,7 +120,7 @@ export default async function AdminDashboardPage() {
         </header>
 
         {/* Things that need a human today */}
-        {(metrics.pendingReceipts > 0 || unreviewedFlagged.length > 0) && (
+        {(metrics.pendingReceipts > 0 || unacknowledgedAlerts.length > 0) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {metrics.pendingReceipts > 0 && (
               <Link
@@ -147,15 +139,15 @@ export default async function AdminDashboardPage() {
               </Link>
             )}
 
-            {unreviewedFlagged.length > 0 && (
-              <div className="p-5 rounded-3xl bg-crisis-light border border-crisis/30 flex items-center gap-4">
-                <ShieldAlert className="w-8 h-8 text-crisis shrink-0" />
+            {unacknowledgedAlerts.length > 0 && (
+              <div className="p-5 rounded-3xl bg-red-50 border border-red-200 flex items-center gap-4">
+                <ShieldAlert className="w-8 h-8 text-red-600 shrink-0" />
                 <div>
-                  <p className="text-sm font-black text-crisis-dark">
-                    {unreviewedFlagged.length} حالة فرز عاجلة
+                  <p className="text-sm font-black text-red-950">
+                    {unacknowledgedAlerts.length} بلاغ طوارئ أمان نفسي بانتظار الاستلام
                   </p>
-                  <p className="text-[11px] text-crisis-dark">
-                    مرضى أشاروا لأفكار إيذاء النفس ولم تتم مراجعتهم بعد.
+                  <p className="text-[11px] text-red-800">
+                    مرضى أشاروا لأفكار إيذاء النفس في المقاييس أو الاستبيان.
                   </p>
                 </div>
               </div>
@@ -163,51 +155,13 @@ export default async function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Operational metrics */}
-        <section className="space-y-3">
-          <h2 className="text-base font-black text-teal-950">مؤشرات التشغيل</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Metric icon={CheckCircle2} label="جلسات مكتملة" value={String(metrics.completedSessions)} />
-            <Metric icon={CalendarCheck} label="جلسات مؤكدة قادمة" value={String(metrics.confirmedUpcoming)} />
-            <Metric icon={Clock3} label="حجوزات بانتظار الدفع" value={String(metrics.openHolds)} tone={metrics.openHolds > 0 ? "warn" : undefined} />
-            <Metric icon={Users} label="مرضى مسجّلون" value={String(metrics.activePatients)} />
-            <Metric icon={Stethoscope} label="استشاريون نشطون" value={`${metrics.acceptingDoctors} / ${metrics.activeDoctors}`} />
-            <Metric icon={CalendarCheck} label="جلسات آخر 30 يوماً" value={String(metrics.sessionsLast30Days)} />
-            <Metric icon={Banknote} label="إيراد الجلسات المكتملة" value={formatEgp(metrics.completedRevenueEGP)} />
-            <Metric icon={Banknote} label="إيراد مؤكد قادم" value={formatEgp(metrics.confirmedPipelineEGP)} />
-          </div>
-        </section>
-
-        {/* Delivery mix */}
-        <section className="bg-white rounded-3xl border border-alabaster-border shadow-sm p-6 space-y-4">
-          <h2 className="text-sm font-extrabold text-teal-950">توزيع نوع الجلسات</h2>
-          {metrics.onlineShare + metrics.offlineShare === 0 ? (
-            <p className="text-xs text-gray-500">لا توجد جلسات مؤكدة بعد لحساب التوزيع.</p>
-          ) : (
-            <div className="space-y-3">
-              <ShareBar
-                icon={Video}
-                label="أونلاين عبر زووم"
-                percent={metrics.onlineShare}
-                className="bg-teal-700"
-              />
-              <ShareBar
-                icon={Building2}
-                label="حضورية بالعيادة"
-                percent={metrics.offlineShare}
-                className="bg-sage-600"
-              />
-            </div>
-          )}
-        </section>
-
-        {/* Crisis triage queue */}
+        {/* Unified Safety Alert Queue */}
         <section className="space-y-3">
           <h2 className="text-base font-black text-teal-950 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-crisis" />
-            حالات الفرز العاجلة
+            <ShieldAlert className="w-5 h-5 text-red-600" />
+            طوارئ الأمان النفسي وبلاغات الخطورة
           </h2>
-          <CrisisIntakeQueue intakes={flaggedIntakes} csrfToken={csrfToken} />
+          <SafetyAlertQueue alerts={openSafetyAlerts} csrfToken={csrfToken} />
         </section>
 
         {/* Roster */}
