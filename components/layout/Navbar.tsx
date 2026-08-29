@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
 
   // Secondary Services in Clean Dropdown
   const moreServices = [
-    { href: "/assessments", labelAr: "المقاييس النفسية (PHQ-9 / GAD-7)", labelEn: "Psychometric Tests", icon: Activity },
+    { href: "/assessments", labelAr: "المقاييس النفسية السريرية", labelEn: "Clinical Self-Assessments", icon: Activity },
     { href: "/safety-plan", labelAr: "خطة الأمان النفسي (Stanley-Brown)", labelEn: "Psychiatric Safety Plan", icon: ShieldCheck },
     { href: "/emergency", labelAr: "الطوارئ وأدوات التهدئة الفورية", labelEn: "Emergency & Calming Tools", icon: Activity },
     { href: "/faq", labelAr: "ميثاق السرية والأسئلة الشائعة", labelEn: "Clinical Ethics & FAQ", icon: Lock },
@@ -75,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, csrfToken }) => {
                 {language === "ar" ? "مركز أسما" : "Asmaa Clinic"}
               </span>
               <span className="text-[11px] font-medium text-sage-600 tracking-wide">
-                {language === "ar" ? "للطب النفسي وعلاج الإدمان" : "Psychiatry & Telehealth"}
+                {language === "ar" ? "للطب النفسي والعلاج النفسي" : "Psychiatry & Psychotherapy"}
               </span>
             </div>
           </Link>

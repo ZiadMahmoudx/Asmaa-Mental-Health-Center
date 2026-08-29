@@ -18,10 +18,25 @@ export const metadata: Metadata = {
  * session, because the result is a clinical record about a named person and the
  * clinic acts on its crisis flag.
  */
+import { isConcernTag } from "@/lib/content/intake";
+
 export const dynamic = "force-dynamic";
 
-export default async function IntakePage() {
-  const [auth, csrfToken] = await Promise.all([getAuthContext(), ensureCsrfToken()]);
+export default async function IntakePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ concern?: string }>;
+}) {
+  const [auth, csrfToken, params] = await Promise.all([
+    getAuthContext(),
+    ensureCsrfToken(),
+    searchParams,
+  ]);
+
+  const initialConcern =
+    typeof params?.concern === "string" && isConcernTag(params.concern)
+      ? params.concern
+      : null;
 
   return (
     <div className="min-h-screen py-10 bg-alabaster-base">
@@ -40,7 +55,11 @@ export default async function IntakePage() {
           </p>
         </header>
 
-        <IntakeWizard csrfToken={csrfToken} isAuthenticated={Boolean(auth)} />
+        <IntakeWizard
+          csrfToken={csrfToken}
+          isAuthenticated={Boolean(auth)}
+          initialConcern={initialConcern}
+        />
       </div>
     </div>
   );

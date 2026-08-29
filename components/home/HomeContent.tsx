@@ -118,8 +118,8 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
     {
       qAr: "كيف تضمنون سرية وخصوصية جلساتي الطبية؟",
       qEn: "How do you guarantee the confidentiality and privacy of my sessions?",
-      aAr: "تُدار سجلاتك الطبية وفق معايير الخصوصية الصحية المعتمدة: بياناتك مخزّنة على خوادم المركز بصلاحيات وصول صارمة، ولا يطّلع على ملفك سوى استشاريك المعالج، ويُسجَّل كل اطلاع على السجل في سجل تدقيق. تُعقد الجلسات الأونلاين عبر منصة زووم المؤمّنة، والمركز لا يسجّل أو يحتفظ بأي تسجيل فيديو للجلسات.",
-      aEn: "Your records are handled under recognised health-privacy practice: data is stored on the clinic's servers under strict access control, only your treating consultant can open your file, and every access is written to an audit log. Online sessions run on Zoom, and the clinic neither records nor stores any session video.",
+      aAr: "تُدار سجلاتك الطبية وفق معايير الخصوصية الصحية الصارمة: بياناتك مخزّنة على خوادم المركز تحت حماية مشددة، ولا يطّلع على ملفك سوى استشاريك المعالج، ويُسجَّل كل اطلاع على السجل في سجل تدقيق دائم. تُعقد الجلسات الأونلاين عبر منصة زووم المؤمّنة، والمركز لا يسجّل أو يحتفظ بأي تسجيل للجلسات.",
+      aEn: "Your records are handled under strict health-privacy protocols: data is stored securely on clinic servers, only your treating consultant can open your file, and every access is written to an immutable audit log. Online sessions run on secure Zoom rooms, and the clinic neither records nor stores any session video.",
     },
     {
       qAr: "ما الفرق بين الطبيب النفسي (Psychiatrist) والمعالج النفسي (Psychotherapist)؟",
@@ -128,16 +128,16 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
       aEn: "A Psychiatrist is a medical doctor specialized in mental health authorized to diagnose and prescribe psychiatric medications when needed. A Psychotherapist specializes in clinical psychology, providing talk therapies such as CBT, DBT, and couples counseling.",
     },
     {
-      qAr: "هل الجلسات عبر الإنترنت فعالة مثل الحضور للعيادة؟",
-      qEn: "Is online telepsychiatry as effective as in-person clinic visits?",
-      aAr: "تؤكد الأبحاث والدراسات المعتمدة من الجمعية الأمريكية للطب النفسي (APA) أن العلاج النفسي عن بُعد يحقق نفس معدلات النجاح السريري للجلسات الحضورية، مع ميزة إضافية هي الراحة وتوفير الوقت وحرية التحدث من مساحتك الخاصة الأكثر أماناً.",
-      aEn: "Numerous peer-reviewed clinical studies by the APA confirm that telepsychiatry and online psychotherapy achieve identical clinical efficacy to in-person sessions, while offering greater comfort, accessibility, and privacy.",
+      qAr: "هل الجلسات عبر الإنترنت فعالة مقارنة بالحضور للعيادة؟",
+      qEn: "How effective is telepsychiatry compared to in-person clinic visits?",
+      aAr: "تؤكد الأبحاث والدراسات المعتمدة أن العلاج النفسي عن بُعد يحقق نتائج سريرية مقاربة ومماثلة للجلسات الحضورية في معظم الاضطرابات النفسية، مع ميزة توفير الوقت والراحة والتحدث من مساحتك الخاصة الأكثر أماناً.",
+      aEn: "Extensive clinical research confirms that telepsychiatry achieves comparable clinical outcomes to in-person care for most psychiatric conditions, while providing greater comfort, privacy, and convenience.",
     },
     {
-      qAr: "كيف يتم استلام الروشتة الطبية بعد الجلسة؟",
-      qEn: "How do I receive my digital prescription after the session?",
-      aAr: "يقوم الطبيب بإصدار روشتة إلكترونية معتمدة تحمل توقيعه الرقمي ورقم ترخيصه الطبي فور انتهاء الجلسة، وتظهر مباشرة في ملفك الطبي ومحفظتك على المنصة بصيغة قابلة للتحميل والطباعة وصرفها من الصيدليات.",
-      aEn: "The consultant psychiatrist issues a digitally verified e-prescription with their license and electronic signature directly to your patient dashboard, ready for download, printing, and fulfillment at pharmacies.",
+      qAr: "كيف يتم تسجيل الخطة العلاجية والدوائية بعد الجلسة؟",
+      qEn: "How is my treatment and medication plan recorded after the session?",
+      aAr: "يقوم الاستشاري بتدوين التشخيص الإكلينيكي وتفاصيل الخطة العلاجية والدوائية في ملفك الطبي السري على المنصة فور انتهاء الجلسة، ليكون متاحاً لك ولطبيبك المعالج في أي وقت لمتابعة مسار التعافي.",
+      aEn: "The consultant records the clinical diagnosis and detailed treatment plan directly into your confidential patient record on the platform immediately following the session, accessible anytime to review your recovery plan.",
     },
   ];
 
@@ -159,8 +159,8 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                 <Award className="w-3.5 h-3.5 text-teal-700" />
                 <span>
                   {language === "ar"
-                    ? "العيادة النفسية الرقمية الأولى بإشراف استشاريي البورد المصري والبريطاني"
-                    : "Premier Telepsychiatry Suite Supervised by Egyptian & British Board Consultants"}
+                    ? "عيادة رقمية متخصصة بإشراف نخبة من استشاريي الطب النفسي المعتمدين"
+                    : "Specialized Telepsychiatry Suite Supervised by Licensed Psychiatric Consultants"}
                 </span>
               </div>
 
@@ -189,7 +189,7 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
               {/* Subheadline */}
               <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
                 {language === "ar"
-                  ? "تجاوز القلق، نوبات الهلع، والاكتئاب عبر جلسات أونلاين من منزلك أو زيارة حضورية بالعيادة، مع استبيان تقييم طبي ذكي وتقارير علاجية معتمدة من نخبة استشاريي الصحة النفسية."
+                  ? "تجاوز القلق، نوبات الهلع، والاكتئاب عبر جلسات أونلاين من منزلك أو زيارة حضورية بالعيادة، مع استبيان تقييم طبي ذكي وسجلات علاجية موثقة من نخبة استشاريي الصحة النفسية."
                   : "Work through anxiety, panic and depression in an online session from home or an in-person visit at the clinic, with smart clinical triage and consultant-signed records."}
               </p>
 
@@ -218,10 +218,10 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                 <div className="p-3 bg-white/90 rounded-2xl border border-gray-100 shadow-xs">
                   <div className="flex items-center gap-1.5 text-teal-800 font-black text-sm">
                     <Lock className="w-4 h-4 text-sage-600" />
-                    <span>100% HIPAA</span>
+                    <span>{language === "ar" ? "خصوصية تامة" : "Strict Privacy"}</span>
                   </div>
                   <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-                    {language === "ar" ? "سرية وتشفير كامل" : "Full Privacy"}
+                    {language === "ar" ? "سجلات مشفرة ومحمية" : "Protected Records"}
                   </p>
                 </div>
 
@@ -231,7 +231,7 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                     <span>{language === "ar" ? "زووم" : "Zoom"}</span>
                   </div>
                   <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-                    {language === "ar" ? "جلسات آمنة عبر زووم" : "Secure Zoom Sessions"}
+                    {language === "ar" ? "جلسات مؤمنة بلا تسجيل" : "Unrecorded Sessions"}
                   </p>
                 </div>
 
@@ -268,11 +268,11 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
                     <span className="text-xs font-bold text-gray-700">
-                      {language === "ar" ? "جلسة استشارية مباشرة الآن" : "Live Telehealth Consultation"}
+                      {language === "ar" ? "جلسة استشارية مباشرة" : "Live Telehealth Consultation"}
                     </span>
                   </div>
                   <span className="px-2.5 py-1 rounded-md bg-teal-50 text-teal-800 text-[10px] font-black tracking-wider">
-                    E2E ENCRYPTED
+                    {language === "ar" ? "سرية طبية" : "CONFIDENTIAL"}
                   </span>
                 </div>
 
@@ -325,24 +325,27 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                   <div className="p-3 bg-teal-50/90 rounded-2xl border border-teal-100 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 text-teal-950 font-extrabold">
                       <FileText className="w-4 h-4 text-teal-700" />
-                      <span>{language === "ar" ? "الخطة العلاجية والروشتة الرقمية" : "Clinical E-Prescription Plan"}</span>
+                      <span>{language === "ar" ? "الخطة العلاجية وسجل الجلسة" : "Treatment Record & Plan"}</span>
                     </div>
                     <span className="text-[10px] bg-white px-2.5 py-1 rounded-md text-teal-900 font-extrabold border border-teal-200 shadow-2xs">
-                      {language === "ar" ? "جاهزة للتحميل" : "Ready"}
+                      {language === "ar" ? "مُحدّث في ملفك" : "In Your Chart"}
                     </span>
                   </div>
                 </div>
 
-                {/* Instant Booking Trigger Button in Card */}
+                {/* Instant Booking Trigger Button in Card (Offered mode min price, C3) */}
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-gray-400 font-medium block">
                       {language === "ar" ? "تبدأ الجلسة من" : "Sessions from"}
                     </span>
                     <span className="text-xs font-extrabold text-teal-900">
-                      {featured
-                        ? formatEgp(Math.min(featured.priceOnlineEGP, featured.priceOfflineEGP))
-                        : "—"}
+                      {featured ? (() => {
+                        const prices: number[] = [];
+                        if (featured.offersOnline && featured.priceOnlineEGP > 0) prices.push(featured.priceOnlineEGP);
+                        if (featured.offersOffline && featured.priceOfflineEGP > 0) prices.push(featured.priceOfflineEGP);
+                        return prices.length > 0 ? formatEgp(Math.min(...prices)) : "—";
+                      })() : "—"}
                     </span>
                   </div>
 
@@ -350,7 +353,7 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                     href={featured ? `/booking/${featured.id}` : "/therapists"}
                     className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white text-xs font-black rounded-xl shadow-md transition"
                   >
-                    {language === "ar" ? "حجز فوري" : "Instant Book"}
+                    {language === "ar" ? "حجز موعد" : "Book Slot"}
                   </Link>
                 </div>
               </div>
@@ -371,8 +374,8 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
           </h2>
           <p className="text-sm text-gray-600">
             {language === "ar"
-              ? "يحلل نظامنا الذكي الأعراض والشكوى الرئيسية لترشيح الاستشاريين الأنسب مع حساب نسبة التطابق السريري."
-              : "Our clinical algorithm analyzes your concerns to match you with the most suitable licensed consultant."}
+              ? "اختر الشكوى التي تواجهها لبدء الفرز المبدئي المخصص والتوجيه نحو الاستشاريين المتخصصين في هذا المجال."
+              : "Select your primary concern to begin structured clinical triage and guide you to consultants specialized in this area."}
           </p>
         </div>
 
@@ -421,8 +424,8 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 mt-1">
                 {language === "ar"
-                  ? "جميع الأطباء مرخصون من وزارة الصحة المصرية وأعضاء بالجمعيات العالمية للطب النفسي."
-                  : "All consultants are licensed with minimum 10+ years of clinical psychotherapy practice."}
+                  ? "جميع الاستشاريين والأطباء مرخصون رسمياً من وزارة الصحة ولديهم خبرة إكلينيكية موثقة."
+                  : "All consultants are officially licensed with verified clinical psychiatry and psychotherapy experience."}
               </p>
             </div>
 
@@ -436,94 +439,103 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {doctors.map((doctor) => (
-              <div
-                key={doctor.id}
-                className="bg-alabaster-base rounded-3xl border border-alabaster-border overflow-hidden hover:shadow-xl transition duration-300 flex flex-col justify-between group"
-              >
-                <div>
-                  {/* Doctor Image & Availability Badge */}
-                  <div className="relative h-56 w-full bg-gray-100 overflow-hidden">
-                    <ClinicalAvatar
-                      src={doctor.avatarUrl ?? undefined}
-                      alt={doctor.fullName}
-                      name={doctor.fullName}
-                      className="w-full h-full"
-                      isDoctor={true}
-                    />
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[11px] font-bold text-teal-900 shadow-sm border border-gray-100 flex items-center gap-1 z-10">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>
-                        {doctor.isAcceptingPatients
-                          ? language === "ar" ? "متاح للحجز" : "Available"
-                          : language === "ar" ? "غير متاح حالياً" : "Not available"}
-                      </span>
-                    </div>
-                  </div>
+            {doctors.map((doctor) => {
+              const offeredPrices: number[] = [];
+              if (doctor.offersOnline && doctor.priceOnlineEGP > 0) offeredPrices.push(doctor.priceOnlineEGP);
+              if (doctor.offersOffline && doctor.priceOfflineEGP > 0) offeredPrices.push(doctor.priceOfflineEGP);
+              const minPrice = offeredPrices.length > 0 ? Math.min(...offeredPrices) : null;
 
-                  {/* Info Body */}
-                  <div className="p-5 space-y-3">
-                    <div>
-                      <h3 className="font-extrabold text-base text-teal-950 group-hover:text-teal-800 transition">
-                        {doctor.fullName}
-                      </h3>
-                      <p className="text-xs text-sage-700 font-semibold line-clamp-1 mt-0.5">
-                        {language === "ar" ? doctor.title : (doctor.titleEn ?? doctor.title)}
-                      </p>
-                    </div>
-
-                    {/* Specialties Pills */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {(language === "ar" ? doctor.specialties : doctor.specialtiesEn).slice(0, 2).map((spec, i) => (
+              return (
+                <div
+                  key={doctor.id}
+                  className="bg-alabaster-base rounded-3xl border border-alabaster-border overflow-hidden hover:shadow-xl transition duration-300 flex flex-col justify-between group"
+                >
+                  <div>
+                    {/* Doctor Image & Availability Badge (C4: color follows isAcceptingPatients) */}
+                    <div className="relative h-56 w-full bg-gray-100 overflow-hidden">
+                      <ClinicalAvatar
+                        src={doctor.avatarUrl ?? undefined}
+                        alt={doctor.fullName}
+                        name={doctor.fullName}
+                        className="w-full h-full"
+                        isDoctor={true}
+                      />
+                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[11px] font-bold text-teal-900 shadow-sm border border-gray-100 flex items-center gap-1.5 z-10">
                         <span
-                          key={i}
-                          className="px-2 py-0.5 rounded-md bg-white text-gray-700 text-[10px] font-medium border border-gray-200/80"
-                        >
-                          {spec}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Slot & Price */}
-                    <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">
-                          {language === "ar" ? "سعر الجلسة" : "Session Rate"}
-                        </span>
-                        <span className="font-extrabold text-teal-900 text-sm">
-                          {formatEgp(Math.min(doctor.priceOnlineEGP, doctor.priceOfflineEGP))}
+                          className={`w-2 h-2 rounded-full ${
+                            doctor.isAcceptingPatients ? "bg-emerald-500" : "bg-slate-400"
+                          }`}
+                        />
+                        <span>
+                          {doctor.isAcceptingPatients
+                            ? language === "ar" ? "متاح للحجز" : "Available"
+                            : language === "ar" ? "مكتمل الحجوزات" : "Busy"}
                         </span>
                       </div>
+                    </div>
 
-                      <div className="text-end">
-                        <span className="text-[10px] text-gray-400 block">
-                          {language === "ar" ? "الخبرة" : "Experience"}
-                        </span>
-                        <span className="font-bold text-gray-700">
-                          {doctor.yearsOfExperience} {language === "ar" ? "سنة" : "yrs"}
-                        </span>
+                    {/* Info Body */}
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <h3 className="font-extrabold text-base text-teal-950 group-hover:text-teal-800 transition">
+                          {doctor.fullName}
+                        </h3>
+                        <p className="text-xs text-sage-700 font-semibold line-clamp-1 mt-0.5">
+                          {language === "ar" ? doctor.title : (doctor.titleEn ?? doctor.title)}
+                        </p>
+                      </div>
+
+                      {/* Specialties Pills */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {(language === "ar" ? doctor.specialties : doctor.specialtiesEn).slice(0, 2).map((spec, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded-md bg-white text-gray-700 text-[10px] font-medium border border-gray-200/80"
+                          >
+                            {spec}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Slot & Price (C3: min offered price) */}
+                      <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">
+                            {language === "ar" ? "تبدأ من" : "From"}
+                          </span>
+                          <span className="font-extrabold text-teal-900 text-sm">
+                            {minPrice !== null ? formatEgp(minPrice) : "—"}
+                          </span>
+                        </div>
+
+                        <div className="text-end">
+                          <span className="text-[10px] text-gray-400 block">
+                            {language === "ar" ? "الخبرة" : "Experience"}
+                          </span>
+                          <span className="font-bold text-gray-700">
+                            {doctor.yearsOfExperience} {language === "ar" ? "سنة" : "yrs"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Action CTA */}
-                <div className="p-5 pt-0">
-                  <Link
-                    href={`/booking/${doctor.id}`}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-md transition"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{language === "ar" ? "حجز موعد فوري" : "Book Slot"}</span>
-                  </Link>
+                  {/* Action CTA */}
+                  <div className="p-5 pt-0">
+                    <Link
+                      href={`/booking/${doctor.id}`}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-md transition"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{language === "ar" ? "حجز موعد" : "Book Slot"}</span>
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
-
-      {/* Asmaa Academy & Bookstore Spotlight */}
 
       {/* Clinical FAQ Accordion */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

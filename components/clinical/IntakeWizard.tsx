@@ -65,6 +65,7 @@ import { formatEgp } from "@/lib/whatsapp";
 interface Props {
   csrfToken: string;
   isAuthenticated: boolean;
+  initialConcern?: ConcernTag | null;
 }
 
 const initialState: ActionResult<IntakeResultPayload> | null = null;
@@ -96,7 +97,7 @@ function ConcernIcon({ name, className }: { name: string; className?: string }) 
   return <Component className={className} />;
 }
 
-export function IntakeWizard({ csrfToken, isAuthenticated }: Props) {
+export function IntakeWizard({ csrfToken, isAuthenticated, initialConcern }: Props) {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
@@ -104,7 +105,9 @@ export function IntakeWizard({ csrfToken, isAuthenticated }: Props) {
   const Back = isAr ? ArrowRight : ArrowLeft;
 
   const [step, setStep] = useState(1);
-  const [concerns, setConcerns] = useState<ConcernTag[]>([]);
+  const [concerns, setConcerns] = useState<ConcernTag[]>(() =>
+    initialConcern ? [initialConcern] : [],
+  );
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("25-34");
   const [therapyHistory, setTherapyHistory] = useState<TherapyHistory>("FIRST_TIME");
   const [medicationHistory, setMedicationHistory] = useState<MedicationHistory>("NONE");
