@@ -16,7 +16,11 @@
     "db:studio": "prisma studio",
     "test:logic": "tsx --env-file=.env --conditions=react-server tests/logic.test.ts",
     "db:use:sqlserver": "node scripts/use-db-provider.mjs sqlserver",
-    "db:use:postgres": "node scripts/use-db-provider.mjs postgresql"
+    "db:use:postgres": "node scripts/use-db-provider.mjs postgresql",
+    "verify": "npm run typecheck && npm run test:logic && npm run build",
+    "dev:branch": "neon checkout dev",
+    "prod:branch": "neon checkout production",
+    "ship": "npm run verify && vercel deploy --prod --yes"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
