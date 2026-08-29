@@ -108,3 +108,68 @@ the query.
 2. **R2** — day-boundary arithmetic, when convenient.
 
 Nothing else outstanding in this workstream.
+
+---
+
+# Addendum — R1 & R2 (commit `5a4a48e`)
+
+`test:logic` 59/59, `tsc --noEmit` clean, tree clean.
+
+## ✅ R1 — Closed
+
+`AgendaList.tsx:434–452` gates the form behind `isLoadingRecord` and renders a
+skeleton instead. The `<form>` mounts only once the fetch has settled, so both
+failure modes are gone together: there is no window in which blank defaults are
+editable, and no late `key` remount can discard typed input. Submit also carries
+`disabled={isNotePending || isLoadingRecord}` as defence in depth.
+
+## 🟠 R2 — Improved, but still wrong for roughly half the year
+
+`startOfCairoDayUtc` (`lib/time/cairo.ts:91`) computes the boundary with
+`CAIRO_WINTER_OFFSET_HOURS = 2`, unconditionally.
+
+Egypt has observed DST since 2023 — UTC+3 from the last Friday in April to the
+last Thursday in October. Verified against the IANA database for the exact date
+used in the new test:
+
+```
+2026-08-29T14:30Z  ->  29/08/2026, 17:30 EEST   (Cairo is UTC+3)
+2026-01-15T14:30Z  ->  15/01/2026, 16:30 EET    (Cairo is UTC+2)
+
+Cairo midnight on 2026-08-29 = 2026-08-28T21:00:00.000Z
+Function returns              = 2026-08-28T22:00:00.000Z  -> Cairo 01:00
+```
+
+So during DST, "Today" still spans **01:00 Cairo → 01:00 Cairo**. The error is
+reduced from two hours to one, not removed. Winter is correct.
+
+**The test locks the wrong value in.** `logic.test.ts:996` asserts
+`"2026-08-28T22:00:00.000Z"` and names it "exact previous 22:00 UTC" — using an
+August date, which is inside DST. It passes, and it will keep this from being
+found later.
+
+### Why this is a defensible mistake, and why it still needs fixing
+
+The fixed winter offset is a **deliberate, documented decision** — the header of
+`cairo.ts` states it keeps recurring schedules deterministic across DST
+switchovers. That reasoning is correct for `DoctorAvailability` rules stored as
+minutes-from-midnight: a rule means "09:00 on the Cairo clock, every Tuesday",
+and pinning the offset stops rules from drifting an hour twice a year.
+
+It does not transfer to a day boundary. "What is today" is a question about **one
+specific instant**, and for a specific instant the true offset is knowable. Reusing
+the constant here imports a tradeoff that was made to solve a different problem.
+
+**Fix:** derive the offset for the given date from the IANA zone rather than the
+constant — `Intl.DateTimeFormat` with `timeZone: "Africa/Cairo"` already knows
+the transitions, and `formatCairo` in `lib/whatsapp.ts` uses exactly that
+mechanism. Leave `CAIRO_WINTER_OFFSET_HOURS` alone; it is right for the rules
+engine.
+
+**Then correct the test** to assert `2026-08-28T21:00:00.000Z` for the August
+instant, and add a winter case (e.g. 2026-01-15 → `2026-01-14T22:00:00.000Z`) so
+both sides of the transition are covered. Testing only one season is what let
+this through.
+
+**Impact stays low** — a clinic is unlikely to hold 00:00–01:00 sessions — so this
+is a correctness item, not a launch blocker.

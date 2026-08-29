@@ -87,11 +87,40 @@ export function utcDateToCairoDateTimeLocal(date: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-/** Returns the start of the current Cairo wall-clock day in UTC. */
+/**
+ * Returns the exact UTC instant for 00:00:00 (midnight) on the Cairo calendar day
+ * containing the given date.
+ *
+ * Uses IANA `Africa/Cairo` via `Intl.DateTimeFormat` to respect Egypt's Daylight
+ * Saving Time transitions (UTC+3 in summer / EEST, UTC+2 in winter / EET).
+ */
 export function startOfCairoDayUtc(date: Date = new Date()): Date {
-  const cairoTime = new Date(date.getTime() + CAIRO_WINTER_OFFSET_HOURS * 60 * 60 * 1000);
-  const year = cairoTime.getUTCFullYear();
-  const month = cairoTime.getUTCMonth();
-  const day = cairoTime.getUTCDate();
-  return new Date(Date.UTC(year, month, day, -CAIRO_WINTER_OFFSET_HOURS, 0, 0, 0));
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  });
+
+  const parts = dtf.formatToParts(date);
+  const partMap = new Map(parts.map((p) => [p.type, p.value]));
+
+  const year = Number(partMap.get("year"));
+  const month = Number(partMap.get("month"));
+  const day = Number(partMap.get("day"));
+
+  // Sample midday UTC on that Cairo calendar date to evaluate the active wall-clock offset
+  const baselineUtc = Date.UTC(year, month - 1, day, 12, 0, 0);
+  const middayParts = dtf.formatToParts(new Date(baselineUtc));
+  const middayMap = new Map(middayParts.map((p) => [p.type, p.value]));
+
+  const cairoHourRaw = middayMap.get("hour");
+  const cairoHour = Number(cairoHourRaw === "24" ? "0" : cairoHourRaw);
+  const offsetHours = cairoHour - 12;
+
+  return new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0, 0));
 }

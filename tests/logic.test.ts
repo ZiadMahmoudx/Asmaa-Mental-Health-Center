@@ -993,17 +993,28 @@ async function main() {
     assert.equal(alertsByPatient.get("p2"), "ELEVATED");
   });
 
-  await check("R2: startOfCairoDayUtc maps Cairo midnight to exact previous 22:00 UTC", () => {
-    // 2026-08-29 14:30:00 UTC -> 16:30 Cairo (same calendar day in Cairo)
-    const testInstant = new Date("2026-08-29T14:30:00.000Z");
-    const startUtc = startOfCairoDayUtc(testInstant);
+  await check("R2: startOfCairoDayUtc maps Cairo midnight accurately across DST (Summer EEST & Winter EET)", () => {
+    // 1. Summer Case (EEST, UTC+3): August 29, 2026
+    const summerInstant = new Date("2026-08-29T14:30:00.000Z"); // 17:30 EEST in Cairo
+    const summerStartUtc = startOfCairoDayUtc(summerInstant);
 
-    // Midnight Cairo on 2026-08-29 is 2026-08-28T22:00:00.000Z
-    assert.equal(startUtc.toISOString(), "2026-08-28T22:00:00.000Z");
+    // Midnight Cairo on 2026-08-29 (00:00 EEST) is 2026-08-28T21:00:00.000Z (UTC+3)
+    assert.equal(summerStartUtc.toISOString(), "2026-08-28T21:00:00.000Z");
 
-    // 1-day range (Today) spans 2026-08-28T22:00:00.000Z -> 2026-08-29T22:00:00.000Z
-    const endUtc = new Date(startUtc.getTime() + 1 * 24 * 60 * 60 * 1000);
-    assert.equal(endUtc.toISOString(), "2026-08-29T22:00:00.000Z");
+    // 1-day range for summer Today spans 2026-08-28T21:00:00.000Z -> 2026-08-29T21:00:00.000Z
+    const summerEndUtc = new Date(summerStartUtc.getTime() + 1 * 24 * 60 * 60 * 1000);
+    assert.equal(summerEndUtc.toISOString(), "2026-08-29T21:00:00.000Z");
+
+    // 2. Winter Case (EET, UTC+2): January 15, 2026
+    const winterInstant = new Date("2026-01-15T14:30:00.000Z"); // 16:30 EET in Cairo
+    const winterStartUtc = startOfCairoDayUtc(winterInstant);
+
+    // Midnight Cairo on 2026-01-15 (00:00 EET) is 2026-01-14T22:00:00.000Z (UTC+2)
+    assert.equal(winterStartUtc.toISOString(), "2026-01-14T22:00:00.000Z");
+
+    // 1-day range for winter Today spans 2026-01-14T22:00:00.000Z -> 2026-01-15T22:00:00.000Z
+    const winterEndUtc = new Date(winterStartUtc.getTime() + 1 * 24 * 60 * 60 * 1000);
+    assert.equal(winterEndUtc.toISOString(), "2026-01-15T22:00:00.000Z");
   });
 
   console.log(`\n${passed} checks passed.\n`);
