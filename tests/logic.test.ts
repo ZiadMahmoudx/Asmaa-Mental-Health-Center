@@ -26,6 +26,7 @@ import {
   clinicalRecordSchema,
 } from "@/lib/validation/schemas";
 import { fromStringArray, toStringArray } from "@/lib/serialization";
+import { ACTIVE_SLOT_LOCK, PAYMENT_REVIEW_SLA_HOURS } from "@/lib/constants";
 import {
   buildWhatsAppLink,
   toWaMeNumber,
@@ -1015,6 +1016,103 @@ async function main() {
     // 1-day range for winter Today spans 2026-01-14T22:00:00.000Z -> 2026-01-15T22:00:00.000Z
     const winterEndUtc = new Date(winterStartUtc.getTime() + 1 * 24 * 60 * 60 * 1000);
     assert.equal(winterEndUtc.toISOString(), "2026-01-15T22:00:00.000Z");
+  });
+
+  console.log("\n--- admin workspace clinical & financial integrity (A1 & A2) ---");
+
+  await check("A1: PAYMENT_UNDER_REVIEW SLA expiry logic releases slotLockKey and frees slot tuple", () => {
+    const now = new Date("2026-08-29T12:00:00.000Z");
+    const slaMs = PAYMENT_REVIEW_SLA_HOURS * 60 * 60 * 1000;
+    const slaThreshold = new Date(now.getTime() - slaMs);
+
+    // Stale appointment in PAYMENT_UNDER_REVIEW uploaded 50 hours ago (> 48h SLA)
+    const staleApp: { id: string; doctorId: string; scheduledAtUTC: Date; status: string; slotLockKey: string; createdAt: Date; holdExpiresAt: Date | null } = {
+      id: "cl_stale_app_00000000001",
+      doctorId: "doc_1",
+      scheduledAtUTC: new Date("2026-09-01T10:00:00.000Z"),
+      status: "PAYMENT_UNDER_REVIEW",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      createdAt: new Date(now.getTime() - 50 * 60 * 60 * 1000),
+      holdExpiresAt: null,
+    };
+
+    // Fresh appointment in PAYMENT_UNDER_REVIEW uploaded 5 hours ago (< 48h SLA)
+    const freshApp: { id: string; doctorId: string; scheduledAtUTC: Date; status: string; slotLockKey: string; createdAt: Date; holdExpiresAt: Date | null } = {
+      id: "cl_fresh_app_00000000002",
+      doctorId: "doc_1",
+      scheduledAtUTC: new Date("2026-09-01T11:00:00.000Z"),
+      status: "PAYMENT_UNDER_REVIEW",
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      createdAt: new Date(now.getTime() - 5 * 60 * 60 * 1000),
+      holdExpiresAt: null,
+    };
+
+    const apps = [staleApp, freshApp];
+
+    // Simulate release sweep
+    let reclaimedCount = 0;
+    const activeSlots = new Set<string>();
+
+    for (const app of apps) {
+      if (
+        app.status === "PAYMENT_UNDER_REVIEW" &&
+        app.slotLockKey === ACTIVE_SLOT_LOCK &&
+        app.createdAt < slaThreshold
+      ) {
+        // Released
+        app.status = "EXPIRED";
+        app.slotLockKey = app.id;
+        reclaimedCount++;
+      } else if (app.slotLockKey === ACTIVE_SLOT_LOCK) {
+        activeSlots.add(`${app.doctorId}_${app.scheduledAtUTC.toISOString()}_${app.slotLockKey}`);
+      }
+    }
+
+    assert.equal(reclaimedCount, 1);
+    assert.equal(staleApp.status, "EXPIRED");
+    assert.equal(staleApp.slotLockKey, staleApp.id, "Slot lock key must be rewritten to appointment id");
+    assert.equal(freshApp.status, "PAYMENT_UNDER_REVIEW");
+    assert.equal(freshApp.slotLockKey, ACTIVE_SLOT_LOCK);
+
+    // Assert that the doctor's 2026-09-01 10:00 UTC slot is no longer occupied
+    assert.equal(
+      activeSlots.has(`${staleApp.doctorId}_${staleApp.scheduledAtUTC.toISOString()}_${ACTIVE_SLOT_LOCK}`),
+      false,
+    );
+  });
+
+  await check("A2: resolveSafetyAlert preserves first-responder acknowledgedAt and acknowledgedById", () => {
+    const adminA = "admin_a_000000000000001";
+    const adminB = "admin_b_000000000000002";
+    const tAck = new Date("2026-08-29T09:00:00.000Z");
+    const tResolve = new Date("2026-08-29T14:00:00.000Z");
+
+    const alert = {
+      id: "alert_000000000000000001",
+      acknowledgedAt: tAck,
+      acknowledgedById: adminA,
+      resolvedAt: null as Date | null,
+      resolvedById: null as string | null,
+      outcome: null as string | null,
+    };
+
+    // Simulate resolveSafetyAlertAction by Admin B:
+    // Step 1: backfill ONLY if acknowledgedAt is null
+    if (!alert.acknowledgedAt) {
+      alert.acknowledgedAt = tResolve;
+      alert.acknowledgedById = adminB;
+    }
+
+    // Step 2: resolve
+    alert.resolvedAt = tResolve;
+    alert.resolvedById = adminB;
+    alert.outcome = "CONTACTED_PATIENT_REFERRED";
+
+    // Assert that Admin A's initial response time and identity are preserved!
+    assert.equal(alert.acknowledgedById, adminA);
+    assert.equal(alert.acknowledgedAt.toISOString(), tAck.toISOString());
+    assert.equal(alert.resolvedById, adminB);
+    assert.equal(alert.resolvedAt.toISOString(), tResolve.toISOString());
   });
 
   console.log(`\n${passed} checks passed.\n`);

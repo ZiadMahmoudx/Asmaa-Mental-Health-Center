@@ -762,31 +762,58 @@ function Field({
   );
 }
 
-/** How long a receipt has been sitting in the queue. */
+/** How long a receipt has been sitting in the queue with SLA age coloring. */
 function WaitingFor({ sinceIso, isAr }: { sinceIso: string; isAr: boolean }) {
-  const [label, setLabel] = useState("");
+  const [info, setInfo] = useState<{ label: string; tier: "fresh" | "normal" | "urgent" }>({
+    label: "",
+    tier: "fresh",
+  });
 
   useEffect(() => {
-    // Computed on the client only: rendering a relative time on the server would
-    // produce a hydration mismatch the moment the clock ticks past a minute.
     const update = () => {
-      const minutes = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(sinceIso).getTime()) / 60000),
-      );
-      if (minutes < 60) {
-        setLabel(isAr ? `منذ ${minutes} د` : `${minutes}m ago`);
-      } else {
-        const hours = Math.floor(minutes / 60);
-        setLabel(isAr ? `منذ ${hours} س` : `${hours}h ago`);
+      const ms = Date.now() - new Date(sinceIso).getTime();
+      const minutes = Math.max(0, Math.floor(ms / 60000));
+      const hours = Math.floor(minutes / 60);
+
+      let tier: "fresh" | "normal" | "urgent" = "fresh";
+      if (hours >= 24) {
+        tier = "urgent";
+      } else if (hours >= 6) {
+        tier = "normal";
       }
+
+      let label = "";
+      if (minutes < 60) {
+        label = isAr ? `منذ ${minutes} دقيقة` : `${minutes}m ago`;
+      } else {
+        label = isAr ? `منذ ${hours} ساعة` : `${hours}h ago`;
+      }
+
+      setInfo({ label, tier });
     };
     update();
     const timer = setInterval(update, 60_000);
     return () => clearInterval(timer);
   }, [sinceIso, isAr]);
 
-  return <span>{label}</span>;
+  if (!info.label) return null;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+        info.tier === "urgent"
+          ? "bg-red-50 text-red-800 border-red-300 animate-pulse"
+          : info.tier === "normal"
+          ? "bg-amber-50 text-amber-800 border-amber-200"
+          : "bg-emerald-50 text-emerald-800 border-emerald-200"
+      }`}
+    >
+      <span>{info.label}</span>
+      {info.tier === "urgent" && (
+        <span className="font-black text-red-600">({isAr ? "مهلة SLA" : "SLA"})</span>
+      )}
+    </span>
+  );
 }
 
 function Banner({ tone, message }: { tone: "error" | "info"; message: string }) {

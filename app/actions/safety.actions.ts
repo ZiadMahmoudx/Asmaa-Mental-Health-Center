@@ -165,6 +165,16 @@ export async function resolveSafetyAlertAction(
   const { alertId, outcome, resolutionNotes } = parsed.data;
   const now = new Date();
 
+  // 1. If never acknowledged before, backfill acknowledgement with this resolving admin (A2 fix)
+  await prisma.safetyAlert.updateMany({
+    where: { id: alertId, resolvedAt: null, acknowledgedAt: null },
+    data: {
+      acknowledgedAt: now,
+      acknowledgedById: admin.id,
+    },
+  });
+
+  // 2. Set resolution fields without overwriting previously recorded acknowledgedAt/acknowledgedById
   const updated = await prisma.safetyAlert.updateMany({
     where: { id: alertId, resolvedAt: null },
     data: {
@@ -172,9 +182,6 @@ export async function resolveSafetyAlertAction(
       resolvedById: admin.id,
       outcome,
       resolutionNotes: resolutionNotes || null,
-      // If never acknowledged before, acknowledge it at the same instant
-      acknowledgedAt: now,
-      acknowledgedById: admin.id,
     },
   });
 

@@ -24,6 +24,13 @@ export const ACTIVE_SLOT_LOCK = "ACTIVE" as const;
  */
 export const ACTIVE_RULE_LOCK = "ACTIVE" as const;
 
+/**
+ * Maximum time in hours a payment proof may sit in PAYMENT_UNDER_REVIEW
+ * before the unconfirmed calendar slot is automatically released to avoid
+ * indefinite doctor calendar blockage.
+ */
+export const PAYMENT_REVIEW_SLA_HOURS = 48;
+
 export const SESSION_COOKIE = "asmaa_session";
 export const CSRF_COOKIE = "asmaa_csrf";
 /** Form field / header name carrying the double-submit CSRF token. */

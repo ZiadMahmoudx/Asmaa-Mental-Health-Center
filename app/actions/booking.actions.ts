@@ -21,7 +21,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimit, RateLimits } from "@/lib/security/rate-limit";
 import { recordAudit } from "@/lib/security/audit";
-import { ACTIVE_SLOT_LOCK } from "@/lib/constants";
+import { ACTIVE_SLOT_LOCK, PAYMENT_REVIEW_SLA_HOURS } from "@/lib/constants";
 import { bookingPolicy, getClinicConfig } from "@/lib/clinic-config";
 import { env } from "@/lib/env";
 import { toEgp } from "@/lib/serialization";
@@ -1010,24 +1010,24 @@ export interface SlotView {
   dateCairo: string;
 }
 
-/** Sweep and release all expired unpaid booking holds across the database. */
-export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releasedCount: number }>> {
+/** Sweep and release all expired unpaid booking holds and stale review holds across the database. */
+export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releasedCount: number; slaReclaimedCount: number }>> {
   const now = new Date();
-  const expired = await prisma.appointment.findMany({
+  const graceThreshold = new Date(now.getTime() - 60_000); // 1 minute grace period for in-flight uploads
+
+  // Pass 1: Lapsed unpaid holds (PENDING_PAYMENT_PROOF)
+  const lapsedHolds = await prisma.appointment.findMany({
     where: {
       status: "PENDING_PAYMENT_PROOF",
-      holdExpiresAt: { lt: now },
+      holdExpiresAt: { lt: graceThreshold },
       slotLockKey: ACTIVE_SLOT_LOCK,
     },
     select: { id: true },
+    take: 500,
   });
 
-  if (expired.length === 0) {
-    return success({ releasedCount: 0 });
-  }
-
-  let count = 0;
-  for (const app of expired) {
+  let releasedCount = 0;
+  for (const app of lapsedHolds) {
     const updated = await prisma.appointment.updateMany({
       where: { id: app.id, status: "PENDING_PAYMENT_PROOF", slotLockKey: ACTIVE_SLOT_LOCK },
       data: {
@@ -1036,8 +1036,51 @@ export async function releaseExpiredHoldsAction(): Promise<ActionResult<{ releas
         holdExpiresAt: null,
       },
     });
-    count += updated.count;
+    releasedCount += updated.count;
   }
 
-  return success({ releasedCount: count });
+  // Pass 2: Stale review holds (PAYMENT_UNDER_REVIEW past SLA, A1 fix)
+  const slaThreshold = new Date(now.getTime() - PAYMENT_REVIEW_SLA_HOURS * 60 * 60 * 1000);
+  const staleUnderReview = await prisma.appointment.findMany({
+    where: {
+      status: "PAYMENT_UNDER_REVIEW",
+      createdAt: { lt: slaThreshold },
+      slotLockKey: ACTIVE_SLOT_LOCK,
+    },
+    select: { id: true, paymentProofs: { select: { id: true }, take: 1 } },
+    take: 500,
+  });
+
+  let slaReclaimedCount = 0;
+  for (const app of staleUnderReview) {
+    const updated = await prisma.appointment.updateMany({
+      where: { id: app.id, status: "PAYMENT_UNDER_REVIEW", slotLockKey: ACTIVE_SLOT_LOCK },
+      data: {
+        status: "EXPIRED",
+        slotLockKey: app.id,
+        holdExpiresAt: null,
+      },
+    });
+    if (updated.count > 0) {
+      slaReclaimedCount += updated.count;
+      await recordAudit({
+        actorId: null,
+        action: "HOLD_EXPIRED_RECLAIMED",
+        entityType: "Appointment",
+        entityId: app.id,
+        metadata: {
+          reason: "UNDER_REVIEW_SLA_EXPIRED",
+          paymentProofId: app.paymentProofs[0]?.id ?? null,
+        },
+      });
+    }
+  }
+
+  const total = releasedCount + slaReclaimedCount;
+  if (total > 0) {
+    revalidatePath("/dashboard/admin/verification");
+    revalidatePath("/dashboard/admin/appointments");
+  }
+
+  return success({ releasedCount: total, slaReclaimedCount });
 }
