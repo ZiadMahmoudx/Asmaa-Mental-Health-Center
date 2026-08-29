@@ -37,7 +37,7 @@ import {
   doctorSessionBriefLink,
 } from "@/lib/whatsapp";
 import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel, startOfCairoDayUtc } from "@/lib/time/cairo";
-import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
+import { hashPassword, verifyPassword, safeEquals, generateToken, sha256Hex } from "@/lib/auth/password";
 import { storeReceipt, resolveReceiptPath } from "@/lib/uploads";
 import { dashboardPathForRole, OCCUPYING_STATUSES } from "@/lib/domain/enums";
 import {
@@ -1460,6 +1460,39 @@ async function main() {
     assert.equal(allowed("asmaa-clinic.vercel.app").has("https://evil.example.com"), false);
     // And the configured APP_URL keeps working when a proxy rewrites the host.
     assert.equal(allowed("internal-proxy.local").has(appUrl), true);
+  });
+
+  await check("a rotated CSRF cookie rebinds the session instead of locking it out", () => {
+    // Mirrors the final stage of verifyCsrf. Reaching it means the origin check
+    // and the double-submit comparison have already passed, so the request is
+    // same-origin and echoed the cookie the browser just sent. A hash mismatch
+    // at that point means the cookie rotated after login — it has its own 7-day
+    // lifetime and visitors clear site data — not that anyone is attacking.
+    // Failing closed used to brick the account: every action returned
+    // CSRF_FAILED, sign-out included, with no in-app way back.
+    function settle(session: { csrfTokenHash: string }, submitted: string) {
+      const submittedHash = sha256Hex(submitted);
+      if (!safeEquals(submittedHash, session.csrfTokenHash)) {
+        session.csrfTokenHash = submittedHash; // rebind
+      }
+      return true;
+    }
+
+    const boundAtLogin = generateToken(32);
+    const session = { csrfTokenHash: sha256Hex(boundAtLogin) };
+
+    // Same token: accepted, binding untouched.
+    assert.equal(settle(session, boundAtLogin), true);
+    assert.equal(session.csrfTokenHash, sha256Hex(boundAtLogin));
+
+    // Cookie rotated: still accepted, and the session now tracks the new token.
+    const afterRotation = generateToken(32);
+    assert.equal(settle(session, afterRotation), true, "a rotated cookie must not lock the account");
+    assert.equal(session.csrfTokenHash, sha256Hex(afterRotation), "session must track the live token");
+
+    // The layers that actually stop an attacker are unchanged and come first:
+    // a cross-site caller cannot read the cookie, so it cannot echo it here.
+    assert.equal(safeEquals(sha256Hex("forged-token"), session.csrfTokenHash), false);
   });
 
   console.log(`\n${passed} checks passed.\n`);

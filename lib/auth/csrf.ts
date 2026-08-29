@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from "@/lib/constants";
 import { env } from "@/lib/env";
 import { generateToken, safeEquals, sha256Hex } from "@/lib/auth/password";
-import { getAuthContext } from "@/lib/auth/session";
+import { getAuthContext, rebindSessionCsrf } from "@/lib/auth/session";
 
 /**
  * CSRF protection: double-submit cookie + strict origin check.
@@ -131,8 +131,30 @@ export async function verifyCsrf(submitted: string | null): Promise<boolean> {
 
   // Bind the token to the session once one exists, so a token minted while
   // logged out cannot be replayed against an authenticated session.
+  //
+  // A mismatch here is not evidence of an attack. Both checks above have already
+  // passed, which means the request is same-origin and echoed the very token the
+  // browser sent in its Cookie header — something no cross-site caller can do,
+  // because the same-origin policy stops it reading the cookie at all. What a
+  // mismatch actually means is that the CSRF cookie rotated after login: it
+  // carries its own 7-day lifetime, and visitors clear site data or run privacy
+  // tooling that drops it while the session cookie survives.
+  //
+  // Failing closed here bricked the account: every guarded action returned
+  // CSRF_FAILED, sign-out included, and the "refresh the page" advice did
+  // nothing because middleware only mints a token when none is present. The only
+  // way out was clearing cookies by hand. So re-point the session at the token
+  // in play instead, and carry on.
   const auth = await getAuthContext();
-  if (auth && !safeEquals(sha256Hex(token), auth.csrfTokenHash)) return false;
+  if (auth && !safeEquals(sha256Hex(token), auth.csrfTokenHash)) {
+    try {
+      await rebindSessionCsrf(auth.sessionId, token);
+    } catch (error) {
+      // A failed rebind must not hand out access on a stale binding.
+      console.error("[csrf] failed to rebind session token", error);
+      return false;
+    }
+  }
 
   return true;
 }

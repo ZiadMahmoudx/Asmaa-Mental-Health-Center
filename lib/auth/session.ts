@@ -170,6 +170,32 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
   };
 });
 
+/**
+ * Point a live session at the CSRF token the browser is currently holding.
+ *
+ * The hash stored on the session row is bound once, at login. The cookie it was
+ * bound to can legitimately move on afterwards — it carries its own 7-day
+ * lifetime, and a visitor can clear site data or have privacy tooling drop it
+ * while the session cookie survives. Once the two diverge, every guarded action
+ * fails the binding check, including sign-out, and the visitor is locked out of
+ * the application with no in-app way back.
+ *
+ * Rebinding is only reached from verifyCsrf after the origin check and the
+ * double-submit comparison have both passed, so the request is same-origin and
+ * echoed a token that matches the cookie the browser just sent. A cross-site
+ * attacker can do neither: the same-origin policy stops them reading the cookie,
+ * so they cannot populate the field.
+ *
+ * This does not weaken session-fixation protection either — that comes from
+ * createSession() minting a brand-new row on every login, not from this hash.
+ */
+export async function rebindSessionCsrf(sessionId: string, csrfToken: string): Promise<void> {
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { csrfTokenHash: sha256Hex(csrfToken) },
+  });
+}
+
 /** Revoke the current session and clear both cookies. Idempotent. */
 export async function destroyCurrentSession(): Promise<void> {
   const cookieStore = await cookies();
