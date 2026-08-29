@@ -46,14 +46,14 @@ export function UserStatusToggle({
       <button
         type="button"
         onClick={() => setShowConfirmModal(true)}
-        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 border ${
+        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1.5 border ${
           isActive
-            ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
-            : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800"
+            ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+            : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
         }`}
       >
         <span
-          className={`w-1.5 h-1.5 rounded-full ${
+          className={`w-2 h-2 rounded-full ${
             isActive ? "bg-emerald-600" : "bg-red-600"
           }`}
         />
@@ -63,8 +63,8 @@ export function UserStatusToggle({
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3
                 className={`font-bold text-sm flex items-center gap-2 ${
                   isActive ? "text-red-600" : "text-emerald-600"
@@ -88,7 +88,7 @@ export function UserStatusToggle({
               </div>
             )}
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed">
               {isActive ? (
                 <>
                   أنت على وشك <strong>تجميد حساب {userName} ({userRole})</strong>. سيتم إنهاء
@@ -103,7 +103,7 @@ export function UserStatusToggle({
               )}
             </p>
 
-            <form action={formAction} className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <form action={formAction} className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
               <input type="hidden" name="userId" value={userId} />
               <input type="hidden" name="isActive" value={String(!isActive)} />
@@ -111,7 +111,7 @@ export function UserStatusToggle({
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-300"
+                className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
               >
                 تراجع
               </button>

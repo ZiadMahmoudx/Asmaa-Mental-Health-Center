@@ -98,34 +98,23 @@ export function RescheduleDialog({
     loadSlots();
   }, [doctorId, type]);
 
-  useEffect(() => {
-    if (state?.ok) {
-      router.refresh();
-    }
-  }, [state, router]);
+  // Unique days list
+  const availableDays = Array.from(new Set(availableSlots.map((s) => s.dateCairo))).sort();
 
-  // Group slots by Cairo local date (YYYY-MM-DD)
-  const groupedSlots = availableSlots.reduce<Record<string, FormattedSlot[]>>((acc, slot) => {
-    const key = slot.dateCairo;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(slot);
-    return acc;
-  }, {});
-
-  const availableDays = Object.keys(groupedSlots).sort();
-  const currentDaySlots = selectedDay ? groupedSlots[selectedDay] || [] : [];
+  // Current day slots
+  const currentDaySlots = availableSlots.filter((s) => s.dateCairo === selectedDay);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto text-right">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
-              <CalendarClock className="w-5 h-5 text-teal-600" />
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-teal-700" />
               إعادة جدولة موعد الجلسة
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              المريض: <strong className="text-slate-800 dark:text-slate-200">{patientName}</strong>
+              المريض: <strong className="text-slate-800">{patientName}</strong>
             </p>
           </div>
           <button
@@ -138,21 +127,21 @@ export function RescheduleDialog({
         </div>
 
         {/* Current scheduled time */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs flex items-center justify-between">
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
           <span className="text-slate-500">الموعد الحالي:</span>
-          <span className="font-bold text-slate-800 dark:text-slate-200">
+          <span className="font-bold text-slate-800">
             {formatCairo(new Date(currentScheduledAtUTC))}
           </span>
         </div>
 
         {/* Success message with WhatsApp button */}
         {state?.ok ? (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 rounded-2xl space-y-3 text-center">
-            <h4 className="font-bold text-emerald-900 dark:text-emerald-200 text-sm">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3 text-center">
+            <h4 className="font-bold text-emerald-900 text-sm">
               تم تعديل موعد الجلسة بنجاح!
             </h4>
-            <p className="text-xs text-emerald-800 dark:text-emerald-300">
-              الموعد الجديد: {formatCairo(new Date(state.data.newScheduledAtUTC))}
+            <p className="text-xs text-emerald-800">
+              الموعد الجديد: <strong>{formatCairo(new Date(state.data.newScheduledAtUTC))}</strong>
             </p>
             <a
               href={state.data.whatsappRescheduleUrl}
@@ -192,7 +181,7 @@ export function RescheduleDialog({
 
             {/* Step 1: Select Day */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-xs font-bold text-slate-700 mb-2">
                 ١. اختر اليوم الجديد
               </label>
               {isLoadingSlots ? (
@@ -201,7 +190,7 @@ export function RescheduleDialog({
                   جاري تحميل المواعيد المتاحة...
                 </div>
               ) : availableDays.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <div className="p-4 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
                   لا توجد فترات عمل متاحة في الـ 14 يوماً القادمة لهذا الطبيب.
                 </div>
               ) : (
@@ -216,10 +205,10 @@ export function RescheduleDialog({
                           setSelectedDay(day);
                           setSelectedSlot(null);
                         }}
-                        className={`px-3 py-2 rounded-xl text-xs font-semibold shrink-0 border transition ${
+                        className={`px-3 py-2 rounded-xl text-xs font-bold shrink-0 border transition ${
                           isSelected
-                            ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-500"
+                            ? "bg-teal-800 text-white border-teal-800 shadow-sm"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-600 hover:bg-white"
                         }`}
                       >
                         {new Date(day).toLocaleDateString("ar-EG", {
@@ -237,7 +226,7 @@ export function RescheduleDialog({
             {/* Step 2: Select Slot Instant */}
             {selectedDay && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-xs font-bold text-slate-700 mb-2">
                   ٢. اختر الساعة المناسبة
                 </label>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -250,8 +239,8 @@ export function RescheduleDialog({
                         onClick={() => setSelectedSlot(slot)}
                         className={`p-2 rounded-xl text-xs font-mono font-bold border text-center transition ${
                           isSelected
-                            ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                            : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-teal-500"
+                            ? "bg-teal-800 text-white border-teal-800 shadow-sm"
+                            : "bg-white text-slate-800 border-slate-200 hover:border-teal-600"
                         }`}
                       >
                         {slot.timeLabel}
@@ -264,19 +253,19 @@ export function RescheduleDialog({
 
             {/* Reason */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 سبب إعادة الجدولة (اختياري / يُرسل للمريض)
               </label>
               <input
                 type="text"
                 name="reason"
                 placeholder="مثال: بناءً على طلب المريض، ظرف طارئ..."
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
               />
             </div>
 
             {isAdmin && (
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer pt-1">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   name="allowOffGrid"
@@ -287,18 +276,18 @@ export function RescheduleDialog({
               </label>
             )}
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold"
               >
                 إلغاء
               </button>
               <button
                 type="submit"
                 disabled={!selectedSlot || isPending}
-                className="inline-flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                className="inline-flex items-center gap-2 px-5 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-40 shadow-sm"
               >
                 {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 تأكيد الموعد الجديد

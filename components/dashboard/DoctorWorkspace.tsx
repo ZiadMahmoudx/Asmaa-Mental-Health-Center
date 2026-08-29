@@ -37,15 +37,15 @@ export function DoctorWorkspace({
   return (
     <div className="space-y-6">
       {/* Workspace Tabs Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/60 rounded-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-3">
+        <div className="flex gap-2 p-1.5 bg-slate-100 border border-slate-200/80 rounded-2xl">
           <button
             type="button"
             onClick={() => setTab("AGENDA")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
               tab === "AGENDA"
-                ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-teal-800 text-white shadow-sm"
+                : "text-slate-600 hover:text-teal-900 hover:bg-white"
             }`}
           >
             <Calendar className="w-4 h-4" />
@@ -57,8 +57,8 @@ export function DoctorWorkspace({
             onClick={() => setTab("WEEKLY_SCHEDULE")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
               tab === "WEEKLY_SCHEDULE"
-                ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-teal-800 text-white shadow-sm"
+                : "text-slate-600 hover:text-teal-900 hover:bg-white"
             }`}
           >
             <CalendarClock className="w-4 h-4" />
@@ -70,8 +70,8 @@ export function DoctorWorkspace({
             onClick={() => setTab("TIME_OFF")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
               tab === "TIME_OFF"
-                ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-teal-800 text-white shadow-sm"
+                : "text-slate-600 hover:text-teal-900 hover:bg-white"
             }`}
           >
             <CalendarOff className="w-4 h-4" />
@@ -81,7 +81,7 @@ export function DoctorWorkspace({
 
         {doctorName && (
           <div className="text-xs font-semibold text-slate-500">
-            ملف الاستشاري: <strong className="text-slate-900 dark:text-white">{doctorName}</strong>
+            ملف الاستشاري: <strong className="text-teal-900">{doctorName}</strong>
           </div>
         )}
       </div>

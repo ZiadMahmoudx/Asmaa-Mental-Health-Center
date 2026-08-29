@@ -75,15 +75,15 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto text-right">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto text-right">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950 flex items-center justify-center text-teal-600 dark:text-teal-400">
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-800 border border-teal-100">
               <Stethoscope className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+              <h3 className="font-bold text-slate-900 text-base">
                 إضافة استشاري / طبيب جديد للمركز
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -102,12 +102,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
         {/* Success Screen */}
         {state?.ok ? (
-          <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-3">
+          <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-            <h4 className="font-bold text-emerald-900 dark:text-emerald-200 text-base">
+            <h4 className="font-bold text-emerald-900 text-base">
               تم إنشاء حساب الطبيب بنجاح!
             </h4>
-            <p className="text-xs text-emerald-800 dark:text-emerald-300 max-w-md mx-auto">
+            <p className="text-xs text-emerald-800 max-w-md mx-auto">
               تم تفعيل الحساب فورياً. يمكن للطبيب الآن تسجيل الدخول، أو يمكنك التوجه إلى قسم{" "}
               <strong>مواعيد وجداول الأطباء</strong> لإضافة فترات عمله الأسبوعية.
             </p>
@@ -143,14 +143,14 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
             {/* Section 1: User Account Credentials */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
                 <User className="w-3.5 h-3.5" />
                 ١. بيانات الحساب وتسجيل الدخول
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     الاسم الكامل (د. ...) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -158,12 +158,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     name="fullName"
                     required
                     placeholder="د. أحمد مصطفى"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     البريد الإلكتروني <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -172,12 +172,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     required
                     dir="ltr"
                     placeholder="doctor@asmaaclinic.com"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     رقم الهاتف المحمول <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -186,12 +186,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     required
                     dir="ltr"
                     placeholder="01012345678"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     كلمة المرور المبدئية <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -200,7 +200,7 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     required
                     dir="ltr"
                     placeholder="••••••••"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">٨ أحرف على الأقل تشمل حرفاً كبيراً ورقماً.</p>
                 </div>
@@ -209,14 +209,14 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
             {/* Section 2: Clinical Details */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
                 <FileBadge className="w-3.5 h-3.5" />
                 ٢. البيانات المهنية والتراخيص
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     اللقب المهني والتخصص <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -224,12 +224,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     name="title"
                     required
                     placeholder="استشاري الطب النفسي وعلاج الإدمان"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     رقم ترخيص مزاولة المهنة <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -238,12 +238,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     required
                     dir="ltr"
                     placeholder="MOH-123456"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     سنوات الخبرة الإكلينيكية
                   </label>
                   <input
@@ -252,19 +252,19 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     defaultValue={5}
                     min={0}
                     max={60}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     رقم الغرفة / العيادة بالمركز
                   </label>
                   <input
                     type="text"
                     name="roomNumber"
                     placeholder="عيادة 3B (اختياري)"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                 </div>
               </div>
@@ -272,15 +272,15 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
             {/* Section 3: Pricing */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
                 <DollarSign className="w-3.5 h-3.5" />
                 ٣. تسعير الجلسات (بالجنيه المصري EGP)
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                    <Video className="w-3 h-3 text-teal-600" />
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Video className="w-3 h-3 text-teal-700" />
                     سعر الجلسة أونلاين (زووم)
                   </label>
                   <input
@@ -290,13 +290,13 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     defaultValue={600}
                     step={25}
                     min={50}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                    <Building2 className="w-3 h-3 text-blue-600" />
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-blue-700" />
                     سعر الزيارة الحضورية بالعيادة
                   </label>
                   <input
@@ -306,7 +306,7 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                     defaultValue={750}
                     step={25}
                     min={50}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
                   />
                 </div>
               </div>
@@ -314,7 +314,7 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
             {/* Section 4: Concern Tags & Specialties */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
                 <Tag className="w-3.5 h-3.5" />
                 ٤. وسوم الفرز والتشخيص (لتوجيه المرضى في شاشة الفرز)
               </h4>
@@ -329,8 +329,8 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                       onClick={() => toggleConcernTag(c.tag)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
                         isSelected
-                          ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                          : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-teal-500"
+                          ? "bg-teal-800 text-white border-teal-800 shadow-sm"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-700"
                       }`}
                     >
                       {c.labelAr}
@@ -340,7 +340,7 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
               </div>
 
               <div className="pt-2 space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label className="block text-xs font-bold text-slate-700">
                   المجالات العلاجية والتخصصات المكتوبة:
                 </label>
                 <div className="flex gap-2">
@@ -355,12 +355,12 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                       }
                     }}
                     placeholder="أضف تخصصاً (مثال: العلاج المعرفي السلوكي CBT)..."
-                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                   <button
                     type="button"
                     onClick={addSpecialty}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl"
+                    className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -370,13 +370,13 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
                   {selectedSpecialties.map((sp) => (
                     <span
                       key={sp}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs border border-slate-200 dark:border-slate-700"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold border border-slate-200"
                     >
                       {sp}
                       <button
                         type="button"
                         onClick={() => removeSpecialty(sp)}
-                        className="text-slate-400 hover:text-red-500"
+                        className="text-slate-400 hover:text-red-600"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -388,30 +388,30 @@ export function CreateDoctorModal({ csrfToken, onClose }: Props) {
 
             {/* Section 5: Biography */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 النبذة التعريفية والسيرة المهنية (Bio)
               </label>
               <textarea
                 name="bioAr"
                 rows={3}
                 placeholder="نبذة مختصرة عن الطبيب، الشهادات الأكاديمية، والخبرات الإكلينيكية التي تظهر للمرضى..."
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
               />
             </div>
 
             {/* Submit Toolbar */}
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-300"
+                className="px-4 py-2.5 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
               >
                 إلغاء
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
               >
                 {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 إنشاء وتفعيل حساب الاستشاري

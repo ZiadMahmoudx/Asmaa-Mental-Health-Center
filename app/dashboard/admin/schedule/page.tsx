@@ -49,16 +49,16 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
   ]);
 
   return (
-    <div className="min-h-screen py-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
+    <div className="min-h-screen py-8 bg-slate-50 text-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950 flex items-center justify-center text-teal-600 dark:text-teal-400">
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-800 border border-teal-100">
               <CalendarClock className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">إدارة جداول ومواعيد الأطباء</h1>
+              <h1 className="text-xl font-bold text-slate-900">إدارة جداول ومواعيد الأطباء</h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 تعديل فترات العمل الأسبوعية، تسجيل إجازات العيادة، وفك أقفال المواعيد.
               </p>
@@ -68,7 +68,7 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard/admin"
-              className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
             >
               العودة للوحة الإدارة
             </Link>
@@ -76,8 +76,8 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
         </div>
 
         {/* Doctor Selector Tabs */}
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
-          <label className="block text-xs font-bold text-slate-500">
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-sm">
+          <label className="block text-xs font-bold text-slate-700">
             اختر الطبيب المستهدف للإدارة:
           </label>
           <div className="flex flex-wrap gap-2">
@@ -89,8 +89,8 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
                   href={`/dashboard/admin/schedule?doctorId=${doc.id}`}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition border ${
                     isSelected
-                      ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-500"
+                      ? "bg-teal-800 text-white border-teal-800 shadow-sm"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-700 hover:bg-white"
                   }`}
                 >
                   <UserCheck className="w-4 h-4" />
@@ -108,9 +108,9 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
           <div className="space-y-8">
             {/* Weekly Schedule Editor for Selected Doctor */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <span>فترات العمل الأسبوعية للاستشاري: </span>
-                <span className="text-teal-600 dark:text-teal-400 font-bold">{activeDoctor.fullName}</span>
+                <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
               </div>
 
               <WeeklyScheduleEditor
@@ -121,10 +121,10 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
             </div>
 
             {/* Time-off & Blackout Manager for Selected Doctor */}
-            <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+            <div className="space-y-3 pt-6 border-t border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <span>الإجازات والإغلاق المؤقت للاستشاري: </span>
-                <span className="text-teal-600 dark:text-teal-400 font-bold">{activeDoctor.fullName}</span>
+                <span className="text-teal-800 font-bold">{activeDoctor.fullName}</span>
               </div>
 
               <TimeOffManager

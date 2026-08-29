@@ -100,12 +100,12 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
   return (
     <div className="space-y-6">
       {/* Header & Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <div>
-          <h3 className="font-bold text-slate-900 dark:text-white text-base">
+          <h3 className="font-bold text-slate-900 text-base">
             مواعيد وساعات العمل الأسبوعية
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             تتكرر هذه الفترات أسبوعياً وتُحسب تلقائياً لحجز الجلسات بتوقيت القاهرة.
           </p>
         </div>
@@ -114,7 +114,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
           <button
             type="button"
             onClick={() => setIsAdding(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
             إضافة فترة عمل جديدة
@@ -126,14 +126,14 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
       {isAdding && (
         <form
           action={addAction}
-          className="p-5 bg-white dark:bg-slate-900 border-2 border-teal-500/50 rounded-2xl space-y-4 shadow-lg"
+          className="p-6 bg-white border-2 border-teal-600 rounded-2xl space-y-4 shadow-xl text-right"
         >
           <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
           {doctorId && <input type="hidden" name="doctorId" value={doctorId} />}
 
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-              <CalendarClock className="w-4 h-4 text-teal-600" />
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-teal-700" />
               إضافة فترة عمل أسبوعية
             </h4>
             <button
@@ -153,12 +153,12 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 يوم الأسبوع
               </label>
               <select
                 name="dayOfWeek"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
                 defaultValue={0}
               >
                 {DAY_NAMES_AR.map((name, index) => (
@@ -170,7 +170,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 من الساعة (بتوقيت القاهرة)
               </label>
               <input
@@ -180,7 +180,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
                   const target = document.getElementById("add_startMinutesUTC") as HTMLInputElement;
                   if (target) target.value = String(cairoLabelToUtcMinutes(e.target.value));
                 }}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
               />
               <input
                 type="hidden"
@@ -191,7 +191,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 إلى الساعة (بتوقيت القاهرة)
               </label>
               <input
@@ -201,7 +201,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
                   const target = document.getElementById("add_endMinutesUTC") as HTMLInputElement;
                   if (target) target.value = String(cairoLabelToUtcMinutes(e.target.value));
                 }}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
               />
               <input
                 type="hidden"
@@ -212,12 +212,12 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 مدة الجلسة
               </label>
               <select
                 name="slotDurationMins"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
                 defaultValue={45}
               >
                 {SESSION_DURATIONS.map((dur) => (
@@ -230,7 +230,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
           </div>
 
           <div className="flex items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
               <input
                 type="checkbox"
                 name="isOnlineAvailable"
@@ -240,7 +240,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
               جلسات أونلاين (زووم)
             </label>
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
               <input
                 type="checkbox"
                 name="isOfflineAvailable"
@@ -250,18 +250,18 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={isAddPending}
-              className="inline-flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
             >
               {isAddPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               حفظ الفترة
@@ -274,14 +274,14 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
       {editingRule && (
         <form
           action={editAction}
-          className="p-5 bg-white dark:bg-slate-900 border-2 border-amber-500/50 rounded-2xl space-y-4 shadow-lg"
+          className="p-6 bg-white border-2 border-amber-500 rounded-2xl space-y-4 shadow-xl text-right"
         >
           <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
           <input type="hidden" name="availabilityId" value={editingRule.id} />
           {doctorId && <input type="hidden" name="doctorId" value={doctorId} />}
 
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <Edit2 className="w-4 h-4 text-amber-600" />
               تعديل فترة العمل ({DAY_NAMES_AR[editingRule.dayOfWeek]})
             </h4>
@@ -305,12 +305,12 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 يوم الأسبوع
               </label>
               <select
                 name="dayOfWeek"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
                 defaultValue={editingRule.dayOfWeek}
               >
                 {DAY_NAMES_AR.map((name, index) => (
@@ -322,7 +322,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 من الساعة
               </label>
               <input
@@ -332,7 +332,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
                   const target = document.getElementById("edit_startMinutesUTC") as HTMLInputElement;
                   if (target) target.value = String(cairoLabelToUtcMinutes(e.target.value));
                 }}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
               />
               <input
                 type="hidden"
@@ -343,7 +343,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 إلى الساعة
               </label>
               <input
@@ -353,7 +353,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
                   const target = document.getElementById("edit_endMinutesUTC") as HTMLInputElement;
                   if (target) target.value = String(cairoLabelToUtcMinutes(e.target.value));
                 }}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
               />
               <input
                 type="hidden"
@@ -364,12 +364,12 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 مدة الجلسة
               </label>
               <select
                 name="slotDurationMins"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
                 defaultValue={editingRule.slotDurationMins}
               >
                 {SESSION_DURATIONS.map((dur) => (
@@ -382,7 +382,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
           </div>
 
           <div className="flex items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
               <input
                 type="checkbox"
                 name="isOnlineAvailable"
@@ -392,7 +392,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
               جلسات أونلاين (زووم)
             </label>
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
               <input
                 type="checkbox"
                 name="isOfflineAvailable"
@@ -403,18 +403,18 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setEditingRule(null)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={isEditPending}
-              className="inline-flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
             >
               {isEditPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               حفظ التعديلات
@@ -426,9 +426,9 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
       {/* Rules List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {availability.length === 0 ? (
-          <div className="col-span-full text-center py-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
-            <CalendarClock className="w-10 h-10 mx-auto mb-2 opacity-40" />
-            <p className="text-sm font-semibold">لا توجد فترات عمل مسجلة حالياً.</p>
+          <div className="col-span-full text-center py-12 bg-white border border-slate-200 rounded-2xl text-slate-400 shadow-sm">
+            <CalendarClock className="w-10 h-10 mx-auto mb-2 opacity-40 text-slate-400" />
+            <p className="text-sm font-bold text-slate-600">لا توجد فترات عمل مسجلة حالياً.</p>
             <p className="text-xs text-slate-400 mt-1">اضغط على إضافة فترة عمل جديدة لبدء استقبال الحجوزات.</p>
           </div>
         ) : (
@@ -440,32 +440,32 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             return (
               <div
                 key={rule.id}
-                className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 hover:border-teal-500/40 transition"
+                className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 hover:border-teal-600 hover:shadow-md transition"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-white text-sm">
+                    <span className="font-bold text-slate-900 text-base">
                       {DAY_NAMES_AR[rule.dayOfWeek]}
                     </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono font-bold">
                       {rule.slotDurationMins} دقيقة
                     </span>
                   </div>
 
-                  <div className="mt-2 text-base font-bold font-mono text-teal-600 dark:text-teal-400">
+                  <div className="mt-2 text-lg font-bold font-mono text-teal-800">
                     {startLabel} — {endLabel}
                   </div>
 
                   <div className="flex gap-2 mt-3">
                     {rule.isOnlineAvailable && (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-semibold border border-teal-200/50 dark:border-teal-900">
-                        <Video className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-800 font-bold border border-teal-200">
+                        <Video className="w-3.5 h-3.5" />
                         أونلاين
                       </span>
                     )}
                     {rule.isOfflineAvailable && (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200/50 dark:border-blue-900">
-                        <Building2 className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-blue-50 text-blue-800 font-bold border border-blue-200">
+                        <Building2 className="w-3.5 h-3.5" />
                         عيادة
                       </span>
                     )}
@@ -474,7 +474,7 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
 
                 {/* Retirement pre-flight warning box */}
                 {isRetiringThis && (
-                  <form action={retireAction} className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <form action={retireAction} className="space-y-3 pt-3 border-t border-slate-100">
                     <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
                     <input type="hidden" name="availabilityId" value={rule.id} />
                     {doctorId && <input type="hidden" name="doctorId" value={doctorId} />}
@@ -490,14 +490,14 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
                       <button
                         type="button"
                         onClick={() => setRetiringId(null)}
-                        className="flex-1 py-1.5 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-lg"
+                        className="flex-1 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700"
                       >
                         تراجع
                       </button>
                       <button
                         type="submit"
                         disabled={!impactConfirmed || isRetirePending}
-                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg disabled:opacity-40"
+                        className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl disabled:opacity-40 shadow-sm"
                       >
                         {isRetirePending && <Loader2 className="w-3 h-3 animate-spin inline ml-1" />}
                         تأكيد الإلغاء
@@ -508,20 +508,20 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
 
                 {/* Action buttons when not retiring */}
                 {!isRetiringThis && (
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => setEditingRule(rule)}
-                      className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-teal-900 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-3.5 h-3.5 text-amber-600" />
                       تعديل
                     </button>
 
                     <button
                       type="button"
                       onClick={() => checkRetireImpact(rule)}
-                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       إلغاء الفترة
