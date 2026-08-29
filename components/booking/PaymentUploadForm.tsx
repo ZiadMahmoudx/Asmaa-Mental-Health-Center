@@ -140,7 +140,7 @@ export function PaymentUploadForm({
 
         <div className="p-4 rounded-2xl bg-teal-950 text-white flex items-center justify-between">
           <span className="text-xs text-teal-300">{isAr ? "المبلغ المطلوب" : "Amount due"}</span>
-          <span className="text-2xl font-black">{formatEgp(priceEGP)}</span>
+          <span className="text-2xl font-black">{formatEgp(priceEGP, isAr ? "ar" : "en")}</span>
         </div>
 
         <div className="space-y-2.5">

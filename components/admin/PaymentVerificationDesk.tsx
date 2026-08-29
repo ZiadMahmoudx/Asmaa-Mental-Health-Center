@@ -227,7 +227,7 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
                               {row.patient.fullName}
                             </h4>
                             <p className="text-[11px] text-gray-500 truncate">
-                              {row.doctor.fullName} • {formatCairo(new Date(row.appointment.scheduledAtUTC))}
+                              {row.doctor.fullName} • {formatCairo(new Date(row.appointment.scheduledAtUTC), isAr ? "ar" : "en")}
                             </p>
                             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                               <span className="px-2 py-0.5 rounded-lg bg-alabaster-muted text-[10px] font-bold text-gray-700">
@@ -266,7 +266,7 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
                           </div>
                           <div className="text-end shrink-0">
                             <span className="block text-sm font-black text-teal-900">
-                              {formatEgp(row.appointment.priceEGP)}
+                              {formatEgp(row.appointment.priceEGP, isAr ? "ar" : "en")}
                             </span>
                             <span className="text-[10px] text-gray-400 flex items-center gap-1 justify-end mt-1">
                               <Clock className="w-3 h-3" />
@@ -425,7 +425,7 @@ function ReviewPanel({
           </div>
           <div className="text-end">
             <span className="block text-2xl font-black text-teal-900">
-              {formatEgp(row.appointment.priceEGP)}
+              {formatEgp(row.appointment.priceEGP, isAr ? "ar" : "en")}
             </span>
             <span className="text-[11px] text-gray-500">
               {isAr ? "قيمة الجلسة المستحقة" : "Session fee due"}
@@ -440,7 +440,7 @@ function ReviewPanel({
           />
           <Field
             label={isAr ? "الموعد (توقيت القاهرة)" : "Appointment (Cairo time)"}
-            value={formatCairo(new Date(row.appointment.scheduledAtUTC))}
+            value={formatCairo(new Date(row.appointment.scheduledAtUTC), isAr ? "ar" : "en")}
           />
           <Field
             label={isAr ? "نوع الجلسة" : "Session type"}
@@ -470,14 +470,14 @@ function ReviewPanel({
             label={isAr ? "المبلغ المُعلن من المريض" : "Amount declared by patient"}
             value={
               row.amountClaimedEGP !== null
-                ? formatEgp(row.amountClaimedEGP)
+                ? formatEgp(row.amountClaimedEGP, isAr ? "ar" : "en")
                 : isAr ? "لم يُدخل" : "Not provided"
             }
             warn={row.amountMismatch}
           />
           <Field
             label={isAr ? "وقت رفع الإيصال" : "Uploaded at"}
-            value={formatCairo(new Date(row.uploadedAtUTC))}
+            value={formatCairo(new Date(row.uploadedAtUTC), isAr ? "ar" : "en")}
           />
         </dl>
 
@@ -893,8 +893,8 @@ function DecisionLog({ history, isAr }: { history: ReviewedProofRow[]; isAr: boo
               <tr key={entry.paymentProofId} className="hover:bg-alabaster-base/60">
                 <Td strong>{entry.patientName}</Td>
                 <Td>{entry.doctorName}</Td>
-                <Td>{formatCairo(new Date(entry.scheduledAtUTC))}</Td>
-                <Td>{formatEgp(entry.priceEGP)}</Td>
+                <Td>{formatCairo(new Date(entry.scheduledAtUTC), isAr ? "ar" : "en")}</Td>
+                <Td>{formatEgp(entry.priceEGP, isAr ? "ar" : "en")}</Td>
                 <Td>
                   <span
                     className={`px-2.5 py-1 rounded-lg font-bold text-[10px] ${

@@ -277,7 +277,7 @@ export function SafetyPlanEditor({ plan, csrfToken, isAuthenticated, hotline }: 
           {savedAt && (
             <p className="text-[11px] text-gray-500 text-center">
               {isAr ? "آخر حفظ: " : "Last saved: "}
-              {formatCairo(new Date(savedAt))}
+              {formatCairo(new Date(savedAt), isAr ? "ar" : "en")}
             </p>
           )}
 

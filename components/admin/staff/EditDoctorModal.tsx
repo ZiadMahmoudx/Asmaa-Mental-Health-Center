@@ -4,17 +4,16 @@ import React, { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2,
-  CheckCircle2,
   DollarSign,
   Edit2,
   FileBadge,
   Loader2,
   Plus,
-  Stethoscope,
   Tag,
   Video,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { DoctorStaffRow } from "@/app/actions/staff.actions";
 import { updateDoctorFullProfileAction } from "@/app/actions/staff.actions";
 import { CSRF_FIELD } from "@/lib/constants";
@@ -27,10 +26,14 @@ interface Props {
 }
 
 export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
 
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(
-    doctor.specialties.length > 0 ? doctor.specialties : ["علاج الاكتئاب", "اضطرابات القلق"],
+    doctor.specialties.length > 0
+      ? doctor.specialties
+      : [isAr ? "علاج الاكتئاب" : "Depression Treatment", isAr ? "اضطرابات القلق" : "Anxiety Disorders"],
   );
   const [selectedConcernTags, setSelectedConcernTags] = useState<string[]>(
     doctor.concernTags.length > 0 ? doctor.concernTags : ["depression", "anxiety"],
@@ -72,7 +75,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto text-right">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto text-start">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
@@ -81,10 +84,12 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base">
-                تعديل بيانات الاستشاري: {doctor.fullName}
+                {isAr ? `تعديل بيانات الاستشاري: ${doctor.fullName}` : `Edit Consultant Profile: ${doctor.fullName}`}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                تحديث اللقب، رقم الترخيص، الأسعار، ووسوم الفرز.
+                {isAr
+                  ? "تحديث اللقب، رقم الترخيص، الأسعار، ووسوم الفرز."
+                  : "Update title, MOH license number, fees, and triage tags."}
               </p>
             </div>
           </div>
@@ -92,6 +97,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
             type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+            aria-label={isAr ? "إغلاق" : "Close"}
           >
             <X className="w-5 h-5" />
           </button>
@@ -111,9 +117,9 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
             value={JSON.stringify(selectedConcernTags)}
           />
 
-          {!state?.ok && state?.messageAr && (
+          {!state?.ok && state && (
             <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-              {state.messageAr}
+              {isAr ? state.messageAr : state.messageEn ?? state.messageAr}
             </div>
           )}
 
@@ -121,13 +127,13 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
               <FileBadge className="w-3.5 h-3.5" />
-              ١. البيانات المهنية والتراخيص
+              <span>{isAr ? "١. البيانات المهنية والتراخيص" : "1. Credentials & Licensing"}</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  اللقب المهني <span className="text-red-500">*</span>
+                  {isAr ? "اللقب المهني" : "Professional Title"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -140,7 +146,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رقم ترخيص مزاولة المهنة <span className="text-red-500">*</span>
+                  {isAr ? "رقم ترخيص مزاولة المهنة" : "MOH License Number"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -154,7 +160,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  سنوات الخبرة
+                  {isAr ? "سنوات الخبرة" : "Years of Experience"}
                 </label>
                 <input
                   type="number"
@@ -168,13 +174,13 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رقم الغرفة / العيادة
+                  {isAr ? "رقم الغرفة / العيادة" : "Clinic Room / Suite"}
                 </label>
                 <input
                   type="text"
                   name="roomNumber"
                   defaultValue={doctor.roomNumber ?? ""}
-                  placeholder="عيادة 3B"
+                  placeholder={isAr ? "عيادة 3B" : "Room 3B"}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
@@ -185,14 +191,14 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
               <DollarSign className="w-3.5 h-3.5" />
-              ٢. تسعير الجلسات (EGP)
+              <span>{isAr ? "٢. تسعير الجلسات (EGP)" : "2. Session Fees (EGP)"}</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                   <Video className="w-3 h-3 text-teal-700" />
-                  سعر الجلسة أونلاين (زووم)
+                  <span>{isAr ? "سعر الجلسة أونلاين (زووم)" : "Online Session Fee (Zoom)"}</span>
                 </label>
                 <input
                   type="number"
@@ -208,7 +214,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-blue-700" />
-                  سعر الزيارة الحضورية بالعيادة
+                  <span>{isAr ? "سعر الزيارة الحضورية بالعيادة" : "In-Clinic Visit Fee"}</span>
                 </label>
                 <input
                   type="number"
@@ -227,7 +233,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
               <Tag className="w-3.5 h-3.5" />
-              ٣. وسوم الفرز والتشخيص
+              <span>{isAr ? "٣. وسوم الفرز والتشخيص" : "3. Triage Tags & Specialties"}</span>
             </h4>
 
             <div className="flex flex-wrap gap-2">
@@ -244,7 +250,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
                         : "bg-slate-50 text-slate-700 border-slate-200 hover:border-teal-700"
                     }`}
                   >
-                    {c.labelAr}
+                    {isAr ? c.labelAr : c.labelEn}
                   </button>
                 );
               })}
@@ -252,7 +258,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
 
             <div className="pt-2 space-y-2">
               <label className="block text-xs font-bold text-slate-700">
-                المجالات العلاجية والتخصصات:
+                {isAr ? "المجالات العلاجية والتخصصات:" : "Clinical Focus Areas / Subspecialties:"}
               </label>
               <div className="flex gap-2">
                 <input
@@ -265,7 +271,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
                       addSpecialty();
                     }
                   }}
-                  placeholder="أضف تخصصاً..."
+                  placeholder={isAr ? "أضف تخصصاً..." : "Add specialty..."}
                   className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
                 <button
@@ -300,7 +306,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
           {/* Section 4: Biography */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              النبذة التعريفية والسيرة المهنية (Bio)
+              {isAr ? "النبذة التعريفية والسيرة المهنية (Bio)" : "Professional Biography (Bio)"}
             </label>
             <textarea
               name="bioAr"
@@ -316,7 +322,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
               onClick={onClose}
               className="px-4 py-2.5 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
             >
-              إلغاء
+              {isAr ? "إلغاء" : "Cancel"}
             </button>
             <button
               type="submit"
@@ -324,7 +330,7 @@ export function EditDoctorModal({ doctor, csrfToken, onClose }: Props) {
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
             >
               {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              حفظ التعديلات
+              <span>{isAr ? "حفظ التعديلات" : "Save Changes"}</span>
             </button>
           </div>
         </form>

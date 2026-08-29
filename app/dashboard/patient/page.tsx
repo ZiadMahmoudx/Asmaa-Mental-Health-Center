@@ -78,8 +78,8 @@ export default async function PatientDashboardPage() {
             <p className="text-xs text-teal-300">
               {nextSession
                 ? isAr
-                  ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC))} مع ${nextSession.doctorName}`
-                  : `Next session: ${formatCairo(new Date(nextSession.scheduledAtUTC))} with ${nextSession.doctorName}`
+                  ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC), lang)} مع ${nextSession.doctorName}`
+                  : `Next session: ${formatCairo(new Date(nextSession.scheduledAtUTC), lang)} with ${nextSession.doctorName}`
                 : isAr
                 ? "لا توجد جلسات مؤكدة قادمة حالياً."
                 : "No upcoming confirmed sessions scheduled."}
@@ -125,7 +125,7 @@ export default async function PatientDashboardPage() {
 
               <div className="text-start sm:text-end">
                 <span className="text-2xl font-black font-mono text-teal-800">
-                  {formatEgp(creditBalance)}
+                  {formatEgp(creditBalance, lang)}
                 </span>
                 <span className="block text-[10px] text-slate-400">
                   {isAr ? "رصيد مالي صالح للاستخدام" : "Active booking credit"}
@@ -168,7 +168,7 @@ export default async function PatientDashboardPage() {
                             : "Booking Applied"}
                         </div>
                         <div className="text-[10px] text-slate-500">
-                          {formatCairo(new Date(e.createdAtUTC))} {e.reason ? `• ${e.reason}` : ""}
+                          {formatCairo(new Date(e.createdAtUTC), lang)} {e.reason ? `• ${e.reason}` : ""}
                         </div>
                       </div>
                       <span
@@ -176,7 +176,7 @@ export default async function PatientDashboardPage() {
                           e.amountEGP > 0 ? "text-emerald-700" : "text-slate-700"
                         }`}
                       >
-                        {e.amountEGP > 0 ? `+${formatEgp(e.amountEGP)}` : formatEgp(e.amountEGP)}
+                        {e.amountEGP > 0 ? `+${formatEgp(e.amountEGP, lang)}` : formatEgp(e.amountEGP, lang)}
                       </span>
                     </div>
                   ))}
@@ -233,7 +233,7 @@ export default async function PatientDashboardPage() {
                       {record.doctorName}
                     </h3>
                     <span className="text-[11px] text-gray-500">
-                      {formatCairo(new Date(record.sessionAtUTC))}
+                      {formatCairo(new Date(record.sessionAtUTC), lang)}
                     </span>
                   </div>
 
@@ -314,7 +314,7 @@ export default async function PatientDashboardPage() {
                         {isAr ? item.titleAr : item.titleEn}
                       </h3>
                       <p className="text-[11px] text-slate-500 font-mono">
-                        {formatCairo(new Date(item.completedAtUTC))}
+                        {formatCairo(new Date(item.completedAtUTC), lang)}
                       </p>
                     </div>
                     <span className="text-xs font-black font-mono text-teal-900 tabular-nums">

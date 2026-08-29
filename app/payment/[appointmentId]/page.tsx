@@ -87,7 +87,7 @@ export default async function PaymentPage({
         <Row label={isAr ? "الطبيب المعالج" : "Consultant"} value={doctorName} />
         <Row
           label={isAr ? "الموعد (بتوقيت القاهرة)" : "Scheduled Time (Cairo)"}
-          value={formatCairo(appointment.scheduledAtUTC)}
+          value={formatCairo(appointment.scheduledAtUTC, lang)}
         />
         <Row
           label={isAr ? "نوع الجلسة" : "Session Format"}
@@ -101,7 +101,7 @@ export default async function PaymentPage({
               : "In-Clinic Visit"
           }
         />
-        <Row label={isAr ? "قيمة الجلسة" : "Consultation Fee"} value={formatEgp(priceEGP)} />
+        <Row label={isAr ? "قيمة الجلسة" : "Consultation Fee"} value={formatEgp(priceEGP, lang)} />
       </dl>
     </div>
   );

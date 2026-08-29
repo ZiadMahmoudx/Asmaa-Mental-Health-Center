@@ -344,7 +344,7 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                         const prices: number[] = [];
                         if (featured.offersOnline && featured.priceOnlineEGP > 0) prices.push(featured.priceOnlineEGP);
                         if (featured.offersOffline && featured.priceOfflineEGP > 0) prices.push(featured.priceOfflineEGP);
-                        return prices.length > 0 ? formatEgp(Math.min(...prices)) : "—";
+                        return prices.length > 0 ? formatEgp(Math.min(...prices), language) : "—";
                       })() : "—"}
                     </span>
                   </div>
@@ -504,7 +504,7 @@ export function HomeContent({ doctors }: { doctors: DoctorCardView[] }) {
                             {language === "ar" ? "تبدأ من" : "From"}
                           </span>
                           <span className="font-extrabold text-teal-900 text-sm">
-                            {minPrice !== null ? formatEgp(minPrice) : "—"}
+                            {minPrice !== null ? formatEgp(minPrice, language) : "—"}
                           </span>
                         </div>
 

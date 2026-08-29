@@ -540,7 +540,7 @@ function IntakeResult({ result, isAr }: { result: IntakeResultPayload; isAr: boo
                   {isAr ? "من" : "from"}
                 </span>
                 <span className="text-sm font-black text-teal-900">
-                  {formatEgp(Math.min(match.priceOnlineEGP, match.priceOfflineEGP))}
+                  {formatEgp(Math.min(match.priceOnlineEGP, match.priceOfflineEGP), isAr ? "ar" : "en")}
                 </span>
               </div>
               <Link

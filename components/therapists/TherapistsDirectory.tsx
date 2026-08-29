@@ -484,7 +484,7 @@ export function TherapistsDirectory({ doctors, errorMessage }: Props) {
                           {isAr ? "تبدأ الجلسة من" : "Sessions from"}
                         </span>
                         <span className="text-base font-black text-teal-900">
-                          {minPrice !== null ? formatEgp(minPrice) : "—"}
+                          {minPrice !== null ? formatEgp(minPrice, isAr ? "ar" : "en") : "—"}
                         </span>
                       </div>
 

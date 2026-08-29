@@ -242,7 +242,7 @@ export default async function AdminDashboardPage() {
                           {doctor.completedSessions}
                         </td>
                         <td className="px-4 py-3 align-top tabular-nums text-gray-700 whitespace-nowrap">
-                          {formatEgp(doctor.priceOnlineEGP)} / {formatEgp(doctor.priceOfflineEGP)}
+                          {formatEgp(doctor.priceOnlineEGP, lang)} / {formatEgp(doctor.priceOfflineEGP, lang)}
                         </td>
                         <td className="px-4 py-3 align-top">
                           {doctor.isAcceptingPatients ? (

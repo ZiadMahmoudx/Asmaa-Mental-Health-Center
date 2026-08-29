@@ -102,7 +102,7 @@ export function CrisisIntakeQueue({ intakes, csrfToken }: Props) {
                   </div>
 
                   <p className="text-[11px] text-gray-600">
-                    {formatCairo(new Date(intake.createdAtUTC))}
+                    {formatCairo(new Date(intake.createdAtUTC), isAr ? "ar" : "en")}
                     <span className="mx-1.5 text-gray-400">·</span>
                     {isAr ? "درجة الشدة:" : "Severity:"}{" "}
                     <span className="font-bold tabular-nums">

@@ -7,12 +7,12 @@ import {
   CalendarClock,
   CheckCircle2,
   FileSignature,
-  Link as LinkIcon,
   Loader2,
   MessageCircle,
   Video,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { DoctorAgendaEntry } from "@/app/actions/doctor.actions";
 import {
   completeAppointmentAction,
@@ -37,6 +37,8 @@ export function AppointmentActions({
   onOpenPatientDrawer,
   onOpenSoapNote,
 }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
 
   const [showReschedule, setShowReschedule] = useState(false);
@@ -69,7 +71,7 @@ export function AppointmentActions({
         onClick={onOpenPatientDrawer}
         className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition border border-slate-200"
       >
-        الملف السريري والمقاييس
+        {isAr ? "الملف السريري والمقاييس" : "Clinical Records & Scales"}
       </button>
 
       {/* SOAP Note Button */}
@@ -84,7 +86,11 @@ export function AppointmentActions({
           }`}
         >
           <FileSignature className="w-3.5 h-3.5" />
-          {appointment.hasClinicalRecord ? "عرض / تعديل التقرير" : "كتابة التقرير الطبي"}
+          <span>
+            {appointment.hasClinicalRecord
+              ? isAr ? "عرض / تعديل التقرير" : "View / Edit Note"
+              : isAr ? "كتابة التقرير الطبي" : "Document SOAP Note"}
+          </span>
         </button>
       )}
 
@@ -99,7 +105,7 @@ export function AppointmentActions({
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50"
           >
             {isCompletePending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            إتمام الجلسة
+            <span>{isAr ? "إتمام الجلسة" : "Mark Completed"}</span>
           </button>
         </form>
       )}
@@ -112,7 +118,7 @@ export function AppointmentActions({
           className="px-3.5 py-2 border border-slate-300 hover:border-teal-600 hover:bg-teal-50 text-slate-800 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5"
         >
           <CalendarClock className="w-3.5 h-3.5 text-teal-700" />
-          تعديل الموعد
+          <span>{isAr ? "تعديل الموعد" : "Reschedule"}</span>
         </button>
       )}
 
@@ -124,7 +130,11 @@ export function AppointmentActions({
           className="px-3.5 py-2 border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-blue-700 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5"
         >
           <Video className="w-3.5 h-3.5" />
-          {appointment.zoomMeetingUrl ? "تعديل رابط زووم" : "إضافة رابط زووم"}
+          <span>
+            {appointment.zoomMeetingUrl
+              ? isAr ? "تعديل رابط زووم" : "Edit Zoom Link"
+              : isAr ? "إضافة رابط زووم" : "Add Zoom Link"}
+          </span>
         </button>
       )}
 
@@ -136,7 +146,7 @@ export function AppointmentActions({
           className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition inline-flex items-center gap-1"
         >
           <Ban className="w-3.5 h-3.5" />
-          إلغاء
+          <span>{isAr ? "إلغاء" : "Cancel"}</span>
         </button>
       )}
 
@@ -158,16 +168,17 @@ export function AppointmentActions({
       {/* Doctor Cancellation Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-red-600 text-sm flex items-center gap-2">
                 <Ban className="w-4 h-4" />
-                إلغاء الموعد للمريض
+                <span>{isAr ? "إلغاء الموعد للمريض" : "Cancel Patient Appointment"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCancelModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -176,7 +187,9 @@ export function AppointmentActions({
             {cancelState?.ok ? (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3 text-center">
                 <p className="text-xs font-bold text-emerald-900">
-                  تم إلغاء الموعد وتحرير الوقت في جدولك بنجاح.
+                  {isAr
+                    ? "تم إلغاء الموعد وتحرير الوقت في جدولك بنجاح."
+                    : "Appointment cancelled and slot unblocked successfully."}
                 </p>
                 <a
                   href={cancelState.data.whatsappCancelUrl}
@@ -185,7 +198,7 @@ export function AppointmentActions({
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  إرسال رسالة الاعتذار للمريض عبر واتساب
+                  <span>{isAr ? "إرسال رسالة الاعتذار للمريض عبر واتساب" : "Send WhatsApp Apology to Patient"}</span>
                 </a>
               </div>
             ) : (
@@ -193,21 +206,27 @@ export function AppointmentActions({
                 <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
                 <input type="hidden" name="appointmentId" value={appointment.appointmentId} />
 
-                {!cancelState?.ok && cancelState?.messageAr && (
+                {!cancelState?.ok && cancelState && (
                   <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                    {cancelState.messageAr}
+                    {isAr ? cancelState.messageAr : cancelState.messageEn ?? cancelState.messageAr}
                   </div>
                 )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    سبب الإلغاء (إلزامي / سيصل للمريض في رسالة الاعتذار)
+                    {isAr
+                      ? "سبب الإلغاء (إلزامي / سيصل للمريض في رسالة الاعتذار)"
+                      : "Cancellation Reason (Mandatory / Sent via WhatsApp)"}
                   </label>
                   <textarea
                     name="reason"
                     rows={3}
                     required
-                    placeholder="اكتب سبب الإلغاء بوضوح (مثال: ظرف طبي طارئ للاستشاري...)"
+                    placeholder={
+                      isAr
+                        ? "اكتب سبب الإلغاء بوضوح (مثال: ظرف طبي طارئ للاستشاري...)"
+                        : "State the reason clearly (e.g. Clinical emergency...)"
+                    }
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                   />
                 </div>
@@ -216,17 +235,17 @@ export function AppointmentActions({
                   <button
                     type="button"
                     onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700"
+                    className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                   >
-                    تراجع
+                    {isAr ? "تراجع" : "Back"}
                   </button>
                   <button
                     type="submit"
                     disabled={isCancelPending}
-                    className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
                   >
                     {isCancelPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    تأكيد الإلغاء
+                    <span>{isAr ? "تأكيد الإلغاء" : "Confirm Cancellation"}</span>
                   </button>
                 </div>
               </form>
@@ -238,16 +257,17 @@ export function AppointmentActions({
       {/* Zoom Link Modal */}
       {showZoomModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Video className="w-4 h-4 text-blue-600" />
-                رابط جلسة زووم (Zoom Meeting)
+                <span>{isAr ? "رابط جلسة زووم (Zoom Meeting)" : "Zoom Meeting Link"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowZoomModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -257,15 +277,15 @@ export function AppointmentActions({
               <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
               <input type="hidden" name="appointmentId" value={appointment.appointmentId} />
 
-              {!zoomState?.ok && zoomState?.messageAr && (
+              {!zoomState?.ok && zoomState && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                  {zoomState.messageAr}
+                  {isAr ? zoomState.messageAr : zoomState.messageEn ?? zoomState.messageAr}
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رابط الاجتماع (نطاق zoom.us حصراً)
+                  {isAr ? "رابط الاجتماع (نطاق zoom.us حصراً)" : "Meeting URL (zoom.us only)"}
                 </label>
                 <input
                   type="url"
@@ -274,18 +294,20 @@ export function AppointmentActions({
                   defaultValue={appointment.zoomMeetingUrl ?? ""}
                   placeholder="https://us04web.zoom.us/j/..."
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900"
+                  dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  كلمة المرور للجلسة (اختياري)
+                  {isAr ? "كلمة المرور للجلسة (اختياري)" : "Passcode (Optional)"}
                 </label>
                 <input
                   type="text"
                   name="zoomPasscode"
                   placeholder="Passcode..."
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900"
+                  dir="ltr"
                 />
               </div>
 
@@ -293,17 +315,17 @@ export function AppointmentActions({
                 <button
                   type="button"
                   onClick={() => setShowZoomModal(false)}
-                  className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700"
+                  className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                 >
-                  إلغاء
+                  {isAr ? "إلغاء" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   disabled={isZoomPending}
-                  className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
                 >
                   {isZoomPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  حفظ الرابط
+                  <span>{isAr ? "حفظ الرابط" : "Save Link"}</span>
                 </button>
               </div>
             </form>

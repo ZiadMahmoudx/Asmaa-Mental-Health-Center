@@ -248,12 +248,12 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
 
                         <td className="p-4">
                           <div className="font-bold text-slate-900">
-                            {formatCairo(new Date(app.scheduledAtUTC))}
+                            {formatCairo(new Date(app.scheduledAtUTC), lang)}
                           </div>
                           {app.rescheduledFromUTC && (
                             <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
                               {isAr ? "معدل من: " : "Rescheduled from: "}
-                              {formatCairo(new Date(app.rescheduledFromUTC))}
+                              {formatCairo(new Date(app.rescheduledFromUTC), lang)}
                             </div>
                           )}
                         </td>
@@ -275,7 +275,7 @@ export default async function AdminAppointmentsPage({ searchParams }: Props) {
                         </td>
 
                         <td className="p-4 font-mono font-bold text-teal-800">
-                          {formatEgp(app.priceEGP)}
+                          {formatEgp(app.priceEGP, lang)}
                         </td>
 
                         <td className="p-4 text-center">

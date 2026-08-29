@@ -39,19 +39,17 @@ export const LanguageProvider: React.FC<ProviderProps> = ({
   const [language, setLanguageState] = useState<Language>(initialLanguage);
 
   useEffect(() => {
-    // Synchronize client on mount
-    const saved = localStorage.getItem(COOKIE_NAME) as Language | null;
-    if (saved && (saved === "ar" || saved === "en") && saved !== language) {
-      setLanguageState(saved);
-      writeLanguageCookie(saved);
-      document.documentElement.dir = saved === "ar" ? "rtl" : "ltr";
-      document.documentElement.lang = saved;
-    } else {
-      writeLanguageCookie(language);
-      document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
-      document.documentElement.lang = language;
+    // Cookie is the single source of truth (resolved on server into initialLanguage).
+    // Sync document attributes and update client localStorage cache.
+    writeLanguageCookie(language);
+    try {
+      localStorage.setItem(COOKIE_NAME, language);
+    } catch {
+      // Ignore storage errors in private browsing
     }
-  }, []);
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = language;
+  }, [language]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);

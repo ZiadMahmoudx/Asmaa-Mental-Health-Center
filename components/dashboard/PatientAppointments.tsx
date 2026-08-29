@@ -176,7 +176,7 @@ export function PatientAppointments({
                     <p className="text-xs text-gray-600">{appointment.doctorTitle}</p>
                     <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5 pt-0.5">
                       <CalendarClock className="w-3.5 h-3.5 text-sage-700" />
-                      {formatCairo(new Date(appointment.scheduledAtUTC))}
+                      {formatCairo(new Date(appointment.scheduledAtUTC), language)}
                       <span className="text-gray-400 font-medium">
                         · {appointment.durationMinutes} {isAr ? "دقيقة" : "min"}
                       </span>
@@ -184,7 +184,7 @@ export function PatientAppointments({
                   </div>
 
                   <span className="text-base font-black text-teal-900 shrink-0">
-                    {formatEgp(appointment.priceEGP)}
+                    {formatEgp(appointment.priceEGP, language)}
                   </span>
                 </div>
 

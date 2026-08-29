@@ -100,8 +100,8 @@ export default async function DoctorDashboardPage() {
               <p className="text-xs text-teal-300">
                 {nextSession
                   ? isAr
-                    ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC))} مع ${nextSession.patientName}`
-                    : `Next session: ${formatCairo(new Date(nextSession.scheduledAtUTC))} with ${nextSession.patientName}`
+                    ? `جلستك القادمة: ${formatCairo(new Date(nextSession.scheduledAtUTC), lang)} مع ${nextSession.patientName}`
+                    : `Next session: ${formatCairo(new Date(nextSession.scheduledAtUTC), lang)} with ${nextSession.patientName}`
                   : isAr
                   ? "لا توجد جلسات قادمة مجدولة."
                   : "No upcoming consultations scheduled."}
@@ -130,7 +130,7 @@ export default async function DoctorDashboardPage() {
           <Stat
             icon={ShieldCheck}
             label={isAr ? "إيراد الجلسات المكتملة" : "Completed Revenue"}
-            value={formatEgp(monthEarnings)}
+            value={formatEgp(monthEarnings, lang)}
           />
         </div>
 

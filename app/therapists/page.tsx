@@ -2,20 +2,22 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getDoctorsAction } from "@/app/actions/doctors.actions";
 import { TherapistsDirectory } from "@/components/therapists/TherapistsDirectory";
+import { getLanguage } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "الأطباء والمعالجون | مركز أسما للصحة النفسية",
-  description:
-    "نخبة من استشاريي الطب النفسي وأخصائيي علم النفس الإكلينيكي. احجز جلسة أونلاين أو زيارة حضورية بالعيادة.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLanguage();
+  return {
+    title:
+      lang === "ar"
+        ? "الأطباء والمعالجون | مركز أسما للصحة النفسية"
+        : "Psychiatrists & Clinical Therapists | Asmaa Mental Health Center",
+    description:
+      lang === "ar"
+        ? "نخبة من استشاريي الطب النفسي وأخصائيي علم النفس الإكلينيكي. احجز جلسة أونلاين أو زيارة حضورية بالعيادة."
+        : "Board-certified psychiatrists and clinical psychologists. Book confidential online Zoom consultations or clinic sessions.",
+  };
+}
 
-/**
- * Consultant directory.
- *
- * Server shell reading the real `DoctorProfile` table. It hands off to
- * the client `TherapistsDirectory` component with full bilingual header,
- * live search, multi-criteria filtering, and URL synchronization.
- */
 export const dynamic = "force-dynamic";
 
 export default async function TherapistsPage() {
@@ -44,7 +46,7 @@ export default async function TherapistsPage() {
                 ? undefined
                 : {
                     ar: result.messageAr,
-                    en: result.messageEn,
+                    en: result.messageEn ?? result.messageAr,
                   }
             }
           />

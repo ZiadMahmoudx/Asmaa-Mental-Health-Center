@@ -170,7 +170,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isAr ? "المريض: " : "Patient: "}
                   <strong className="text-slate-800">{activeAppointmentForNote.patientName}</strong> ·{" "}
-                  {formatCairo(new Date(activeAppointmentForNote.scheduledAtUTC))}
+                  {formatCairo(new Date(activeAppointmentForNote.scheduledAtUTC), isAr ? "ar" : "en")}
                 </p>
               </div>
               <button
@@ -341,7 +341,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                           {item.type === "ONLINE"
                             ? isAr ? "جلسة أونلاين عبر زووم" : "Online Zoom Session"
                             : isAr ? "زيارة حضورية بالعيادة" : "In-Clinic Consultation"} ·{" "}
-                          <span className="font-mono font-bold text-slate-700">{formatEgp(item.priceEGP)}</span>
+                          <span className="font-mono font-bold text-slate-700">{formatEgp(item.priceEGP, isAr ? "ar" : "en")}</span>
                         </p>
                       </div>
                     </div>
@@ -383,7 +383,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 font-bold text-slate-800">
                       <Clock className="w-4 h-4 text-teal-700" />
-                      <span>{formatCairo(dateObj)}</span>
+                      <span>{formatCairo(dateObj, isAr ? "ar" : "en")}</span>
                       <span className="text-slate-500 font-mono">
                         ({item.durationMinutes} {isAr ? "دقيقة" : "min"})
                       </span>
@@ -392,7 +392,7 @@ export function AgendaList({ agenda, csrfToken, isAdmin = false }: Props) {
                     {item.rescheduledFromUTC && (
                       <span className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 font-semibold">
                         {isAr ? "معدل من: " : "Rescheduled from: "}
-                        {formatCairo(new Date(item.rescheduledFromUTC))}
+                        {formatCairo(new Date(item.rescheduledFromUTC), isAr ? "ar" : "en")}
                       </span>
                     )}
 

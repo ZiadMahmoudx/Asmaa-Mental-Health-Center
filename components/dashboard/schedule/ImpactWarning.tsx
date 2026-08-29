@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Calendar, Phone, User } from "lucide-react";
+import { AlertTriangle, Calendar, User } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { AffectedAppointment } from "@/app/actions/doctor.actions";
 import { formatCairo } from "@/lib/whatsapp";
 
@@ -14,22 +15,28 @@ interface Props {
 
 export function ImpactWarning({
   affected,
-  horizonDays,
   confirmed,
   onConfirmChange,
 }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
   if (affected.length === 0) return null;
 
   return (
-    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3 text-sm text-right">
+    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3 text-sm text-start">
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <div>
           <h4 className="font-bold text-amber-900">
-            تنبيه: يوجد {affected.length} حجز مؤكد يقع خارج النافذة الزمنية المعدلة
+            {isAr
+              ? `تنبيه: يوجد ${affected.length} حجز مؤكد يقع خارج النافذة الزمنية المعدلة`
+              : `Warning: ${affected.length} confirmed bookings fall outside this modified schedule`}
           </h4>
           <p className="text-xs text-amber-800 mt-1">
-            تعديل أو إلغاء هذه النافذة لا يلغي حجوزات المرضى تلقائياً. ستبقى مواعيد هؤلاء المرضى قائمة في جدولك حتى تقوم بإعادة جدولتها أو التواصل معهم.
+            {isAr
+              ? "تعديل أو إلغاء هذه النافذة لا يلغي حجوزات المرضى تلقائياً. ستبقى مواعيد هؤلاء المرضى قائمة في جدولك حتى تقوم بإعادة جدولتها أو التواصل معهم."
+              : "Modifying or removing this window will not cancel patient bookings automatically. Their appointments remain active until you reschedule or contact them."}
           </p>
         </div>
       </div>
@@ -43,11 +50,11 @@ export function ImpactWarning({
             <div className="flex items-center gap-2">
               <User className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-bold text-slate-900">{app.patientName}</span>
-              <span className="text-slate-500 font-mono">({app.patientPhone})</span>
+              <span className="text-slate-500 font-mono" dir="ltr">({app.patientPhone})</span>
             </div>
             <div className="flex items-center gap-1.5 text-amber-800 font-semibold">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{formatCairo(new Date(app.scheduledAtUTC))}</span>
+              <span>{formatCairo(new Date(app.scheduledAtUTC), isAr ? "ar" : "en")}</span>
             </div>
           </div>
         ))}
@@ -62,7 +69,9 @@ export function ImpactWarning({
           required
         />
         <span className="text-xs font-bold text-amber-900">
-          أقرّ باطلاعي على الحجوزات المتأثرة وسأقوم بالتواصل مع المرضى أو إعادة جدولتها.
+          {isAr
+            ? "أقرّ باطلاعي على الحجوزات المتأثرة وسأقوم بالتواصل مع المرضى أو إعادة جدولتها."
+            : "I acknowledge the affected bookings and will reschedule or contact the patients."}
         </span>
       </label>
     </div>

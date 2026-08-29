@@ -3,15 +3,11 @@
 import React, { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
-  CheckCircle2,
   Loader2,
-  Lock,
   Power,
-  ShieldAlert,
-  Unlock,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import { toggleUserActiveStatusAction } from "@/app/actions/staff.actions";
 import { CSRF_FIELD } from "@/lib/constants";
 
@@ -30,6 +26,8 @@ export function UserStatusToggle({
   isActive,
   csrfToken,
 }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [state, formAction, isPending] = useActionState(toggleUserActiveStatusAction, null);
@@ -57,13 +55,13 @@ export function UserStatusToggle({
             isActive ? "bg-emerald-600" : "bg-red-600"
           }`}
         />
-        {isActive ? "نشط" : "مجمد"}
+        <span>{isActive ? (isAr ? "نشط" : "Active") : isAr ? "مجمد" : "Frozen"}</span>
       </button>
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-right">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3
                 className={`font-bold text-sm flex items-center gap-2 ${
@@ -71,34 +69,51 @@ export function UserStatusToggle({
                 }`}
               >
                 <Power className="w-4 h-4" />
-                {isActive ? "تجميد وتعطيل الحساب" : "إعادة تفعيل الحساب"}
+                <span>
+                  {isActive
+                    ? isAr ? "تجميد وتعطيل الحساب" : "Freeze & Deactivate Account"
+                    : isAr ? "إعادة تفعيل الحساب" : "Reactivate Account"}
+                </span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {!state?.ok && state?.messageAr && (
+            {!state?.ok && state && (
               <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-                {state.messageAr}
+                {isAr ? state.messageAr : state.messageEn ?? state.messageAr}
               </div>
             )}
 
             <p className="text-xs text-slate-700 leading-relaxed">
               {isActive ? (
-                <>
-                  أنت على وشك <strong>تجميد حساب {userName} ({userRole})</strong>. سيتم إنهاء
-                  جلسات تسجيل دخوله فورياً ولن يتمكن من الوصول للمنصة أو قراءة أي ملفات للمرضى، مع
-                  الحفاظ على تقاريره السابقة وسجلاته الطبية.
-                </>
-              ) : (
+                isAr ? (
+                  <>
+                    أنت على وشك <strong>تجميد حساب {userName} ({userRole})</strong>. سيتم إنهاء
+                    جلسات تسجيل دخوله فورياً ولن يتمكن من الوصول للمنصة أو قراءة أي ملفات للمرضى، مع
+                    الحفاظ على تقاريره السابقة وسجلاته الطبية.
+                  </>
+                ) : (
+                  <>
+                    You are about to <strong>freeze {userName}&apos;s account ({userRole})</strong>. Active
+                    sessions will be revoked immediately and access suspended. Historical records are preserved.
+                  </>
+                )
+              ) : isAr ? (
                 <>
                   أنت على وشك <strong>إعادة تفعيل حساب {userName} ({userRole})</strong> ليتمكن
                   من تسجيل الدخول واستئناف عمله في المركز.
+                </>
+              ) : (
+                <>
+                  You are about to <strong>reactivate {userName}&apos;s account ({userRole})</strong> to restore
+                  system access.
                 </>
               )}
             </p>
@@ -113,7 +128,7 @@ export function UserStatusToggle({
                 onClick={() => setShowConfirmModal(false)}
                 className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
               >
-                تراجع
+                {isAr ? "تراجع" : "Cancel"}
               </button>
 
               <button
@@ -126,7 +141,11 @@ export function UserStatusToggle({
                 }`}
               >
                 {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {isActive ? "تأكيد التجميد" : "تأكيد التفعيل"}
+                <span>
+                  {isActive
+                    ? isAr ? "تأكيد التجميد" : "Confirm Deactivation"
+                    : isAr ? "تأكيد التفعيل" : "Confirm Activation"}
+                </span>
               </button>
             </form>
           </div>

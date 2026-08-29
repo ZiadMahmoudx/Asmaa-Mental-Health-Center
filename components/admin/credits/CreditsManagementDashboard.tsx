@@ -18,6 +18,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import {
   issueManualCreditAction,
@@ -33,6 +34,9 @@ interface Props {
 }
 
 export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPatientForSettlement, setSelectedPatientForSettlement] = useState<OutstandingCreditRow | null>(null);
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<{ id: string; name: string } | null>(null);
@@ -75,7 +79,7 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-start">
       {/* Top Header */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -83,9 +87,13 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
             <Coins className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">سجل الأمان المالي وأرصدة المرضى</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              {isAr ? "سجل الأمان المالي وأرصدة المرضى" : "Patient Wallet Credits & Financial Safety Ledger"}
+            </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              متابعة مستحقات المرضى الناتجة عن إلغاء الجلسات المدفوعة، تسويتها عبر InstaPay، والتحكم في الديون.
+              {isAr
+                ? "متابعة مستحقات المرضى الناتجة عن إلغاء الجلسات المدفوعة، تسويتها عبر InstaPay، والتحكم في الديون."
+                : "Manage patient wallet balances from cancelled paid sessions, bank settlement via InstaPay, and ledger integrity."}
             </p>
           </div>
         </div>
@@ -96,26 +104,36 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
           className="px-4 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
-          إصدار رصيد يدوي
+          <span>{isAr ? "إصدار رصيد يدوي" : "Issue Manual Credit"}</span>
         </button>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-1">
-          <span className="text-[11px] font-bold text-slate-500">إجمالي المبالغ المستحقة للمرضى</span>
-          <p className="text-2xl font-black font-mono text-teal-800">{formatEgp(totalDebtEGP)}</p>
-          <p className="text-[10px] text-slate-400">ديون معلقة بانتظار التحويل أو الاستخدام</p>
+          <span className="text-[11px] font-bold text-slate-500">
+            {isAr ? "إجمالي المبالغ المستحقة للمرضى" : "Total Outstanding Patient Credits"}
+          </span>
+          <p className="text-2xl font-black font-mono text-teal-800">{formatEgp(totalDebtEGP, isAr ? "ar" : "en")}</p>
+          <p className="text-[10px] text-slate-400">
+            {isAr ? "ديون معلقة بانتظار التحويل أو الاستخدام" : "Pending payouts or booking redemption"}
+          </p>
         </div>
 
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-1">
-          <span className="text-[11px] font-bold text-slate-500">عدد المرضى الدائنين</span>
+          <span className="text-[11px] font-bold text-slate-500">
+            {isAr ? "عدد المرضى الدائنين" : "Patients with Positive Balance"}
+          </span>
           <p className="text-2xl font-black font-mono text-slate-900">{outstandingCredits.length}</p>
-          <p className="text-[10px] text-slate-400">مرضى لديهم رصيد إيجابي متاح</p>
+          <p className="text-[10px] text-slate-400">
+            {isAr ? "مرضى لديهم رصيد إيجابي متاح" : "Active patient credit holders"}
+          </p>
         </div>
 
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-1">
-          <span className="text-[11px] font-bold text-slate-500">طرق التسوية المعتمدة</span>
+          <span className="text-[11px] font-bold text-slate-500">
+            {isAr ? "طرق التسوية المعتمدة" : "Supported Settlement Rails"}
+          </span>
           <p className="text-sm font-bold text-slate-800 flex items-center gap-2 pt-1">
             <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs">
               InstaPay
@@ -124,20 +142,28 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
               Vodafone Cash
             </span>
           </p>
-          <p className="text-[10px] text-slate-400 mt-1">يتم التوثيق برقم المعاملة البنكية</p>
+          <p className="text-[10px] text-slate-400 mt-1">
+            {isAr ? "يتم التوثيق برقم المعاملة البنكية" : "Documented with bank transaction ref"}
+          </p>
         </div>
       </div>
 
       {/* Filter and Search */}
       <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+          <Search className={`w-4 h-4 text-slate-400 absolute top-3 ${isAr ? "right-3" : "left-3"}`} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="البحث باسم المريض أو رقم هاتفه أو بريده الإلكتروني..."
-            className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-teal-700"
+            placeholder={
+              isAr
+                ? "البحث باسم المريض أو رقم هاتفه أو بريده الإلكتروني..."
+                : "Search by patient name, phone, or email..."
+            }
+            className={`w-full py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-teal-700 ${
+              isAr ? "pr-9 pl-3" : "pl-9 pr-3"
+            }`}
           />
         </div>
       </div>
@@ -145,21 +171,21 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
       {/* Outstanding Table */}
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full text-start text-xs">
             <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
               <tr>
-                <th className="p-4">المريض</th>
-                <th className="p-4">رقم الهاتف / البريد</th>
-                <th className="p-4">الرصيد المستحق</th>
-                <th className="p-4">آخر حركة رصيد</th>
-                <th className="p-4 text-center">الإجراءات والتحكم</th>
+                <th className="p-4">{isAr ? "المريض" : "Patient"}</th>
+                <th className="p-4">{isAr ? "رقم الهاتف / البريد" : "Phone / Email"}</th>
+                <th className="p-4">{isAr ? "الرصيد المستحق" : "Credit Balance"}</th>
+                <th className="p-4">{isAr ? "آخر حركة رصيد" : "Last Activity"}</th>
+                <th className="p-4 text-center">{isAr ? "الإجراءات والتحكم" : "Actions"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredCredits.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-12 text-center text-slate-400 font-semibold">
-                    لا توجد أرصدة معلقة أو ديون مستحقة للمرضى حالياً.
+                    {isAr ? "لا توجد أرصدة معلقة أو ديون مستحقة للمرضى حالياً." : "No outstanding patient credits recorded."}
                   </td>
                 </tr>
               ) : (
@@ -169,14 +195,14 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                       {row.patientName}
                     </td>
                     <td className="p-4">
-                      <div className="font-mono text-slate-600 font-semibold">{row.patientPhone}</div>
+                      <div className="font-mono text-slate-600 font-semibold" dir="ltr">{row.patientPhone}</div>
                       <div className="text-[10px] text-slate-400">{row.patientEmail}</div>
                     </td>
                     <td className="p-4 font-mono font-bold text-teal-800 text-sm">
-                      {formatEgp(row.balanceEGP)}
+                      {formatEgp(row.balanceEGP, isAr ? "ar" : "en")}
                     </td>
                     <td className="p-4 text-slate-600">
-                      {formatCairo(new Date(row.lastCreditAtUTC))}
+                      {formatCairo(new Date(row.lastCreditAtUTC), isAr ? "ar" : "en")}
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -185,7 +211,7 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                           onClick={() => setSelectedPatientForSettlement(row)}
                           className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-lg font-bold text-[11px] transition shadow-sm"
                         >
-                          تسوية الرصيد
+                          {isAr ? "تسوية الرصيد" : "Settle Payout"}
                         </button>
                         <button
                           type="button"
@@ -193,7 +219,7 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                           className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px] transition flex items-center gap-1"
                         >
                           <History className="w-3.5 h-3.5" />
-                          السجل
+                          <span>{isAr ? "السجل" : "History"}</span>
                         </button>
                       </div>
                     </td>
@@ -208,32 +234,38 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
       {/* Settle Modal */}
       {selectedPatientForSettlement && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 text-right">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-teal-800" />
-                تسوية رصيد وتحويل للمريض
+                <span>{isAr ? "تسوية رصيد وتحويل للمريض" : "Settle Balance Payout"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setSelectedPatientForSettlement(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl space-y-1">
-              <span className="text-[11px] text-teal-800 font-bold">المريض: {selectedPatientForSettlement.patientName}</span>
-              <p className="text-xs text-slate-600 font-mono">الهاتف: {selectedPatientForSettlement.patientPhone}</p>
+              <span className="text-[11px] text-teal-800 font-bold">
+                {isAr ? "المريض: " : "Patient: "}{selectedPatientForSettlement.patientName}
+              </span>
+              <p className="text-xs text-slate-600 font-mono" dir="ltr">
+                {isAr ? "الهاتف: " : "Phone: "}{selectedPatientForSettlement.patientPhone}
+              </p>
               <p className="text-sm font-black text-teal-900 font-mono pt-1">
-                المبلغ المراد تسويته: {formatEgp(selectedPatientForSettlement.balanceEGP)}
+                {isAr ? "المبلغ المراد تسويته: " : "Settlement Amount: "}
+                {formatEgp(selectedPatientForSettlement.balanceEGP, isAr ? "ar" : "en")}
               </p>
             </div>
 
             {settleState && !settleState.ok && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold">
-                {settleState.messageAr}
+                {isAr ? settleState.messageAr : settleState.messageEn ?? settleState.messageAr}
               </div>
             )}
 
@@ -243,25 +275,30 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رقم المعاملة أو مرجع التحويل (InstaPay Ref) *
+                  {isAr ? "رقم المعاملة أو مرجع التحويل (InstaPay Ref) *" : "Bank Reference / InstaPay Ref *"}
                 </label>
                 <input
                   type="text"
                   name="settlementRef"
                   required
-                  placeholder="مثال: IP-948291048 أو كود التحويل"
+                  placeholder={isAr ? "مثال: IP-948291048 أو كود التحويل" : "e.g. IP-948291048"}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono"
+                  dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ملاحظات إضافية (اختياري)
+                  {isAr ? "ملاحظات إضافية (اختياري)" : "Additional Notes (Optional)"}
                 </label>
                 <input
                   type="text"
                   name="notes"
-                  placeholder="تم التحويل عبر محفظة فودافون كاش / إنستا باي..."
+                  placeholder={
+                    isAr
+                      ? "تم التحويل عبر محفظة فودافون كاش / إنستا باي..."
+                      : "Paid via Vodafone Cash / InstaPay..."
+                  }
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
@@ -272,14 +309,16 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                   disabled={isSettling}
                   className="flex-1 py-2.5 bg-teal-800 hover:bg-teal-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-sm"
                 >
-                  {isSettling ? "جاري التسوية..." : "تأكيد التسوية وإغلاق الرصيد"}
+                  {isSettling
+                    ? isAr ? "جاري التسوية..." : "Processing Settlement..."
+                    : isAr ? "تأكيد التسوية وإغلاق الرصيد" : "Confirm Settlement & Clear Balance"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedPatientForSettlement(null)}
                   className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50"
                 >
-                  إلغاء
+                  {isAr ? "إلغاء" : "Cancel"}
                 </button>
               </div>
             </form>
@@ -290,16 +329,17 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
       {/* Manual Credit Modal */}
       {isManualModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 text-right">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-teal-800" />
-                إصدار رصيد يدوي لمريض
+                <span>{isAr ? "إصدار رصيد يدوي لمريض" : "Issue Manual Patient Credit"}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsManualModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -307,7 +347,7 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
 
             {manualState && !manualState.ok && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold">
-                {manualState.messageAr}
+                {isAr ? manualState.messageAr : manualState.messageEn ?? manualState.messageAr}
               </div>
             )}
 
@@ -316,20 +356,21 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  معرّف المريض (Patient ID) *
+                  {isAr ? "معرّف المريض (Patient ID) *" : "Patient ID *"}
                 </label>
                 <input
                   type="text"
                   name="patientId"
                   required
-                  placeholder="معرّف المريض في النظام (cuid)"
+                  placeholder={isAr ? "معرّف المريض في النظام (cuid)" : "Patient CUID"}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono"
+                  dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  المبلغ (بالجنيه المصري) *
+                  {isAr ? "المبلغ (بالجنيه المصري) *" : "Amount (EGP) *"}
                 </label>
                 <input
                   type="number"
@@ -340,18 +381,23 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                   required
                   placeholder="500"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 font-mono"
+                  dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  سبب إصدار الرصيد *
+                  {isAr ? "سبب إصدار الرصيد *" : "Reason for Credit *"}
                 </label>
                 <textarea
                   name="reason"
                   rows={3}
                   required
-                  placeholder="يرجى توضيح سبب إضافة الرصيد لحساب المريض..."
+                  placeholder={
+                    isAr
+                      ? "يرجى توضيح سبب إضافة الرصيد لحساب المريض..."
+                      : "Explain the reason for adding credit to patient account..."
+                  }
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
                 />
               </div>
@@ -362,14 +408,16 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                   disabled={isIssuing}
                   className="flex-1 py-2.5 bg-teal-800 hover:bg-teal-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-sm"
                 >
-                  {isIssuing ? "جاري الإصدار..." : "إضافة الرصيد"}
+                  {isIssuing
+                    ? isAr ? "جاري الإصدار..." : "Issuing Credit..."
+                    : isAr ? "إضافة الرصيد" : "Add Credit"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsManualModalOpen(false)}
                   className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50"
                 >
-                  إلغاء
+                  {isAr ? "إلغاء" : "Cancel"}
                 </button>
               </div>
             </form>
@@ -380,16 +428,19 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
       {/* Ledger History Modal */}
       {selectedPatientForHistory && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 space-y-4 text-right">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 space-y-4 text-start">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <History className="w-5 h-5 text-teal-800" />
-                سجل معاملات الرصيد: {selectedPatientForHistory.name}
+                <span>
+                  {isAr ? "سجل معاملات الرصيد: " : "Credit History: "}{selectedPatientForHistory.name}
+                </span>
               </h3>
               <button
                 type="button"
                 onClick={() => setSelectedPatientForHistory(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -397,11 +448,11 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
 
             {historyLoading ? (
               <div className="py-12 text-center text-slate-400 font-semibold text-xs">
-                جاري تحميل سجل الحركات...
+                {isAr ? "جاري تحميل سجل الحركات..." : "Loading transaction history..."}
               </div>
             ) : historyEntries.length === 0 ? (
               <div className="py-12 text-center text-slate-400 font-semibold text-xs">
-                لا توجد حركات مسجلة لهذا المريض.
+                {isAr ? "لا توجد حركات مسجلة لهذا المريض." : "No credit entries recorded for this patient."}
               </div>
             ) : (
               <div className="max-h-96 overflow-y-auto space-y-2.5 pr-1">
@@ -420,32 +471,36 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
                           }`}
                         >
                           {entry.kind === "CANCELLATION"
-                            ? "إلغاء جلسة"
+                            ? isAr ? "إلغاء جلسة" : "Cancellation"
                             : entry.kind === "MANUAL_ADJUSTMENT"
-                            ? "تعديل يدوي"
+                            ? isAr ? "تعديل يدوي" : "Manual Adjustment"
                             : entry.kind === "PAID_OUT"
-                            ? "تسوية نقدية"
-                            : "استخدام في حجز"}
+                            ? isAr ? "تسوية نقدية" : "Settlement Payout"
+                            : isAr ? "استخدام في حجز" : "Booking Applied"}
                         </span>
                         <span className="text-[10px] text-slate-400">
-                          {formatCairo(new Date(entry.createdAtUTC))}
+                          {formatCairo(new Date(entry.createdAtUTC), isAr ? "ar" : "en")}
                         </span>
                       </div>
-                      <p className="text-slate-700 text-xs">{entry.reason ?? "بدون تفاصيل"}</p>
+                      <p className="text-slate-700 text-xs">
+                        {entry.reason ?? (isAr ? "بدون تفاصيل" : "No details")}
+                      </p>
                       {entry.settlementRef && (
-                        <p className="text-[10px] font-mono text-teal-800 font-bold">
-                          مرجع التسوية: {entry.settlementRef}
+                        <p className="text-[10px] font-mono text-teal-800 font-bold" dir="ltr">
+                          {isAr ? "مرجع التسوية: " : "Ref: "}{entry.settlementRef}
                         </p>
                       )}
                     </div>
 
-                    <div className="text-left shrink-0">
+                    <div className="text-end shrink-0">
                       <span
                         className={`text-sm font-black font-mono ${
                           entry.amountEGP > 0 ? "text-emerald-700" : "text-slate-700"
                         }`}
                       >
-                        {entry.amountEGP > 0 ? `+${formatEgp(entry.amountEGP)}` : formatEgp(entry.amountEGP)}
+                        {entry.amountEGP > 0
+                          ? `+${formatEgp(entry.amountEGP, isAr ? "ar" : "en")}`
+                          : formatEgp(entry.amountEGP, isAr ? "ar" : "en")}
                       </span>
                     </div>
                   </div>
@@ -453,13 +508,13 @@ export function CreditsManagementDashboard({ outstandingCredits, csrfToken }: Pr
               </div>
             )}
 
-            <div className="pt-2 text-left">
+            <div className="pt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedPatientForHistory(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
               >
-                إغلاق
+                {isAr ? "إغلاق" : "Close"}
               </button>
             </div>
           </div>

@@ -2,18 +2,14 @@
 
 import { useActionState, useState } from "react";
 import {
-  Bell,
   BellRing,
   Building2,
-  Calendar,
   CheckCircle2,
-  Clock,
-  ExternalLink,
   MessageCircle,
   Search,
-  Send,
   Video,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import { formatCairo } from "@/lib/whatsapp";
 import {
   markReminderSentAction,
@@ -26,6 +22,9 @@ interface Props {
 }
 
 export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
   const [search, setSearch] = useState("");
   const [state, formAction, isPending] = useActionState(markReminderSentAction, null);
 
@@ -40,7 +39,7 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-start">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -48,15 +47,21 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
             <BellRing className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">طابور تذكيرات الجلسات عبر واتساب</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              {isAr ? "طابور تذكيرات الجلسات عبر واتساب" : "WhatsApp Session Reminders Queue"}
+            </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              متابعة الجلسات القادمة خلال الـ 48 ساعة القادمة وإرسال رسائل التذكير المباشرة للمرضى.
+              {isAr
+                ? "متابعة الجلسات القادمة خلال الـ 48 ساعة القادمة وإرسال رسائل التذكير المباشرة للمرضى."
+                : "Monitor consultations scheduled within the next 48 hours and dispatch direct WhatsApp reminders."}
             </p>
           </div>
         </div>
 
         <div className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-          <span className="text-[10px] text-slate-500 font-bold block">جلسات بانتظار التذكير</span>
+          <span className="text-[10px] text-slate-500 font-bold block">
+            {isAr ? "جلسات بانتظار التذكير" : "Pending Reminders"}
+          </span>
           <span className="text-xl font-black font-mono text-teal-800">{reminders.length}</span>
         </div>
       </div>
@@ -64,13 +69,19 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
       {/* Filter and Search */}
       <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+          <Search className={`w-4 h-4 text-slate-400 absolute top-3 ${isAr ? "right-3" : "left-3"}`} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="البحث باسم المريض أو هاتفه أو الطبيب..."
-            className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-teal-700"
+            placeholder={
+              isAr
+                ? "البحث باسم المريض أو هاتفه أو الطبيب..."
+                : "Search by patient name, phone, or consultant..."
+            }
+            className={`w-full py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-teal-700 ${
+              isAr ? "pr-9 pl-3" : "pl-9 pr-3"
+            }`}
           />
         </div>
       </div>
@@ -78,22 +89,24 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full text-start text-xs">
             <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
               <tr>
-                <th className="p-4">المريض</th>
-                <th className="p-4">الاستشاري</th>
-                <th className="p-4">النوع</th>
-                <th className="p-4">موعد الجلسة (بتوقيت القاهرة)</th>
-                <th className="p-4">الوقت المتبقي</th>
-                <th className="p-4 text-center">إجراءات التذكير</th>
+                <th className="p-4">{isAr ? "المريض" : "Patient"}</th>
+                <th className="p-4">{isAr ? "الاستشاري" : "Consultant"}</th>
+                <th className="p-4">{isAr ? "النوع" : "Format"}</th>
+                <th className="p-4">{isAr ? "موعد الجلسة (بتوقيت القاهرة)" : "Session Time (Cairo)"}</th>
+                <th className="p-4">{isAr ? "الوقت المتبقي" : "Time Remaining"}</th>
+                <th className="p-4 text-center">{isAr ? "إجراءات التذكير" : "Actions"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center text-slate-400 font-semibold">
-                    لا توجد تذكيرات مستحقة حالياً. جميع الجلسات القادمة تم إرسال تذكيراتها.
+                    {isAr
+                      ? "لا توجد تذكيرات مستحقة حالياً. جميع الجلسات القادمة تم إرسال تذكيراتها."
+                      : "No pending session reminders due at this time."}
                   </td>
                 </tr>
               ) : (
@@ -101,13 +114,15 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                   <tr key={row.appointmentId} className="hover:bg-slate-50/80 transition">
                     <td className="p-4">
                       <div className="font-bold text-slate-900 text-sm">{row.patientName}</div>
-                      <div className="font-mono text-slate-400 text-[11px]">{row.patientPhone}</div>
+                      <div className="font-mono text-slate-400 text-[11px]" dir="ltr">{row.patientPhone}</div>
                     </td>
 
                     <td className="p-4 font-semibold text-slate-800">
                       {row.doctorName}
                       {row.roomNumber && (
-                        <div className="text-[10px] text-slate-400 font-mono">غرفة {row.roomNumber}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {isAr ? `غرفة ${row.roomNumber}` : `Room ${row.roomNumber}`}
+                        </div>
                       )}
                     </td>
 
@@ -116,19 +131,19 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                         {row.type === "ONLINE" ? (
                           <>
                             <Video className="w-3 h-3 text-teal-700" />
-                            أونلاين
+                            <span>{isAr ? "أونلاين" : "Online"}</span>
                           </>
                         ) : (
                           <>
                             <Building2 className="w-3 h-3 text-blue-700" />
-                            عيادة
+                            <span>{isAr ? "عيادة" : "In-Clinic"}</span>
                           </>
                         )}
                       </span>
                     </td>
 
                     <td className="p-4 font-bold text-slate-900">
-                      {formatCairo(new Date(row.scheduledAtUTC))}
+                      {formatCairo(new Date(row.scheduledAtUTC), isAr ? "ar" : "en")}
                     </td>
 
                     <td className="p-4">
@@ -139,7 +154,7 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                             : "bg-slate-50 text-slate-700 border-slate-200"
                         }`}
                       >
-                        خلال {row.hoursUntilSession} ساعة
+                        {isAr ? `خلال ${row.hoursUntilSession} ساعة` : `In ${row.hoursUntilSession} hrs`}
                       </span>
                     </td>
 
@@ -152,7 +167,7 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-[11px] transition flex items-center gap-1 shadow-sm"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
-                          فتح الواتساب
+                          <span>{isAr ? "فتح الواتساب" : "WhatsApp"}</span>
                         </a>
 
                         <form action={formAction}>
@@ -164,7 +179,7 @@ export function ReminderQueueDashboard({ reminders, csrfToken }: Props) {
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px] transition flex items-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            تم الإرسال
+                            <span>{isAr ? "تم الإرسال" : "Sent"}</span>
                           </button>
                         </form>
                       </div>

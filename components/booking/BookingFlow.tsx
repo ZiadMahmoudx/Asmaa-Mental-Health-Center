@@ -194,7 +194,7 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
                           : `In person${doctor.roomNumber ? ` — room ${doctor.roomNumber}` : ""}`}
                     </span>
                     <span className={`text-sm font-black ${active ? "text-white" : "text-teal-900"}`}>
-                      {formatEgp(optionPrice)}
+                      {formatEgp(optionPrice, isAr ? "ar" : "en")}
                     </span>
                   </button>
                 );
@@ -303,7 +303,7 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
             <span className="text-xs font-bold text-gray-600">
               {isAr ? "الإجمالي المستحق" : "Total due"}
             </span>
-            <span className="text-xl font-black text-teal-900">{formatEgp(price)}</span>
+            <span className="text-xl font-black text-teal-900">{formatEgp(price, isAr ? "ar" : "en")}</span>
           </div>
 
           {reservation && !reservation.ok && (

@@ -31,13 +31,15 @@ export function buildWhatsAppLink(phone: string, message: string): string {
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
+export type Language = "ar" | "en";
+
 /**
- * Render a UTC instant in Cairo local time, in Arabic.
+ * Render a UTC instant in Cairo local time.
  * Appointments are stored in UTC; patients think in Cairo time, so every
  * patient-facing string goes through here.
  */
-export function formatCairo(dateUTC: Date): string {
-  return new Intl.DateTimeFormat("ar-EG", {
+export function formatCairo(dateUTC: Date, lang: Language = "ar"): string {
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
     timeZone: "Africa/Cairo",
     weekday: "long",
     day: "numeric",
@@ -49,7 +51,10 @@ export function formatCairo(dateUTC: Date): string {
   }).format(dateUTC);
 }
 
-export function formatEgp(amount: number): string {
+export function formatEgp(amount: number, lang: Language = "ar"): string {
+  if (lang === "en") {
+    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(amount)} EGP`;
+  }
   return `${new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 0 }).format(amount)} جنيه`;
 }
 

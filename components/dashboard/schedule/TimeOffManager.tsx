@@ -361,13 +361,13 @@ export function TimeOffManager({ timeOff, csrfToken, isAdmin = false, doctorId }
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
                   <Calendar className="w-4 h-4 text-teal-700" />
-                  <span>{formatCairo(new Date(item.startsAtUTC))}</span>
+                  <span>{formatCairo(new Date(item.startsAtUTC), isAr ? "ar" : "en")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-600 mt-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
                   <span>
                     {isAr ? "إلى: " : "To: "}
-                    {formatCairo(new Date(item.endsAtUTC))}
+                    {formatCairo(new Date(item.endsAtUTC), isAr ? "ar" : "en")}
                   </span>
                 </div>
                 {item.reason && (

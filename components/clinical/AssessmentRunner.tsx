@@ -212,7 +212,7 @@ export function AssessmentRunner({ csrfToken, isAuthenticated, history }: Props)
                   </div>
 
                   <p className="text-[11px] text-slate-500 font-mono">
-                    {formatCairo(new Date(row.completedAtUTC))}
+                    {formatCairo(new Date(row.completedAtUTC), isAr ? "ar" : "en")}
                   </p>
                 </div>
 
