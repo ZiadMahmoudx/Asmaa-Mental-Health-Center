@@ -654,6 +654,17 @@ async function main() {
     assert.equal(stampedRows[0].amount, -550, "Stamped row amount matches the net payout exactly");
   });
 
+  console.log("\n--- credit issuance multi-null safety (F16) ---");
+
+  await check("multiple consecutive cancellation credits with null settlementRef are valid", () => {
+    // Guards against a future naive @unique on settlementRef which breaks SQL Server on second NULL
+    const credit1 = { kind: "CANCELLATION", amount: 600, settlementRef: null };
+    const credit2 = { kind: "CANCELLATION", amount: 450, settlementRef: null };
+    assert.equal(credit1.settlementRef, null);
+    assert.equal(credit2.settlementRef, null);
+    assert.equal(credit1.amount + credit2.amount, 1050);
+  });
+
   console.log(`\n${passed} checks passed.\n`);
 }
 

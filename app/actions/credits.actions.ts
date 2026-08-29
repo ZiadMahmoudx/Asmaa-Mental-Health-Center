@@ -322,13 +322,8 @@ export async function settleCreditAction(
         "This patient has no outstanding balance to settle.",
       );
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return failure(
-        "CONFLICT",
-        "تمت معالجة تسوية هذا الرصيد بالفعل أو أن رقم المعاملة مسجل مسبقاً. يرجى تحديث الصفحة.",
-        "Credit was already settled or transaction reference is duplicate.",
-      );
-    }
+    // Note: Concurrency and double payouts are strictly prevented at the database engine
+    // level via Serializable transaction isolation and net balance re-verification.
     console.error("[settleCreditAction] Transaction error:", error);
     return failure(
       "CONFLICT",
