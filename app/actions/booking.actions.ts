@@ -434,13 +434,10 @@ export async function reserveSlotAction(
               kind: "APPLIED_TO_BOOKING",
               reason: `استخدام الرصيد لحجز جلسة ${type === "ONLINE" ? "أونلاين" : "حضوري"} مع ${doctor.user.fullName}`,
               issuedById: user.id,
-              settledAt: now,
-              settledById: user.id,
-              settlementRef: `CREDIT-${appointment.id}`,
             },
           });
 
-          // Auto-approved PaymentProof row
+          // PaymentProof row (F13: ONLINE sessions enter UNDER_REVIEW so admin attaches Zoom link)
           await tx.paymentProof.create({
             data: {
               appointmentId: appointment.id,
@@ -452,7 +449,9 @@ export async function reserveSlotAction(
               receiptMimeType: "application/system",
               receiptSizeBytes: 0,
               receiptSha256: `SYSTEM_CREDIT_${appointment.id}`,
-              status: "APPROVED",
+              status: type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED",
+              reviewedAt: type === "OFFLINE" ? now : null,
+              reviewedById: type === "OFFLINE" ? user.id : null,
             },
           });
 

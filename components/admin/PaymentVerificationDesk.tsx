@@ -515,12 +515,12 @@ function ReviewPanel({
           <div className="p-6 bg-white rounded-2xl border border-teal-200 text-center space-y-2">
             <BadgeCheck className="w-10 h-10 text-teal-800 mx-auto" />
             <h5 className="font-bold text-sm text-teal-950">
-              {isAr ? "دفع آلي عبر رصيد المريض" : "Paid via Patient Credit Balance"}
+              {isAr ? "مدفوع من الرصيد" : "Paid via Patient Credit"}
             </h5>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
               {isAr
-                ? "تم خصم قيمة الجلسة تلقائياً من سجل رصيد المريض. يرجى إرفاق رابط زووم واعتماد الموعد."
-                : "The fee was deducted automatically from the credit ledger. Please attach Zoom link and approve."}
+                ? "مدفوع من الرصيد — لا يوجد إيصال للمراجعة، يلزم إرفاق رابط زووم فقط قبل الاعتماد."
+                : "Paid with credit — no receipt to verify. Please attach Zoom link before approving."}
             </p>
           </div>
         ) : isPdf ? (
@@ -913,7 +913,14 @@ function DecisionLog({ history, isAr }: { history: ReviewedProofRow[]; isAr: boo
                     </span>
                   )}
                 </Td>
-                <Td>{entry.reviewedByName ?? "—"}</Td>
+                <Td>
+                  {entry.reviewedByName ??
+                    (entry.method === "CREDIT"
+                      ? isAr
+                        ? "النظام (رصيد مالي)"
+                        : "System (Credit)"
+                      : "—")}
+                </Td>
               </tr>
             ))}
           </tbody>

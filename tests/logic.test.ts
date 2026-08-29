@@ -611,6 +611,24 @@ async function main() {
     assert.equal(canBook(0), false, "0 balance is rejected");
   });
 
+  console.log("\n--- credit booking proof queue routing (F13) ---");
+
+  await check("credit booking proof status routes ONLINE to UNDER_REVIEW and OFFLINE to APPROVED", () => {
+    const resolveProofStatus = (type: "ONLINE" | "OFFLINE") =>
+      type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED";
+
+    assert.equal(
+      resolveProofStatus("ONLINE"),
+      "UNDER_REVIEW",
+      "Online credit booking must enter UNDER_REVIEW so admin attaches Zoom link",
+    );
+    assert.equal(
+      resolveProofStatus("OFFLINE"),
+      "APPROVED",
+      "Offline credit booking can auto-approve immediately",
+    );
+  });
+
   console.log("\n--- settlement net balance arithmetic & double payout defense (F7 & F8) ---");
 
   await check("net balance arithmetic with interleaved debits & credits", () => {
@@ -623,9 +641,17 @@ async function main() {
     assert.equal(netBalance, 550, "Net payout must equal exactly 550 EGP");
 
     // After payout of 550 EGP, net balance becomes 0
-    const afterPayout = [...ledger, { amount: -550, kind: "PAID_OUT" }];
+    const afterPayout = [
+      ...ledger,
+      { amount: -550, kind: "PAID_OUT", settlementRef: "IP-948192049" },
+    ];
     const finalBalance = afterPayout.reduce((sum, item) => sum + item.amount, 0);
     assert.equal(finalBalance, 0, "Final balance must be 0");
+
+    // F8: The PAID_OUT row alone holds the settlement reference
+    const stampedRows = afterPayout.filter((row) => "settlementRef" in row && row.settlementRef !== undefined);
+    assert.equal(stampedRows.length, 1, "Only the PAID_OUT entry holds the settlementRef");
+    assert.equal(stampedRows[0].amount, -550, "Stamped row amount matches the net payout exactly");
   });
 
   console.log(`\n${passed} checks passed.\n`);

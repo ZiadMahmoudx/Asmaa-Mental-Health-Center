@@ -272,21 +272,7 @@ export async function settleCreditAction(
 
         const payableAmount = currentBalance;
 
-        // 2. Mark unsettled positive rows
-        const marked = await tx.patientCredit.updateMany({
-          where: {
-            patientId,
-            settledAt: null,
-            amountEGP: { gt: 0 },
-          },
-          data: {
-            settledAt: now,
-            settledById: admin.id,
-            settlementRef,
-          },
-        });
-
-        // 3. Create balancing negative entry (PAID_OUT)
+        // 2. Create balancing negative entry (PAID_OUT) - Sole source of truth for the payout (F8)
         const payoutEntry = await tx.patientCredit.create({
           data: {
             patientId,
@@ -301,7 +287,7 @@ export async function settleCreditAction(
         });
 
         return {
-          settledCount: marked.count,
+          settledCount: allCredits.length,
           paidOutAmountEGP: payableAmount.toNumber(),
           payoutId: payoutEntry.id,
         };
