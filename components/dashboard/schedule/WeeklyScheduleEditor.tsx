@@ -50,9 +50,15 @@ interface Props {
   availability: AvailabilityRuleView[];
   csrfToken: string;
   doctorId?: string; // Passed when rendered by Admin
+  isAdmin?: boolean;
 }
 
-export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Props) {
+export function WeeklyScheduleEditor({
+  availability,
+  csrfToken,
+  doctorId,
+  isAdmin = false,
+}: Props) {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
@@ -351,26 +357,35 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
           </div>
 
-          <div className="flex items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-              <input
-                type="checkbox"
-                name="isOnlineAvailable"
-                defaultChecked={initialFormValues.isOnline}
-                className="rounded border-slate-300 text-teal-600 w-4 h-4"
-              />
-              <span>{isAr ? "جلسات أونلاين (زووم)" : "Online (Zoom)"}</span>
-            </label>
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  name="isOnlineAvailable"
+                  defaultChecked={initialFormValues.isOnline}
+                  className="rounded border-slate-300 text-teal-600 w-4 h-4"
+                />
+                <span>{isAr ? "جلسات أونلاين (زووم)" : "Online (Zoom)"}</span>
+              </label>
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-              <input
-                type="checkbox"
-                name="isOfflineAvailable"
-                defaultChecked={initialFormValues.isOffline}
-                className="rounded border-slate-300 text-teal-600 w-4 h-4"
-              />
-              <span>{isAr ? "زيارات عيادة حضورية" : "In-Clinic"}</span>
-            </label>
+              <label className={`flex items-center gap-2 text-xs font-bold ${isAdmin ? "cursor-pointer text-slate-700" : "cursor-not-allowed text-slate-400"}`}>
+                <input
+                  type="checkbox"
+                  name="isOfflineAvailable"
+                  defaultChecked={isAdmin ? initialFormValues.isOffline : false}
+                  disabled={!isAdmin}
+                  className="rounded border-slate-300 text-teal-600 w-4 h-4 disabled:opacity-50"
+                />
+                <span>{isAr ? "زيارات عيادة حضورية" : "In-Clinic"}</span>
+              </label>
+            </div>
+
+            {!isAdmin && (
+              <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                ℹ️ {isAr ? "مواعيد العيادة تُجدول وتُدار عن طريق إدارة المركز." : "In-clinic slots are scheduled and managed by clinic administration."}
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
@@ -502,26 +517,35 @@ export function WeeklyScheduleEditor({ availability, csrfToken, doctorId }: Prop
             </div>
           </div>
 
-          <div className="flex items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-              <input
-                type="checkbox"
-                name="isOnlineAvailable"
-                defaultChecked={editingRule.isOnlineAvailable}
-                className="rounded border-slate-300 text-teal-600 w-4 h-4"
-              />
-              <span>{isAr ? "جلسات أونلاين (زووم)" : "Online (Zoom)"}</span>
-            </label>
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  name="isOnlineAvailable"
+                  defaultChecked={editingRule.isOnlineAvailable}
+                  className="rounded border-slate-300 text-teal-600 w-4 h-4"
+                />
+                <span>{isAr ? "جلسات أونلاين (زووم)" : "Online (Zoom)"}</span>
+              </label>
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-              <input
-                type="checkbox"
-                name="isOfflineAvailable"
-                defaultChecked={editingRule.isOfflineAvailable}
-                className="rounded border-slate-300 text-teal-600 w-4 h-4"
-              />
-              <span>{isAr ? "زيارات عيادة حضورية" : "In-Clinic"}</span>
-            </label>
+              <label className={`flex items-center gap-2 text-xs font-bold ${isAdmin ? "cursor-pointer text-slate-700" : "cursor-not-allowed text-slate-400"}`}>
+                <input
+                  type="checkbox"
+                  name="isOfflineAvailable"
+                  defaultChecked={editingRule.isOfflineAvailable}
+                  disabled={!isAdmin}
+                  className="rounded border-slate-300 text-teal-600 w-4 h-4 disabled:opacity-50"
+                />
+                <span>{isAr ? "زيارات عيادة حضورية" : "In-Clinic"}</span>
+              </label>
+            </div>
+
+            {!isAdmin && (
+              <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                ℹ️ {isAr ? "مواعيد العيادة تُجدول وتُدار عن طريق إدارة المركز." : "In-clinic slots are scheduled and managed by clinic administration."}
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

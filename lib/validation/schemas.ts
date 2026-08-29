@@ -220,6 +220,7 @@ export const paymentProofSchema = z
 export const approvePaymentSchema = z
   .object({
     paymentProofId: cuidSchema,
+    roomId: z.string().trim().optional().or(z.literal("")).transform((v) => v || undefined),
     zoomMeetingUrl: z.string().trim().optional().or(z.literal("")).transform((v) => v || undefined),
     zoomPasscode: z.string().trim().max(60).optional().or(z.literal("")).transform((v) => v || undefined),
     clinicNotes: z.string().trim().max(1000).optional().or(z.literal("")).transform((v) => v || undefined),

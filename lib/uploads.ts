@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
 import { env } from "@/lib/env";
 import { sha256Hex } from "@/lib/auth/password";
 import {
@@ -15,17 +16,40 @@ import {
  *
  * Threat model for this endpoint - a patient uploads an arbitrary file that an
  * admin will later open in a browser:
- *   - Receipts are written OUTSIDE `public/`, so nothing uploaded is ever served
- *     as a static asset, and an uploaded `.html` or `.svg` can never execute on
- *     the clinic's origin. Reading goes through /api/receipts/[proofId], which
- *     authorises the caller first.
+ *   - Receipts are never served as static assets, so an uploaded `.html` or
+ *     `.svg` can never execute on the clinic's origin. Reading goes through
+ *     /api/receipts/[proofId], which authorises the caller first.
  *   - The declared Content-Type is not trusted: the first bytes of the file are
  *     matched against known magic numbers.
  *   - Filenames from the client are discarded entirely and replaced with a UUID,
  *     which removes path traversal (`../../.env`), null bytes, and Windows
  *     reserved device names in one step.
  *   - Size is capped before the buffer is materialised.
+ *
+ * ## Two backends, one storage key
+ *
+ * `BLOB_READ_WRITE_TOKEN` selects the backend:
+ *
+ *   - **present (Vercel)** - Vercel Blob with `access: "private"`. A serverless
+ *     filesystem is read-only outside /tmp and is wiped between invocations, so
+ *     a receipt written to disk in production would be unreadable by the time
+ *     the desk opened it.
+ *   - **absent (local dev)** - `UPLOAD_DIR` on local disk, outside `public/`.
+ *
+ * Both backends address a receipt by the SAME key (`2026/08/<uuid>.jpg`), which
+ * is what `PaymentProof.receiptImageUrl` already stores, so switching backends
+ * needs no migration and no schema change.
+ *
+ * `access: "private"` is not optional here. A public blob URL is a bearer token:
+ * anyone holding it reads a patient's bank screenshot, with no session and no
+ * audit entry. Private blobs are readable only with the store token, which keeps
+ * /api/receipts/[proofId] the single authorised door.
  */
+
+/** True when receipts should go to Vercel Blob rather than the local disk. */
+function usingBlobStore(): boolean {
+  return Boolean(env.BLOB_READ_WRITE_TOKEN);
+}
 
 export interface StoredReceipt {
   /** Storage key persisted in PaymentProof.receiptImageUrl, e.g. "2026/08/uuid.jpg". */
@@ -111,12 +135,26 @@ export async function storeReceipt(file: File): Promise<ReceiptUploadResult> {
   const now = new Date();
   const yearMonth = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const storageKey = `${yearMonth}/${randomUUID()}.${EXTENSION_BY_MIME[sniffed]}`;
-  const absolutePath = path.join(uploadRoot(), storageKey);
 
   try {
-    await mkdir(path.dirname(absolutePath), { recursive: true });
-    // wx: never silently overwrite an existing receipt.
-    await writeFile(absolutePath, buffer, { flag: "wx" });
+    if (usingBlobStore()) {
+      await blobPut(storageKey, buffer, {
+        access: "private",
+        contentType: sniffed,
+        // The key is already a server-generated UUID; a random suffix would make
+        // the stored pathname diverge from the key we persist, and `get(key)`
+        // would then miss.
+        addRandomSuffix: false,
+        // The Blob equivalent of the `wx` flag below: never silently overwrite.
+        allowOverwrite: false,
+        token: env.BLOB_READ_WRITE_TOKEN,
+      });
+    } else {
+      const absolutePath = path.join(uploadRoot(), storageKey);
+      await mkdir(path.dirname(absolutePath), { recursive: true });
+      // wx: never silently overwrite an existing receipt.
+      await writeFile(absolutePath, buffer, { flag: "wx" });
+    }
   } catch (error) {
     console.error("[uploads] failed to persist receipt", error);
     return { ok: false, reason: "WRITE_FAILED" };
@@ -148,7 +186,30 @@ export function resolveReceiptPath(storageKey: string): string | null {
   return resolved.startsWith(rootWithSep) ? resolved : null;
 }
 
+/**
+ * Read a receipt back as a Buffer, or null when it cannot be resolved.
+ *
+ * Returns a Buffer from both backends deliberately: /api/receipts/[proofId]
+ * already sets the security headers and the audit entry around a buffered
+ * response, and receipts are capped at MAX_RECEIPT_BYTES, so there is nothing to
+ * gain from streaming and a working authorisation path to disturb.
+ */
 export async function readReceipt(storageKey: string): Promise<Buffer | null> {
+  if (usingBlobStore()) {
+    if (!storageKey || storageKey.includes("\0")) return null;
+    try {
+      const result = await blobGet(storageKey, {
+        access: "private",
+        token: env.BLOB_READ_WRITE_TOKEN,
+      });
+      if (!result || !result.stream) return null;
+      return Buffer.from(await new Response(result.stream).arrayBuffer());
+    } catch (error) {
+      console.error("[uploads] failed to read receipt from blob store", error);
+      return null;
+    }
+  }
+
   const absolutePath = resolveReceiptPath(storageKey);
   if (!absolutePath) return null;
   try {
@@ -160,6 +221,16 @@ export async function readReceipt(storageKey: string): Promise<Buffer | null> {
 
 /** Best-effort cleanup used when the database write fails after a file write. */
 export async function deleteReceipt(storageKey: string): Promise<void> {
+  if (usingBlobStore()) {
+    if (!storageKey || storageKey.includes("\0")) return;
+    try {
+      await blobDel(storageKey, { token: env.BLOB_READ_WRITE_TOKEN });
+    } catch {
+      /* already gone - nothing to clean up */
+    }
+    return;
+  }
+
   const absolutePath = resolveReceiptPath(storageKey);
   if (!absolutePath) return;
   try {

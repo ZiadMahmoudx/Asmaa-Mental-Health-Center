@@ -331,17 +331,24 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
           title={isAr ? "تم اعتماد الحجز بنجاح" : "Booking confirmed"}
           description={
             isAr
-              ? "أرسل رسالة التأكيد للمريض عبر واتساب — تتضمن الرابط أو عنوان العيادة تلقائياً."
-              : "Send the confirmation to the patient on WhatsApp - the link or clinic address is already included."
+              ? "تم تأكيد الحجز. يمكنك الآن إرسال رسالة التأكيد للمريض وموجز الجلسة للطبيب عبر واتساب."
+              : "Booking confirmed. You can now dispatch the confirmation to the patient and session brief to the doctor."
           }
           links={[
             {
               href: approvalState.data.whatsappConfirmationUrl,
-              label: isAr ? "إرسال تأكيد الحجز على واتساب" : "Send confirmation on WhatsApp",
+              label: isAr ? "إرسال تأكيد الحجز للمريض" : "Send confirmation to patient",
+              variant: "patient",
+            },
+            {
+              href: approvalState.data.whatsappDoctorUrl,
+              label: isAr ? "إرسال موجز الجلسة للطبيب" : "Send session brief to doctor",
+              variant: "doctor",
             },
             {
               href: approvalState.data.whatsappReminderUrl,
-              label: isAr ? "نسخ رسالة التذكير قبل الجلسة" : "Pre-session reminder message",
+              label: isAr ? "رسالة التذكير قبل الجلسة" : "Pre-session reminder message",
+              variant: "neutral",
             },
           ]}
         />
@@ -843,7 +850,7 @@ function SuccessBanner({
   tone: "approved" | "rejected";
   title: string;
   description: string;
-  links: { href: string; label: string }[];
+  links: { href: string; label: string; variant?: "patient" | "doctor" | "neutral" }[];
 }) {
   return (
     <div
@@ -867,18 +874,28 @@ function SuccessBanner({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {links.map((link) => (
-          <a
-            key={link.href}
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 rounded-2xl bg-[#25D366] hover:bg-[#1EBE5B] text-white text-xs font-extrabold transition flex items-center gap-2"
-          >
-            <MessageCircle className="w-4 h-4" />
-            {link.label}
-          </a>
-        ))}
+        {links.map((link) => {
+          let btnClass = "bg-[#25D366] hover:bg-[#1EBE5B] text-white";
+          if (link.variant === "doctor") {
+            btnClass = "bg-teal-900 hover:bg-teal-950 text-white";
+          } else if (link.variant === "neutral") {
+            btnClass = "bg-white hover:bg-slate-100 text-slate-800 border border-slate-200";
+          }
+
+          return (
+            <a
+              key={link.href}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={link.label}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 shadow-sm ${btnClass}`}
+            >
+              <MessageCircle className="w-4 h-4 shrink-0" />
+              <span>{link.label}</span>
+            </a>
+          );
+        })}
       </div>
 
       <p className="text-[10px] text-gray-500">

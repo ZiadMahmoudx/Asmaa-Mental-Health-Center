@@ -19,7 +19,12 @@ import { asAppointmentType } from "@/lib/domain/enums";
 import { bookingPolicy, getClinicConfig } from "@/lib/clinic-config";
 import { env } from "@/lib/env";
 import { toEgp } from "@/lib/serialization";
-import { bookingConfirmedLink, paymentRejectedLink, sessionReminderLink } from "@/lib/whatsapp";
+import {
+  bookingConfirmedLink,
+  doctorSessionBriefLink,
+  paymentRejectedLink,
+  sessionReminderLink,
+} from "@/lib/whatsapp";
 
 /**
  * Admin Verification Desk - steps 4 and 5 of the manual payment flow.
@@ -45,6 +50,8 @@ export interface ApprovalPayload {
   whatsappConfirmationUrl: string;
   /** Pre-filled reminder to send closer to the session. */
   whatsappReminderUrl: string;
+  /** Pre-filled brief to the treating doctor (join link or room). */
+  whatsappDoctorUrl: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +71,7 @@ export async function approvePaymentAction(
 
   const parsed = approvePaymentSchema.safeParse({
     paymentProofId: formData.get("paymentProofId"),
+    roomId: formData.get("roomId") ?? "",
     zoomMeetingUrl: formData.get("zoomMeetingUrl") ?? "",
     zoomPasscode: formData.get("zoomPasscode") ?? "",
     clinicNotes: formData.get("clinicNotes") ?? "",
@@ -78,7 +86,7 @@ export async function approvePaymentAction(
     );
   }
 
-  const { paymentProofId, zoomMeetingUrl, zoomPasscode, clinicNotes } = parsed.data;
+  const { paymentProofId, roomId, zoomMeetingUrl, zoomPasscode, clinicNotes } = parsed.data;
 
   const proof = await prisma.paymentProof.findUnique({
     where: { id: paymentProofId },
@@ -96,9 +104,11 @@ export async function approvePaymentAction(
           priceEGP: true,
           zoomMeetingUrl: true,
           zoomPasscode: true,
+          roomId: true,
+          room: { select: { id: true, name: true } },
           patient: { select: { fullName: true, phone: true } },
           doctor: {
-            select: { roomNumber: true, user: { select: { fullName: true } } },
+            select: { roomNumber: true, user: { select: { fullName: true, phone: true } } },
           },
         },
       },
@@ -138,6 +148,26 @@ export async function approvePaymentAction(
     );
   }
 
+  let targetRoomId: string | null = appointment.roomId;
+  let targetRoomName: string | null = appointment.room?.name ?? appointment.doctor.roomNumber;
+
+  if (appointmentType === "OFFLINE" && roomId) {
+    const room = await prisma.clinicRoom.findFirst({
+      where: { id: roomId, isActive: true },
+      select: { id: true, name: true },
+    });
+    if (!room) {
+      return failure(
+        "VALIDATION_ERROR",
+        "الغرفة المحددة غير موجودة أو غير مفعلة.",
+        "The selected room does not exist or is inactive.",
+        { roomId: "الغرفة غير متاحة" },
+      );
+    }
+    targetRoomId = room.id;
+    targetRoomName = room.name;
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       const proofUpdated = await tx.paymentProof.updateMany({
@@ -163,6 +193,7 @@ export async function approvePaymentAction(
           status: "CONFIRMED",
           holdExpiresAt: null,
           slotLockKey: ACTIVE_SLOT_LOCK,
+          roomId: appointmentType === "OFFLINE" ? targetRoomId : null,
           zoomMeetingUrl: appointmentType === "ONLINE" ? effectiveZoomUrl : null,
           zoomPasscode:
             appointmentType === "ONLINE" ? (zoomPasscode ?? appointment.zoomPasscode) : null,
@@ -178,6 +209,14 @@ export async function approvePaymentAction(
       }
     });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return failure(
+        "CONFLICT",
+        "الغرفة المحددة محجوزة بالفعل في نفس التوقيت لجلسة أخرى.",
+        "The selected clinic room is already occupied at this time by another consultation.",
+        { roomId: "الغرفة محجوزة في هذا التوقيت" },
+      );
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return failure(
         "CONFLICT",
@@ -199,6 +238,8 @@ export async function approvePaymentAction(
       type: appointmentType,
       priceEGP: toEgp(appointment.priceEGP),
       zoomAttached: Boolean(effectiveZoomUrl),
+      roomId: targetRoomId,
+      roomName: targetRoomName,
     },
   });
 
@@ -213,9 +254,25 @@ export async function approvePaymentAction(
     priceEGP: toEgp(appointment.priceEGP),
     zoomMeetingUrl: effectiveZoomUrl,
     zoomPasscode: zoomPasscode ?? appointment.zoomPasscode,
-    roomNumber: appointment.doctor.roomNumber,
+    roomNumber: targetRoomName,
     clinicAddressAr: clinic.addressAr,
     clinicMapsUrl: clinic.mapsUrl,
+  } as const;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
+  const doctorBrief = {
+    doctorName: appointment.doctor.user.fullName,
+    doctorPhone: appointment.doctor.user.phone,
+    patientName: appointment.patient.fullName,
+    patientPhone: appointment.patient.phone,
+    type: appointmentType,
+    scheduledAtUTC: appointment.scheduledAtUTC,
+    durationMinutes: appointment.durationMinutes,
+    zoomMeetingUrl: effectiveZoomUrl,
+    zoomPasscode: zoomPasscode ?? appointment.zoomPasscode,
+    roomName: targetRoomName,
+    appointmentRef: appointment.id.slice(-8),
+    dashboardUrl: `${appUrl}/dashboard/doctor?appointmentId=${appointment.id}`,
   } as const;
 
   revalidatePath("/dashboard/admin/verification");
@@ -229,6 +286,7 @@ export async function approvePaymentAction(
     type: appointmentType,
     whatsappConfirmationUrl: bookingConfirmedLink(summary),
     whatsappReminderUrl: sessionReminderLink(summary),
+    whatsappDoctorUrl: doctorSessionBriefLink(doctorBrief),
   });
 }
 
@@ -394,6 +452,7 @@ export interface MeetingLinkPayload {
   appointmentId: string;
   zoomMeetingUrl: string;
   whatsappConfirmationUrl: string;
+  whatsappDoctorUrl: string;
 }
 
 /**
@@ -437,7 +496,7 @@ export async function assignMeetingLinkAction(
       priceEGP: true,
       patient: { select: { fullName: true, phone: true } },
       doctor: {
-        select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true } } },
+        select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true, phone: true } } },
       },
     },
   });
@@ -479,6 +538,7 @@ export async function assignMeetingLinkAction(
   });
 
   const clinic = getClinicConfig();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
 
   revalidatePath("/dashboard/admin/verification");
   revalidatePath("/dashboard/patient");
@@ -499,6 +559,19 @@ export async function assignMeetingLinkAction(
       zoomPasscode,
       clinicAddressAr: clinic.addressAr,
       clinicMapsUrl: clinic.mapsUrl,
+    }),
+    whatsappDoctorUrl: doctorSessionBriefLink({
+      doctorName: appointment.doctor.user.fullName,
+      doctorPhone: appointment.doctor.user.phone,
+      patientName: appointment.patient.fullName,
+      patientPhone: appointment.patient.phone,
+      type: "ONLINE",
+      scheduledAtUTC: appointment.scheduledAtUTC,
+      durationMinutes: appointment.durationMinutes,
+      zoomMeetingUrl,
+      zoomPasscode,
+      appointmentRef: appointmentId.slice(-8),
+      dashboardUrl: `${appUrl}/dashboard/doctor?appointmentId=${appointmentId}`,
     }),
   });
 }

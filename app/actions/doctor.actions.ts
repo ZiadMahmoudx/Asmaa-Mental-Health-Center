@@ -31,6 +31,7 @@ import { bookingPolicy, getClinicConfig } from "@/lib/clinic-config";
 import {
   appointmentRescheduledLink,
   clinicCancellationLink,
+  doctorSessionBriefLink,
   formatCairo,
   sessionReminderLink,
 } from "@/lib/whatsapp";
@@ -301,13 +302,21 @@ export async function addAvailabilityRuleAction(
   const target = await resolveTargetDoctor(guard.data, formData.get("doctorId") as string);
   if (!target.ok) return target;
 
+  const isAdmin = guard.data.user.role === "ADMIN";
+  const requestedOffline = formData.get("isOfflineAvailable") === "on" || formData.get("isOfflineAvailable") === "true";
+  const requestedOnline = formData.get("isOnlineAvailable") === "on" || formData.get("isOnlineAvailable") === "true";
+
+  // In-clinic capacity is administered centrally. A DOCTOR may never set it.
+  const isOfflineAvailable = isAdmin ? requestedOffline : false;
+  const isOnlineAvailable = isAdmin ? requestedOnline : (requestedOnline || true);
+
   const parsed = availabilityRuleSchema.safeParse({
     dayOfWeek: formData.get("dayOfWeek"),
     startMinutesUTC: formData.get("startMinutesUTC"),
     endMinutesUTC: formData.get("endMinutesUTC"),
     slotDurationMins: formData.get("slotDurationMins"),
-    isOnlineAvailable: formData.get("isOnlineAvailable") === "on" || formData.get("isOnlineAvailable") === "true",
-    isOfflineAvailable: formData.get("isOfflineAvailable") === "on" || formData.get("isOfflineAvailable") === "true",
+    isOnlineAvailable,
+    isOfflineAvailable,
   });
 
   if (!parsed.success) {
@@ -366,7 +375,13 @@ export async function addAvailabilityRuleAction(
       action: "AVAILABILITY_UPDATED",
       entityType: "DoctorAvailability",
       entityId: created.id,
-      metadata: { operation: "create", dayOfWeek: rule.dayOfWeek, doctorId: target.data.doctorId },
+      metadata: {
+        operation: "create",
+        dayOfWeek: rule.dayOfWeek,
+        doctorId: target.data.doctorId,
+        isOfflineAvailable: created.isOfflineAvailable,
+        setBy: guard.data.user.role,
+      },
     });
 
     revalidatePath("/dashboard/doctor");
@@ -397,15 +412,35 @@ export async function updateAvailabilityRuleAction(
   const target = await resolveTargetDoctor(guard.data, formData.get("doctorId") as string);
   if (!target.ok) return target;
 
+  const isAdmin = guard.data.user.role === "ADMIN";
+  const availabilityId = formData.get("availabilityId") as string;
+
+  // Verify ownership and fetch stored in-clinic status
+  const existing = await prisma.doctorAvailability.findFirst({
+    where: { id: availabilityId, doctorId: target.data.doctorId },
+    select: { id: true, isOfflineAvailable: true },
+  });
+
+  if (!existing) {
+    return Failures.notFound("نافذة العمل");
+  }
+
+  const requestedOffline = formData.get("isOfflineAvailable") === "on" || formData.get("isOfflineAvailable") === "true";
+  const requestedOnline = formData.get("isOnlineAvailable") === "on" || formData.get("isOnlineAvailable") === "true";
+
+  // In-clinic capacity is administered centrally. A DOCTOR may never alter it.
+  const isOfflineAvailable = isAdmin ? requestedOffline : existing.isOfflineAvailable;
+  const isOnlineAvailable = requestedOnline;
+
   const parsed = availabilityRuleUpdateSchema.safeParse({
-    availabilityId: formData.get("availabilityId"),
+    availabilityId,
     doctorId: formData.get("doctorId") || undefined,
     dayOfWeek: formData.get("dayOfWeek"),
     startMinutesUTC: formData.get("startMinutesUTC"),
     endMinutesUTC: formData.get("endMinutesUTC"),
     slotDurationMins: formData.get("slotDurationMins"),
-    isOnlineAvailable: formData.get("isOnlineAvailable") === "on" || formData.get("isOnlineAvailable") === "true",
-    isOfflineAvailable: formData.get("isOfflineAvailable") === "on" || formData.get("isOfflineAvailable") === "true",
+    isOnlineAvailable,
+    isOfflineAvailable,
   });
 
   if (!parsed.success) {
@@ -417,17 +452,7 @@ export async function updateAvailabilityRuleAction(
     );
   }
 
-  const { availabilityId, ...rule } = parsed.data;
-
-  // Verify ownership
-  const existing = await prisma.doctorAvailability.findFirst({
-    where: { id: availabilityId, doctorId: target.data.doctorId },
-    select: { id: true },
-  });
-
-  if (!existing) {
-    return Failures.notFound("نافذة العمل");
-  }
+  const { ...rule } = parsed.data;
 
   // Check overlap against other active rules on the same day
   const overlapping = await prisma.doctorAvailability.findFirst({
@@ -480,7 +505,13 @@ export async function updateAvailabilityRuleAction(
       action: "AVAILABILITY_RULE_EDITED",
       entityType: "DoctorAvailability",
       entityId: updated.id,
-      metadata: { byRole: guard.data.user.role, doctorId: target.data.doctorId, dayOfWeek: rule.dayOfWeek },
+      metadata: {
+        byRole: guard.data.user.role,
+        doctorId: target.data.doctorId,
+        dayOfWeek: rule.dayOfWeek,
+        isOfflineAvailable: updated.isOfflineAvailable,
+        setBy: guard.data.user.role,
+      },
     });
 
     revalidatePath("/dashboard/doctor");
@@ -938,6 +969,7 @@ export interface ReschedulePayload {
   oldScheduledAtUTC: string;
   newScheduledAtUTC: string;
   whatsappRescheduleUrl: string;
+  whatsappDoctorUrl: string;
 }
 
 /**
@@ -975,7 +1007,7 @@ export async function rescheduleAppointmentAction(
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: {
-      doctor: { select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true } } } },
+      doctor: { select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true, phone: true } } } },
       patient: { select: { id: true, fullName: true, phone: true } },
     },
   });
@@ -1152,11 +1184,28 @@ export async function rescheduleAppointmentAction(
     reason,
   });
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://asmaa.clinic";
+  const whatsappDoctorUrl = doctorSessionBriefLink({
+    doctorName: appointment.doctor.user.fullName,
+    doctorPhone: appointment.doctor.user.phone,
+    patientName: appointment.patient.fullName,
+    patientPhone: appointment.patient.phone,
+    type: asAppointmentType(appointment.type),
+    scheduledAtUTC: targetInstant,
+    durationMinutes,
+    zoomMeetingUrl: appointment.zoomMeetingUrl,
+    zoomPasscode: appointment.zoomPasscode,
+    roomName: appointment.doctor.roomNumber ?? null,
+    appointmentRef: appointmentId.slice(-8),
+    dashboardUrl: `${appUrl}/dashboard/doctor?appointmentId=${appointmentId}`,
+  });
+
   return success({
     appointmentId,
     oldScheduledAtUTC: oldScheduledAtUTC.toISOString(),
     newScheduledAtUTC: targetInstant.toISOString(),
     whatsappRescheduleUrl: whatsappUrl,
+    whatsappDoctorUrl,
   });
 }
 

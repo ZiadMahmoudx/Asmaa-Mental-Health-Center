@@ -46,21 +46,21 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // ------------------------------- IDENTITY ------------------------------------
 
 model User {
-  id           String @id @default(cuid()) @db.NVarChar(30)
-  fullName     String @db.NVarChar(120)
-  email        String @unique @db.NVarChar(190)
-  phone        String @unique @db.NVarChar(24) // E.164, e.g. +201002345678
-  passwordHash String @db.NVarChar(255) // argon2id - never expose outside lib/auth
+  id           String @id @default(cuid()) @db.VarChar(30)
+  fullName     String @db.VarChar(120)
+  email        String @unique @db.VarChar(190)
+  phone        String @unique @db.VarChar(24) // E.164, e.g. +201002345678
+  passwordHash String @db.VarChar(255) // argon2id - never expose outside lib/auth
 
   /// Role enum -> lib/domain/enums.ts `Role`
-  role String @default("PATIENT") @db.NVarChar(20)
+  role String @default("PATIENT") @db.VarChar(20)
 
   // Phase-1 readiness for OTP phone verification (see VerificationToken below).
   phoneVerifiedAt DateTime?
@@ -99,12 +99,12 @@ model User {
 /// Opaque server-side sessions. The cookie carries a random 256-bit token; only
 /// its SHA-256 digest is stored, so a database leak cannot be replayed as a login.
 model Session {
-  id            String    @id @default(cuid()) @db.NVarChar(30)
-  userId        String    @db.NVarChar(30)
-  tokenHash     String    @unique @db.NVarChar(64) // sha256 hex of the cookie token
-  csrfTokenHash String    @db.NVarChar(64) // sha256 hex of the double-submit CSRF token
-  userAgent     String?   @db.NVarChar(255)
-  ipAddress     String?   @db.NVarChar(64)
+  id            String    @id @default(cuid()) @db.VarChar(30)
+  userId        String    @db.VarChar(30)
+  tokenHash     String    @unique @db.VarChar(64) // sha256 hex of the cookie token
+  csrfTokenHash String    @db.VarChar(64) // sha256 hex of the double-submit CSRF token
+  userAgent     String?   @db.VarChar(255)
+  ipAddress     String?   @db.VarChar(64)
   expiresAt     DateTime
   revokedAt     DateTime?
   createdAt     DateTime  @default(now())
@@ -119,14 +119,14 @@ model Session {
 /// Short-lived hashed OTP / reset codes. Present so phone verification can be
 /// switched on by wiring an SMS provider without a further migration.
 model VerificationToken {
-  id     String @id @default(cuid()) @db.NVarChar(30)
-  userId String @db.NVarChar(30)
+  id     String @id @default(cuid()) @db.VarChar(30)
+  userId String @db.VarChar(30)
 
   /// VerificationPurpose enum -> lib/domain/enums.ts
-  purpose String @db.NVarChar(30)
+  purpose String @db.VarChar(30)
 
-  codeHash    String    @db.NVarChar(64) // sha256 hex of the 6-digit OTP
-  destination String    @db.NVarChar(190) // phone or email the code was sent to
+  codeHash    String    @db.VarChar(64) // sha256 hex of the 6-digit OTP
+  destination String    @db.VarChar(190) // phone or email the code was sent to
   attempts    Int       @default(0)
   consumedAt  DateTime?
   expiresAt   DateTime
@@ -142,36 +142,36 @@ model VerificationToken {
 // ------------------------------- CLINICAL STAFF ------------------------------
 
 model DoctorProfile {
-  id            String  @id @default(cuid()) @db.NVarChar(30)
-  userId        String  @unique @db.NVarChar(30)
-  title         String  @db.NVarChar(180) // "استشاري أول الطب النفسي"
-  titleEn       String? @db.NVarChar(180)
-  licenseNumber String  @unique @db.NVarChar(60)
+  id            String  @id @default(cuid()) @db.VarChar(30)
+  userId        String  @unique @db.VarChar(30)
+  title         String  @db.VarChar(180) // "استشاري أول الطب النفسي"
+  titleEn       String? @db.VarChar(180)
+  licenseNumber String  @unique @db.VarChar(60)
 
   /// JSON array of Arabic specialty labels. Read via toStringArray().
-  specialtiesJson   String @default("[]") @db.NVarChar(Max)
+  specialtiesJson   String @default("[]") @db.Text
   /// JSON array of English specialty labels.
-  specialtiesEnJson String @default("[]") @db.NVarChar(Max)
+  specialtiesEnJson String @default("[]") @db.Text
 
   /// JSON array of ConcernTag values this consultant treats (lib/content/intake.ts).
   /// The intake questionnaire matches patients against these, replacing the old
   /// hard-coded doctor id lists that did not survive contact with real data.
-  concernTagsJson String @default("[]") @db.NVarChar(Max)
+  concernTagsJson String @default("[]") @db.Text
 
   /// MALE | FEMALE. Optional, and used only to honour a patient's stated
   /// preference for a consultant's gender during triage.
-  gender String? @db.NVarChar(10)
+  gender String? @db.VarChar(10)
 
-  bio               String  @db.NVarChar(Max)
-  bioEn             String? @db.NVarChar(Max)
+  bio               String  @db.Text
+  bioEn             String? @db.Text
   yearsOfExperience Int     @default(0)
 
   sessionPriceOnline  Decimal @db.Decimal(10, 2) // EGP
   sessionPriceOffline Decimal @db.Decimal(10, 2) // EGP
   defaultDurationMins Int     @default(45)
 
-  roomNumber          String?  @db.NVarChar(30) // physical clinic room for OFFLINE visits
-  avatarUrl           String?  @db.NVarChar(500)
+  roomNumber          String?  @db.VarChar(30) // physical clinic room for OFFLINE visits
+  avatarUrl           String?  @db.VarChar(500)
   isAcceptingPatients Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -189,8 +189,8 @@ model DoctorProfile {
 /// Recurring weekly working window, expressed in UTC minutes-from-midnight so it
 /// is immune to Cairo DST shifts. dayOfWeek follows JS getUTCDay(): 0 = Sunday.
 model DoctorAvailability {
-  id                 String    @id @default(cuid()) @db.NVarChar(30)
-  doctorId           String    @db.NVarChar(30)
+  id                 String    @id @default(cuid()) @db.VarChar(30)
+  doctorId           String    @db.VarChar(30)
   dayOfWeek          Int // 0..6, UTC day
   startMinutesUTC    Int // 0..1439, inclusive
   endMinutesUTC      Int // 1..1440, exclusive
@@ -205,7 +205,7 @@ model DoctorAvailability {
   /// live; on retirement it is rewritten to the row's own id, which frees the
   /// (doctor, day, start, end) tuple so the same window can be created again.
   /// Without this, a removed window is permanently unusable — see G2.
-  ruleLockKey String @default("ACTIVE") @db.NVarChar(40)
+  ruleLockKey String @default("ACTIVE") @db.VarChar(40)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,13 +220,13 @@ model DoctorAvailability {
 /// One-off blackout (leave, conference, clinic closure) that subtracts from the
 /// recurring availability for a concrete UTC interval.
 model AvailabilityException {
-  id          String    @id @default(cuid()) @db.NVarChar(30)
-  doctorId    String    @db.NVarChar(30)
+  id          String    @id @default(cuid()) @db.VarChar(30)
+  doctorId    String    @db.VarChar(30)
   startsAtUTC DateTime
   endsAtUTC   DateTime
-  reason      String?   @db.NVarChar(255)
+  reason      String?   @db.VarChar(255)
   cancelledAt DateTime?
-  createdById String?   @db.NVarChar(30)
+  createdById String?   @db.VarChar(30)
   createdAt   DateTime  @default(now())
 
   doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -240,48 +240,50 @@ model AvailabilityException {
 // ------------------------------- BOOKING -------------------------------------
 
 model Appointment {
-  id        String @id @default(cuid()) @db.NVarChar(30)
-  patientId String @db.NVarChar(30)
-  doctorId  String @db.NVarChar(30)
+  id        String @id @default(cuid()) @db.VarChar(30)
+  patientId String @db.VarChar(30)
+  doctorId  String @db.VarChar(30)
 
   /// AppointmentType enum -> lib/domain/enums.ts
-  type String @db.NVarChar(20)
+  type String @db.VarChar(20)
 
   scheduledAtUTC  DateTime
   durationMinutes Int      @default(45)
 
   /// AppointmentStatus enum -> lib/domain/enums.ts
-  status String @default("PENDING_PAYMENT_PROOF") @db.NVarChar(30)
+  status String @default("PENDING_PAYMENT_PROOF") @db.VarChar(30)
 
   priceEGP       Decimal @db.Decimal(10, 2) // frozen at booking time
-  zoomMeetingUrl String? @db.NVarChar(500) // ONLINE only, set on approval
-  zoomMeetingId  String? @db.NVarChar(80)
-  zoomPasscode   String? @db.NVarChar(60)
-  clinicNotes    String? @db.NVarChar(Max) // OFFLINE directions / reception notes
+  zoomMeetingUrl String? @db.VarChar(500) // ONLINE only, set on approval
+  zoomMeetingId  String? @db.VarChar(80)
+  zoomPasscode   String? @db.VarChar(60)
+  clinicNotes    String? @db.Text // OFFLINE directions / reception notes
 
   /// Race-condition guard. While the appointment occupies the slot this holds the
   /// constant ACTIVE_SLOT_LOCK; when the appointment is released (cancelled,
   /// rejected, expired) it is rewritten to the appointment id, which is unique and
   /// therefore frees the composite unique index below for a new booking.
   /// See lib/constants.ts ACTIVE_SLOT_LOCK and app/actions/booking.actions.ts.
-  slotLockKey String @db.NVarChar(40)
+  slotLockKey String @db.VarChar(40)
 
   /// Deadline for the patient to upload a receipt. Past this point the slot is
   /// reclaimable by any other patient (booking.actions.ts releases it in-band).
   holdExpiresAt DateTime?
 
   cancelledAt        DateTime?
-  cancellationReason String?   @db.NVarChar(500)
+  cancellationReason String?   @db.VarChar(500)
   completedAt        DateTime?
   reminderSentAt     DateTime?
+  patientNotifiedAt  DateTime?
+  doctorNotifiedAt   DateTime?
 
   /// Set when an appointment has been moved. Retains the instant it was
   /// originally booked for, so the patient-facing history can explain the change
   /// and the clinic can audit how often it reschedules.
   rescheduledFromUTC DateTime?
   rescheduledAt      DateTime?
-  rescheduledById    String?   @db.NVarChar(30)
-  rescheduleReason   String?   @db.NVarChar(500)
+  rescheduledById    String?   @db.VarChar(30)
+  rescheduleReason   String?   @db.VarChar(500)
   patientRescheduleCount Int   @default(0)
 
   createdAt DateTime @default(now())
@@ -295,6 +297,8 @@ model Appointment {
   //     exactly that, so the update action has to be pinned as well.
   // The intent is unchanged: a user or doctor with appointments cannot be
   // deleted. Accounts are deactivated via `isActive`, never removed.
+  roomId         String?         @db.VarChar(30)
+  room           ClinicRoom?     @relation(fields: [roomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   patient        User            @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rescheduledBy  User?           @relation("AppointmentRescheduler", fields: [rescheduledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -305,6 +309,8 @@ model Appointment {
   /// Atomic double-booking prevention: at most one live appointment per
   /// (doctor, exact UTC start). Enforced by the database, not by application code.
   @@unique([doctorId, scheduledAtUTC, slotLockKey], map: "appointments_doctor_slot_lock_key")
+  /// Atomic room double-booking prevention for physical in-clinic sessions.
+  @@unique([roomId, scheduledAtUTC, slotLockKey], map: "appointments_room_slot_lock_key")
   @@index([patientId, scheduledAtUTC])
   @@index([doctorId, scheduledAtUTC])
   @@index([status, holdExpiresAt])
@@ -313,32 +319,50 @@ model Appointment {
   @@map("appointments")
 }
 
+/// Physical consultation room in the clinic for OFFLINE appointments.
+model ClinicRoom {
+  id        String  @id @default(cuid()) @db.VarChar(30)
+  name      String  @db.VarChar(60)      // "Room 3", "غرفة ٣"
+  floor     String? @db.VarChar(30)
+  capacity  Int     @default(1)           // concurrent sessions; 1 for consult rooms
+  isActive  Boolean @default(true)
+  notes     String? @db.VarChar(300)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@unique([name])
+  @@map("clinic_rooms")
+}
+
 // ------------------------------- MANUAL PAYMENTS -----------------------------
 
 /// One row per receipt the patient submits. A rejected proof is kept for audit
 /// and the patient may submit a replacement, so an appointment can hold several.
 model PaymentProof {
-  id            String @id @default(cuid()) @db.NVarChar(30)
-  appointmentId String @db.NVarChar(30)
+  id            String @id @default(cuid()) @db.VarChar(30)
+  appointmentId String @db.VarChar(30)
 
   /// PaymentMethod enum -> lib/domain/enums.ts
-  method String @db.NVarChar(20)
+  method String @db.VarChar(20)
 
-  senderIdentifier String   @db.NVarChar(120) // InstaPay handle or Vodafone Cash MSISDN
-  transactionRef   String?  @db.NVarChar(120)
+  senderIdentifier String   @db.VarChar(120) // InstaPay handle or Vodafone Cash MSISDN
+  transactionRef   String?  @db.VarChar(120)
   amountClaimedEGP Decimal? @db.Decimal(10, 2)
-  receiptImageUrl  String   @db.NVarChar(500) // private key served by /api/receipts/[proofId]
-  receiptMimeType  String   @db.NVarChar(60)
+  receiptImageUrl  String   @db.VarChar(500) // private key served by /api/receipts/[proofId]
+  receiptMimeType  String   @db.VarChar(60)
   receiptSizeBytes Int
-  receiptSha256    String   @db.NVarChar(64) // duplicate-receipt detection
+  receiptSha256    String   @db.VarChar(64) // duplicate-receipt detection
 
   /// PaymentProofStatus enum -> lib/domain/enums.ts
-  status String @default("UNDER_REVIEW") @db.NVarChar(20)
+  status String @default("UNDER_REVIEW") @db.VarChar(20)
 
   uploadedAt      DateTime  @default(now())
-  reviewedById    String?   @db.NVarChar(30)
+  reviewedById    String?   @db.VarChar(30)
   reviewedAt      DateTime?
-  rejectionReason String?   @db.NVarChar(500)
+  rejectionReason String?   @db.VarChar(500)
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   reviewedBy  User?       @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -353,20 +377,20 @@ model PaymentProof {
 // ------------------------------- CLINICAL RECORD -----------------------------
 
 model ClinicalRecord {
-  id             String  @id @default(cuid()) @db.NVarChar(30)
-  appointmentId  String  @unique @db.NVarChar(30) // one signed record per session
-  doctorId       String  @db.NVarChar(30)
-  patientId      String  @db.NVarChar(30)
-  chiefComplaint String? @db.NVarChar(Max)
-  diagnosis      String  @db.NVarChar(Max)
+  id             String  @id @default(cuid()) @db.VarChar(30)
+  appointmentId  String  @unique @db.VarChar(30) // one signed record per session
+  doctorId       String  @db.VarChar(30)
+  patientId      String  @db.VarChar(30)
+  chiefComplaint String? @db.Text
+  diagnosis      String  @db.Text
 
   /// JSON array of DSM-5 codes. Read via toStringArray().
-  dsm5CodesJson String @default("[]") @db.NVarChar(Max)
+  dsm5CodesJson String @default("[]") @db.Text
 
-  prescriptionNotes String?   @db.NVarChar(Max)
-  followUpPlan      String?   @db.NVarChar(Max)
+  prescriptionNotes String?   @db.Text
+  followUpPlan      String?   @db.Text
   /// RiskLevel enum -> lib/domain/enums.ts
-  riskLevel         String?   @db.NVarChar(20)
+  riskLevel         String?   @db.VarChar(20)
   signedAt          DateTime? // locked once signed
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -387,34 +411,34 @@ model ClinicalRecord {
 /// matcher suggested. Kept even after the patient books, because the reason for
 /// referral is part of the clinical story.
 model IntakeAssessment {
-  id        String @id @default(cuid()) @db.NVarChar(30)
-  patientId String @db.NVarChar(30)
+  id        String @id @default(cuid()) @db.VarChar(30)
+  patientId String @db.VarChar(30)
 
   /// JSON array of ConcernTag values the patient selected.
-  concernsJson String @default("[]") @db.NVarChar(Max)
+  concernsJson String @default("[]") @db.Text
 
-  ageGroup          String @db.NVarChar(20)
-  therapyHistory    String @db.NVarChar(30)
-  medicationHistory String @db.NVarChar(30)
-  genderPreference  String @default("ANY") @db.NVarChar(10)
+  ageGroup          String @db.VarChar(20)
+  therapyHistory    String @db.VarChar(30)
+  medicationHistory String @db.VarChar(30)
+  genderPreference  String @default("ANY") @db.VarChar(10)
 
   /// Raw screening answers, kept so a clinician can see the individual items
   /// rather than only the total.
-  answersJson   String @default("{}") @db.NVarChar(Max)
+  answersJson   String @default("{}") @db.Text
   severityScore Int
   maxScore      Int
 
   /// STABLE | EVALUATE | CRISIS_EMERGENCY (lib/content/intake.ts)
-  urgencyLevel  String  @db.NVarChar(30)
+  urgencyLevel  String  @db.VarChar(30)
   /// True when the safety item was endorsed, whatever the total score.
   crisisFlagged Boolean @default(false)
 
   /// JSON array of DoctorProfile ids the matcher suggested, in rank order.
-  matchedDoctorIdsJson String @default("[]") @db.NVarChar(Max)
+  matchedDoctorIdsJson String @default("[]") @db.Text
 
   /// Set when a member of staff has looked at a flagged intake.
   reviewedAt   DateTime?
-  reviewedById String?   @db.NVarChar(30)
+  reviewedById String?   @db.VarChar(30)
 
   createdAt DateTime @default(now())
 
@@ -433,24 +457,24 @@ model IntakeAssessment {
 /// The score is always recomputed on the server from `answersJson` — a total
 /// posted by the client is never stored, because a doctor reads these numbers.
 model ClinicalAssessment {
-  id        String @id @default(cuid()) @db.NVarChar(30)
-  patientId String @db.NVarChar(30)
+  id        String @id @default(cuid()) @db.VarChar(30)
+  patientId String @db.VarChar(30)
 
   /// PHQ9 | GAD7 | ISI | PCL5 | OCIR | AUDIT | DAST10 | ASRS (lib/domain/enums.ts)
-  type String @db.NVarChar(20)
+  type String @db.VarChar(20)
 
   /// Scale definition version administered, to ensure longitudinal comparability (F2.2).
   scaleVersion Int @default(1)
 
   /// DRAFT | COMPLETED (lib/domain/enums.ts)
-  status String @default("COMPLETED") @db.NVarChar(20)
+  status String @default("COMPLETED") @db.VarChar(20)
 
-  answersJson String @default("{}") @db.NVarChar(Max)
+  answersJson String @default("{}") @db.Text
   totalScore  Int
   maxScore    Int
 
   /// MINIMAL | MILD | MODERATE | MODERATELY_SEVERE | SEVERE
-  severityBand String @db.NVarChar(30)
+  severityBand String @db.VarChar(30)
 
   /// True when a safety-flagged item (e.g. PHQ-9 item 9) was endorsed.
   riskItemEndorsed Boolean @default(false)
@@ -469,27 +493,27 @@ model ClinicalAssessment {
 
 /// Unified clinical safety alert triggered by crisis disclosures in intake or standardized scales.
 model SafetyAlert {
-  id        String @id @default(cuid()) @db.NVarChar(30)
-  patientId String @db.NVarChar(30)
+  id        String @id @default(cuid()) @db.VarChar(30)
+  patientId String @db.VarChar(30)
 
   /// INTAKE | ASSESSMENT (lib/domain/enums.ts)
-  source   String @db.NVarChar(20)
-  sourceId String @db.NVarChar(30)
+  source   String @db.VarChar(20)
+  sourceId String @db.VarChar(30)
 
   /// CRISIS | ELEVATED (lib/domain/enums.ts)
-  severity String @db.NVarChar(20)
+  severity String @db.VarChar(20)
 
   /// Short machine string e.g. "PHQ9_ITEM9", "INTAKE_SAFETY", "PCL5_HIGH" (never free-text PHI)
-  detail String @db.NVarChar(50)
+  detail String @db.VarChar(50)
 
   acknowledgedAt   DateTime?
-  acknowledgedById String?   @db.NVarChar(30)
+  acknowledgedById String?   @db.VarChar(30)
 
   resolvedAt      DateTime?
-  resolvedById    String?   @db.NVarChar(30)
+  resolvedById    String?   @db.VarChar(30)
   /// CONTACTED | NO_ANSWER | ESCALATED_EMERGENCY | FALSE_POSITIVE (lib/domain/enums.ts)
-  outcome         String?   @db.NVarChar(30)
-  resolutionNotes String?   @db.NVarChar(500)
+  outcome         String?   @db.VarChar(30)
+  resolutionNotes String?   @db.VarChar(500)
 
   createdAt DateTime @default(now())
 
@@ -507,16 +531,16 @@ model SafetyAlert {
 /// a safety plan is a current document, not a history, and the patient needs
 /// the newest version instantly at the moment they reach for it.
 model SafetyPlan {
-  id        String @id @default(cuid()) @db.NVarChar(30)
-  patientId String @unique @db.NVarChar(30)
+  id        String @id @default(cuid()) @db.VarChar(30)
+  patientId String @unique @db.VarChar(30)
 
-  warningSignsJson         String  @default("[]") @db.NVarChar(Max)
-  copingStrategiesJson     String  @default("[]") @db.NVarChar(Max)
-  socialDistractionsJson   String  @default("[]") @db.NVarChar(Max)
-  trustedContactsJson      String  @default("[]") @db.NVarChar(Max)
-  professionalContactsJson String  @default("[]") @db.NVarChar(Max)
-  environmentStepsJson     String  @default("[]") @db.NVarChar(Max)
-  reasonsForLiving         String? @db.NVarChar(Max)
+  warningSignsJson         String  @default("[]") @db.Text
+  copingStrategiesJson     String  @default("[]") @db.Text
+  socialDistractionsJson   String  @default("[]") @db.Text
+  trustedContactsJson      String  @default("[]") @db.Text
+  professionalContactsJson String  @default("[]") @db.Text
+  environmentStepsJson     String  @default("[]") @db.Text
+  reasonsForLiving         String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -531,16 +555,16 @@ model SafetyPlan {
 /// Signed ledger of patient credits (refunds, adjustments, applied credits, payouts).
 /// Balance is always SUM(amountEGP). Positive = credit issued, Negative = credit consumed.
 model PatientCredit {
-  id            String    @id @default(cuid()) @db.NVarChar(30)
-  patientId     String    @db.NVarChar(30)
-  appointmentId String?   @db.NVarChar(30)
+  id            String    @id @default(cuid()) @db.VarChar(30)
+  patientId     String    @db.VarChar(30)
+  appointmentId String?   @db.VarChar(30)
   amountEGP     Decimal   @db.Decimal(10, 2)
-  kind          String    @db.NVarChar(30) // CreditKind: CANCELLATION | MANUAL_ADJUSTMENT | APPLIED_TO_BOOKING | PAID_OUT
-  reason        String?   @db.NVarChar(500)
-  issuedById    String?   @db.NVarChar(30)
+  kind          String    @db.VarChar(30) // CreditKind: CANCELLATION | MANUAL_ADJUSTMENT | APPLIED_TO_BOOKING | PAID_OUT
+  reason        String?   @db.VarChar(500)
+  issuedById    String?   @db.VarChar(30)
   settledAt     DateTime?
-  settledById   String?   @db.NVarChar(30)
-  settlementRef String?   @db.NVarChar(100)
+  settledById   String?   @db.VarChar(30)
+  settlementRef String?   @db.VarChar(100)
   createdAt     DateTime  @default(now())
 
   patient     User         @relation("PatientCredits", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -561,13 +585,13 @@ model PatientCredit {
 /// Append-only trail for every privileged action (payment approval, clinical
 /// record access, role change). Required by the clinic confidentiality policy.
 model AuditLog {
-  id         String   @id @default(cuid()) @db.NVarChar(30)
-  actorId    String?  @db.NVarChar(30)
-  action     String   @db.NVarChar(80) // e.g. PAYMENT_APPROVED
-  entityType String   @db.NVarChar(60)
-  entityId   String   @db.NVarChar(60)
-  metadata   String?  @db.NVarChar(Max) // JSON, never contains PHI free-text
-  ipAddress  String?  @db.NVarChar(64)
+  id         String   @id @default(cuid()) @db.VarChar(30)
+  actorId    String?  @db.VarChar(30)
+  action     String   @db.VarChar(80) // e.g. PAYMENT_APPROVED
+  entityType String   @db.VarChar(60)
+  entityId   String   @db.VarChar(60)
+  metadata   String?  @db.Text // JSON, never contains PHI free-text
+  ipAddress  String?  @db.VarChar(64)
   createdAt  DateTime @default(now())
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)

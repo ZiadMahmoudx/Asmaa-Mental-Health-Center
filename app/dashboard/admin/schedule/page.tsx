@@ -8,8 +8,10 @@ import {
   getMyAvailabilityAction,
   getTimeOffAction,
 } from "@/app/actions/doctor.actions";
+import { getClinicRoomsAction } from "@/app/actions/rooms.actions";
 import { WeeklyScheduleEditor } from "@/components/dashboard/schedule/WeeklyScheduleEditor";
 import { TimeOffManager } from "@/components/dashboard/schedule/TimeOffManager";
+import { RoomManagementCard } from "@/components/admin/rooms/RoomManagementCard";
 import { getLanguage } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -59,9 +61,10 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
   const selectedDoctorId = doctorId || doctors[0]?.id;
   const activeDoctor = doctors.find((d) => d.id === selectedDoctorId) || doctors[0];
 
-  const [availabilityResult, timeOffResult] = await Promise.all([
+  const [availabilityResult, timeOffResult, roomsResult] = await Promise.all([
     selectedDoctorId ? getMyAvailabilityAction(selectedDoctorId) : { ok: true, data: [] },
     selectedDoctorId ? getTimeOffAction(selectedDoctorId, true) : { ok: true, data: [] },
+    getClinicRoomsAction(),
   ]);
 
   return (
@@ -127,6 +130,7 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
               availability={availabilityResult.ok ? availabilityResult.data : []}
               csrfToken={csrfToken}
               doctorId={activeDoctor.id}
+              isAdmin={true}
             />
           </div>
 
@@ -146,6 +150,12 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
           </div>
         </div>
       )}
+
+      {/* Physical Clinic Rooms Management Card */}
+      <RoomManagementCard
+        rooms={roomsResult.ok ? roomsResult.data : []}
+        csrfToken={csrfToken}
+      />
     </div>
   );
 }

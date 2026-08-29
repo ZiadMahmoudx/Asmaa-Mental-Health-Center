@@ -24,6 +24,16 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().min(1).default("./.uploads/receipts"),
   MAX_RECEIPT_BYTES: z.coerce.number().int().min(50_000).max(20_000_000).default(5_242_880),
 
+  /**
+   * Vercel Blob write token. Present on Vercel, absent locally.
+   *
+   * Its presence is what selects the receipt storage backend: with a token,
+   * receipts go to a PRIVATE Blob store; without one they go to `UPLOAD_DIR` on
+   * local disk. Serverless filesystems are ephemeral and read-only outside
+   * /tmp, so the local path cannot be used in production — see lib/uploads.ts.
+   */
+  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+
   BOOKING_HOLD_MINUTES: z.coerce.number().int().min(5).max(1440).default(45),
   BOOKING_MIN_NOTICE_MINUTES: z.coerce.number().int().min(0).max(10_080).default(120),
   BOOKING_HORIZON_DAYS: z.coerce.number().int().min(1).max(180).default(21),

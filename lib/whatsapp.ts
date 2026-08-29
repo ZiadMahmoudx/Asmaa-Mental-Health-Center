@@ -367,3 +367,65 @@ export function clinicCancellationLink(
 ): string {
   return buildWhatsAppLink(input.patientPhone, clinicCancellationMessage(input));
 }
+
+// ---------------------------------------------------------------------------
+// Doctor-facing Session Brief (Two-Party Dispatch)
+// ---------------------------------------------------------------------------
+
+export interface DoctorSessionBriefInput {
+  doctorName: string;
+  doctorPhone: string;
+  patientName: string;
+  patientPhone: string;
+  type: "ONLINE" | "OFFLINE";
+  scheduledAtUTC: Date;
+  durationMinutes: number;
+  zoomMeetingUrl?: string | null;
+  zoomPasscode?: string | null;
+  roomName?: string | null;
+  appointmentRef: string;
+  dashboardUrl: string;
+}
+
+/** Pre-filled brief to the treating doctor (join link or room). */
+export function doctorSessionBriefMessage(input: DoctorSessionBriefInput): string {
+  const isOnline = input.type === "ONLINE";
+  const dateStr = formatCairo(input.scheduledAtUTC, "ar");
+
+  const lines = [
+    `دكتور ${input.doctorName}، تحياتنا من مركز أسما للصحة النفسية 🌿`,
+    ``,
+    `تم تأكيد موعد جلسة علاجية جديدة:`,
+    `👤 المريض: ${input.patientName}`,
+    `📞 هاتف المريض: ${input.patientPhone}`,
+    `🗓️ الموعد: ${dateStr}`,
+    `⏱️ المدة: ${input.durationMinutes} دقيقة`,
+    `📍 نوع الجلسة: ${isOnline ? "أونلاين (زووم)" : `حضورية بالعيادة${input.roomName ? ` — غرفة ${input.roomName}` : ""}`}`,
+  ];
+
+  if (isOnline && input.zoomMeetingUrl) {
+    lines.push(
+      ``,
+      `🔗 رابط غرفة زووم للبدء:`,
+      input.zoomMeetingUrl,
+    );
+    if (input.zoomPasscode) {
+      lines.push(`🔑 رمز المرور: ${input.zoomPasscode}`);
+    }
+  }
+
+  lines.push(
+    ``,
+    `📋 للاطلاع على ملف المريض والفرز الأولي وملء التقرير:`,
+    input.dashboardUrl,
+    ``,
+    `نتمنى لكم جلسة مثمرة ونافعة.`,
+  );
+
+  return lines.join("\n");
+}
+
+export function doctorSessionBriefLink(input: DoctorSessionBriefInput): string {
+  return buildWhatsAppLink(input.doctorPhone, doctorSessionBriefMessage(input));
+}
+

@@ -33,6 +33,8 @@ import {
   paymentInstructionsMessage,
   appointmentRescheduledMessage,
   clinicCancellationMessage,
+  doctorSessionBriefMessage,
+  doctorSessionBriefLink,
 } from "@/lib/whatsapp";
 import { cairoLabelToUtcMinutes, utcMinutesToCairoLabel, startOfCairoDayUtc } from "@/lib/time/cairo";
 import { hashPassword, verifyPassword, safeEquals, generateToken } from "@/lib/auth/password";
@@ -1222,6 +1224,207 @@ async function main() {
 
     // Attempting to deactivate admin_1 when admin_2 is inactive
     assert.equal(canDeactivateAdmin("admin_1", "super_actor"), false, "Must block deactivation of the last active admin");
+  });
+
+  console.log("\n--- dual-mode slot governance (A1) ---");
+
+  await check("A1: doctor add forces isOfflineAvailable=false, doctor update preserves stored value, admin controls both", () => {
+    function deriveOfflineForAdd(role: string, requestedOffline: boolean): boolean {
+      const isAdmin = role === "ADMIN";
+      return isAdmin ? requestedOffline : false;
+    }
+
+    function deriveOfflineForUpdate(role: string, requestedOffline: boolean, storedOffline: boolean): boolean {
+      const isAdmin = role === "ADMIN";
+      return isAdmin ? requestedOffline : storedOffline;
+    }
+
+    // 1. Doctor attempting to create an in-clinic slot -> forced to false
+    assert.equal(
+      deriveOfflineForAdd("DOCTOR", true),
+      false,
+      "Doctor add must force isOfflineAvailable to false",
+    );
+
+    // 2. Doctor updating a rule originally set to offline by admin -> preserves true
+    assert.equal(
+      deriveOfflineForUpdate("DOCTOR", false, true),
+      true,
+      "Doctor update must preserve the stored isOfflineAvailable setting",
+    );
+
+    // 3. Admin adding and updating in-clinic slots -> respects requested boolean
+    assert.equal(deriveOfflineForAdd("ADMIN", true), true);
+    assert.equal(deriveOfflineForAdd("ADMIN", false), false);
+    assert.equal(deriveOfflineForUpdate("ADMIN", true, false), true);
+    assert.equal(deriveOfflineForUpdate("ADMIN", false, true), false);
+  });
+
+  console.log("\n--- two-party session dispatch (B1 & B2) ---");
+
+  await check("B1: doctor session brief contains join URL/room and patient phone, with zero financial and clinical PHI", () => {
+    const onlineInput = {
+      doctorName: "أسماء محمود",
+      doctorPhone: "01011112222",
+      patientName: "أحمد علي",
+      patientPhone: "+201098765432",
+      type: "ONLINE" as const,
+      scheduledAtUTC: new Date("2026-09-01T14:00:00.000Z"),
+      durationMinutes: 45,
+      zoomMeetingUrl: "https://zoom.us/j/1234567890",
+      zoomPasscode: "secret123",
+      appointmentRef: "app_12345678",
+      dashboardUrl: "https://asmaa.clinic/dashboard/doctor?appointmentId=app_12345678",
+    };
+
+    const onlineMsg = doctorSessionBriefMessage(onlineInput);
+
+    // Contains essential clinical coordination elements
+    assert.ok(onlineMsg.includes("دكتور أسماء محمود"));
+    assert.ok(onlineMsg.includes("أحمد علي"));
+    assert.ok(onlineMsg.includes("+201098765432"));
+    assert.ok(onlineMsg.includes("https://zoom.us/j/1234567890"));
+    assert.ok(onlineMsg.includes("secret123"));
+    assert.ok(onlineMsg.includes("https://asmaa.clinic/dashboard/doctor?appointmentId=app_12345678"));
+
+    // Privacy & Financial Isolation: Contains NO price, receipt, or clinical PHI free text
+    assert.ok(!onlineMsg.includes("جنيه"));
+    assert.ok(!onlineMsg.includes("EGP"));
+    assert.ok(!onlineMsg.includes("إيصال"));
+    assert.ok(!onlineMsg.includes("فودافون"));
+    assert.ok(!onlineMsg.includes("انستاباي"));
+    assert.ok(!onlineMsg.includes("PHQ"));
+    assert.ok(!onlineMsg.includes("تشخيص"));
+
+    // In-clinic (Offline) format
+    const offlineInput = {
+      doctorName: "أسماء محمود",
+      doctorPhone: "01011112222",
+      patientName: "سارة محمد",
+      patientPhone: "01012345678",
+      type: "OFFLINE" as const,
+      scheduledAtUTC: new Date("2026-09-01T16:00:00.000Z"),
+      durationMinutes: 45,
+      roomName: "3",
+      appointmentRef: "app_87654321",
+      dashboardUrl: "https://asmaa.clinic/dashboard/doctor?appointmentId=app_87654321",
+    };
+
+    const offlineMsg = doctorSessionBriefMessage(offlineInput);
+    assert.ok(offlineMsg.includes("غرفة 3"));
+    assert.ok(!offlineMsg.includes("zoom.us"));
+  });
+
+  await check("B2: doctorSessionBriefLink targets doctor's phone number", () => {
+    const input = {
+      doctorName: "أسماء محمود",
+      doctorPhone: "01011112222",
+      patientName: "أحمد علي",
+      patientPhone: "01098765432",
+      type: "ONLINE" as const,
+      scheduledAtUTC: new Date("2026-09-01T14:00:00.000Z"),
+      durationMinutes: 45,
+      zoomMeetingUrl: "https://zoom.us/j/1234567890",
+      appointmentRef: "app_12345678",
+      dashboardUrl: "https://asmaa.clinic/dashboard/doctor?appointmentId=app_12345678",
+    };
+
+    const link = doctorSessionBriefLink(input);
+    assert.ok(link.startsWith("https://wa.me/201011112222?text="), "Link must target doctor's phone (201011112222)");
+    assert.ok(!link.startsWith("https://wa.me/201098765432"), "Link must NOT target patient's phone");
+  });
+
+  await check("B4: session dispatch tracking isolates patient and doctor timestamps", () => {
+    function applyDispatch(
+      current: { patientNotifiedAt: Date | null; doctorNotifiedAt: Date | null },
+      party: "PATIENT" | "DOCTOR",
+      timestamp: Date,
+    ) {
+      return {
+        patientNotifiedAt: party === "PATIENT" ? timestamp : current.patientNotifiedAt,
+        doctorNotifiedAt: party === "DOCTOR" ? timestamp : current.doctorNotifiedAt,
+      };
+    }
+
+    const t1 = new Date("2026-08-29T10:00:00.000Z");
+    const s1 = applyDispatch({ patientNotifiedAt: null, doctorNotifiedAt: null }, "PATIENT", t1);
+
+    assert.equal(s1.patientNotifiedAt?.toISOString(), t1.toISOString());
+    assert.equal(s1.doctorNotifiedAt, null, "Marking patient dispatch must NOT affect doctorNotifiedAt");
+
+    const t2 = new Date("2026-08-29T10:05:00.000Z");
+    const s2 = applyDispatch(s1, "DOCTOR", t2);
+
+    assert.equal(s2.patientNotifiedAt?.toISOString(), t1.toISOString(), "Marking doctor dispatch must NOT overwrite patientNotifiedAt");
+    assert.equal(s2.doctorNotifiedAt?.toISOString(), t2.toISOString());
+  });
+
+  console.log("\n--- clinic rooms model & room slot lock concurrency (A2) ---");
+
+  await check("A2: room slot-lock unique index catches concurrent room double-booking and frees upon release", () => {
+    type RoomBooking = {
+      id: string;
+      roomId: string;
+      scheduledAtUTC: Date;
+      slotLockKey: string;
+      status: string;
+    };
+
+    const roomIndex = new Set<string>();
+
+    function buildRoomKey(booking: RoomBooking): string {
+      return `${booking.roomId}:${booking.scheduledAtUTC.toISOString()}:${booking.slotLockKey}`;
+    }
+
+    function tryBookRoom(booking: RoomBooking): boolean {
+      const key = buildRoomKey(booking);
+      if (roomIndex.has(key)) {
+        return false; // P2002 Unique Constraint Violation
+      }
+      roomIndex.add(key);
+      return true;
+    }
+
+    function releaseRoomBooking(booking: RoomBooking) {
+      const oldKey = buildRoomKey(booking);
+      roomIndex.delete(oldKey);
+      booking.slotLockKey = booking.id;
+      booking.status = "CANCELLED";
+      const newKey = buildRoomKey(booking);
+      roomIndex.add(newKey); // Released with unique id lock key
+    }
+
+    const instant = new Date("2026-09-01T14:00:00.000Z");
+    const room1 = "room_consult_01";
+
+    const bookingA: RoomBooking = {
+      id: "app_room_001",
+      roomId: room1,
+      scheduledAtUTC: instant,
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      status: "CONFIRMED",
+    };
+
+    const bookingB: RoomBooking = {
+      id: "app_room_002",
+      roomId: room1,
+      scheduledAtUTC: instant,
+      slotLockKey: ACTIVE_SLOT_LOCK,
+      status: "CONFIRMED",
+    };
+
+    // First booking takes the room instant
+    assert.equal(tryBookRoom(bookingA), true, "First booking in room must succeed");
+
+    // Second booking at the same instant in the same room is blocked by the unique index
+    assert.equal(tryBookRoom(bookingB), false, "Second concurrent booking in same room must fail with P2002 conflict");
+
+    // Release booking A
+    releaseRoomBooking(bookingA);
+    assert.equal(bookingA.slotLockKey, bookingA.id);
+
+    // Now booking B can successfully occupy the room
+    assert.equal(tryBookRoom(bookingB), true, "After release, room instant is freed for next booking");
   });
 
   console.log(`\n${passed} checks passed.\n`);

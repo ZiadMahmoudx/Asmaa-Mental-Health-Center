@@ -283,6 +283,22 @@ async function main() {
     console.log(`  demo patient: ${patient.email}`);
   }
 
+  // ------------------------------------------------------------- clinic rooms ---
+  const rooms = [
+    { name: "غرفة الاستشارات ١", floor: "الدور الأول", capacity: 1, notes: "غرفة الجلسات الفردية الرئيسية" },
+    { name: "غرفة الاستشارات ٢", floor: "الدور الأول", capacity: 1, notes: "غرفة الاستشارات النفسية" },
+    { name: "غرفة الاستشارات ٣", floor: "الدور الثاني", capacity: 1, notes: "غرفة الجلسات الخاصة" },
+  ];
+
+  for (const r of rooms) {
+    await prisma.clinicRoom.upsert({
+      where: { name: r.name },
+      update: { floor: r.floor, capacity: r.capacity },
+      create: r,
+    });
+  }
+  console.log(`  rooms: seeded ${rooms.length} clinic rooms`);
+
   console.log("Seed complete.");
   console.log(
     "\nDevelopment sign-in:\n" +
