@@ -451,7 +451,7 @@ export async function reserveSlotAction(
               receiptSha256: `SYSTEM_CREDIT_${appointment.id}`,
               status: type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED",
               reviewedAt: type === "OFFLINE" ? now : null,
-              reviewedById: type === "OFFLINE" ? user.id : null,
+              reviewedById: null, // System auto-approved; prevents attributing review to the patient (F18)
             },
           });
 

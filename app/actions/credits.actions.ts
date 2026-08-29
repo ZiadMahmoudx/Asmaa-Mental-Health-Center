@@ -227,9 +227,9 @@ export async function issueManualCreditAction(
  * Protected with SERIALIZABLE isolation to prevent concurrent double payouts (F7 & F8).
  */
 export async function settleCreditAction(
-  _prevState: ActionResult<{ settledCount: number; paidOutAmountEGP: number }> | null,
+  _prevState: ActionResult<{ paidOutAmountEGP: number }> | null,
   formData: FormData,
-): Promise<ActionResult<{ settledCount: number; paidOutAmountEGP: number }>> {
+): Promise<ActionResult<{ paidOutAmountEGP: number }>> {
   const guard = await requireRole(["ADMIN"], formData);
   if (!guard.ok) return guard;
   const { user: admin } = guard.data;
@@ -272,7 +272,7 @@ export async function settleCreditAction(
 
         const payableAmount = currentBalance;
 
-        // 2. Create balancing negative entry (PAID_OUT) - Sole source of truth for the payout (F8)
+        // 2. Create balancing negative entry (PAID_OUT) - Sole source of truth for the payout (F8 & F19)
         const payoutEntry = await tx.patientCredit.create({
           data: {
             patientId,
@@ -287,7 +287,6 @@ export async function settleCreditAction(
         });
 
         return {
-          settledCount: allCredits.length,
           paidOutAmountEGP: payableAmount.toNumber(),
           payoutId: payoutEntry.id,
         };
@@ -311,7 +310,6 @@ export async function settleCreditAction(
     revalidatePath("/dashboard/patient");
 
     return success({
-      settledCount: outcome.settledCount,
       paidOutAmountEGP: outcome.paidOutAmountEGP,
     });
   } catch (error) {

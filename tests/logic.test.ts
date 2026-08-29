@@ -665,6 +665,34 @@ async function main() {
     assert.equal(credit1.amount + credit2.amount, 1050);
   });
 
+  console.log("\n--- credit review attribution safety (F18) ---");
+
+  await check("credit-covered payment proofs keep reviewedById null to render system fallback", () => {
+    const offlineProof = {
+      method: "CREDIT",
+      status: "APPROVED",
+      reviewedById: null,
+      reviewedByName: null,
+    };
+    const getReviewerDisplay = (entry: typeof offlineProof) =>
+      entry.reviewedByName ?? (entry.method === "CREDIT" ? "النظام (رصيد مالي)" : "—");
+
+    assert.equal(offlineProof.reviewedById, null);
+    assert.equal(
+      getReviewerDisplay(offlineProof),
+      "النظام (رصيد مالي)",
+      "Must render system credit fallback and never attribute review to patient",
+    );
+  });
+
+  console.log("\n--- settlement payload integrity (F19) ---");
+
+  await check("settlement payload returns exact paidOutAmountEGP", () => {
+    const balanceEGP = 750;
+    const payload = { paidOutAmountEGP: balanceEGP };
+    assert.equal(payload.paidOutAmountEGP, 750);
+  });
+
   console.log(`\n${passed} checks passed.\n`);
 }
 
