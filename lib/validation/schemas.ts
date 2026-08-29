@@ -170,7 +170,24 @@ export const reserveSlotSchema = z.object({
   type: appointmentTypeSchema,
   scheduledAtUTC: utcInstant,
   durationMinutes: durationSchema,
-  applyCredit: z.coerce.boolean().default(false),
+  /**
+   * Opt-in to paying from the clinic credit balance.
+   *
+   * NOT `z.coerce.boolean()`. That coerces every non-empty string to true, so a
+   * hidden field carrying the string "false" — which is what the booking form
+   * posts whenever the patient has not ticked the box — arrived as `true`. The
+   * server then tried to spend credit the patient did not have and rejected the
+   * booking with INSUFFICIENT_CREDIT, making it impossible for anyone without a
+   * balance to book at all: the InstaPay / Vodafone Cash path was unreachable.
+   *
+   * Only the literal opt-in values count; everything else is false.
+   */
+  applyCredit: z
+    .preprocess(
+      (value) => value === true || value === "true" || value === "on",
+      z.boolean(),
+    )
+    .default(false),
 });
 
 export const cancelAppointmentSchema = z.object({

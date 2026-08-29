@@ -601,6 +601,40 @@ async function main() {
       assert.equal(withCredit.data.applyCredit, true);
     }
 
+    // The case that took booking down for every patient without a balance.
+    // The form always posts this hidden field; it carries the STRING "false"
+    // when the box is unticked. `z.coerce.boolean()` turned that into `true`,
+    // the server tried to spend credit that did not exist, and the booking was
+    // refused with INSUFFICIENT_CREDIT — so InstaPay and Vodafone Cash could
+    // never be reached. Only explicit opt-in values may parse as true.
+    for (const notOptedIn of ["false", "", "0", "off", "no", undefined]) {
+      const parsed = reserveSlotSchema.safeParse({
+        doctorId: "cm01234567890123456789012",
+        type: "ONLINE",
+        scheduledAtUTC: "2026-09-10T14:00:00.000Z",
+        durationMinutes: 45,
+        applyCredit: notOptedIn,
+      });
+      assert.equal(parsed.success, true, `should parse with applyCredit=${String(notOptedIn)}`);
+      if (parsed.success) {
+        assert.equal(
+          parsed.data.applyCredit,
+          false,
+          `applyCredit=${String(notOptedIn)} must NOT be treated as opting in`,
+        );
+      }
+    }
+
+    // "on" is what a real checkbox posts when ticked, so it must count.
+    const checkboxOn = reserveSlotSchema.safeParse({
+      doctorId: "cm01234567890123456789012",
+      type: "ONLINE",
+      scheduledAtUTC: "2026-09-10T14:00:00.000Z",
+      durationMinutes: 45,
+      applyCredit: "on",
+    });
+    assert.equal(checkboxOn.success && checkboxOn.data.applyCredit, true);
+
     const withoutCredit = reserveSlotSchema.safeParse({
       doctorId: "cm01234567890123456789012",
       type: "ONLINE",
