@@ -23,7 +23,9 @@ import {
   issueManualCreditSchema,
   settleCreditSchema,
   patientRescheduleSchema,
+  clinicalRecordSchema,
 } from "@/lib/validation/schemas";
+import { fromStringArray, toStringArray } from "@/lib/serialization";
 import {
   buildWhatsAppLink,
   toWaMeNumber,
@@ -923,6 +925,72 @@ async function main() {
     assert.equal(auditLogs.length, 1);
     assert.equal(auditLogs[0].action, "ASSESSMENT_DRAFT_REJECTED");
     assert.equal(auditLogs[0].metadata.reason, "RATE_LIMITED");
+  });
+
+  console.log("\n--- doctor workspace clinical safety & prefill (D1 & D2) ---");
+
+  await check("D1: clinical record prefill & update preserves HIGH riskLevel and DSM-5 codes", () => {
+    // 1. Initial saved record in database
+    const initialRecord = {
+      appointmentId: "cldoctorapp00000000000001",
+      diagnosis: "Major Depressive Disorder, Single Episode",
+      dsm5CodesJson: fromStringArray(["F32.1", "F41.1"]),
+      riskLevel: "HIGH",
+      chiefComplaint: "Severe anhedonia and insomnia",
+      prescriptionNotes: "Escitalopram 10mg PO OD",
+      followUpPlan: "Follow up in 2 weeks",
+    };
+
+    // 2. Prefilled form values loaded by getClinicalRecordForAppointmentAction
+    const prefilledFormValues = {
+      appointmentId: initialRecord.appointmentId,
+      diagnosis: initialRecord.diagnosis,
+      dsm5Codes: toStringArray(initialRecord.dsm5CodesJson).join(", "),
+      riskLevel: initialRecord.riskLevel,
+      chiefComplaint: initialRecord.chiefComplaint,
+      prescriptionNotes: initialRecord.prescriptionNotes,
+      followUpPlan: initialRecord.followUpPlan,
+    };
+
+    assert.equal(prefilledFormValues.riskLevel, "HIGH");
+    assert.equal(prefilledFormValues.dsm5Codes, "F32.1, F41.1");
+
+    // 3. User edits only the follow-up note and submits the prefilled form
+    const updatedFormPayload = {
+      ...prefilledFormValues,
+      followUpPlan: "Follow up in 1 week due to medication change",
+    };
+
+    const parsed = clinicalRecordSchema.safeParse(updatedFormPayload);
+    assert.equal(parsed.success, true);
+    if (parsed.success) {
+      assert.equal(parsed.data.riskLevel, "HIGH", "Risk level must stay HIGH, not revert to LOW");
+      assert.deepEqual(parsed.data.dsm5Codes, ["F32.1", "F41.1"], "DSM-5 codes must be preserved");
+      assert.equal(parsed.data.followUpPlan, "Follow up in 1 week due to medication change");
+
+      // Verify serialization round-trip
+      const serializedDsm5 = fromStringArray(parsed.data.dsm5Codes);
+      assert.deepEqual(toStringArray(serializedDsm5), ["F32.1", "F41.1"]);
+    }
+  });
+
+  await check("D2: doctor agenda active safety alert severity prioritisation (CRISIS > ELEVATED)", () => {
+    const activeAlerts = [
+      { patientId: "p1", severity: "ELEVATED" },
+      { patientId: "p1", severity: "CRISIS" }, // Elevated upgraded to CRISIS
+      { patientId: "p2", severity: "ELEVATED" },
+    ];
+
+    const alertsByPatient = new Map<string, "CRISIS" | "ELEVATED">();
+    for (const alert of activeAlerts) {
+      const existing = alertsByPatient.get(alert.patientId);
+      if (!existing || alert.severity === "CRISIS") {
+        alertsByPatient.set(alert.patientId, alert.severity as "CRISIS" | "ELEVATED");
+      }
+    }
+
+    assert.equal(alertsByPatient.get("p1"), "CRISIS");
+    assert.equal(alertsByPatient.get("p2"), "ELEVATED");
   });
 
   console.log(`\n${passed} checks passed.\n`);

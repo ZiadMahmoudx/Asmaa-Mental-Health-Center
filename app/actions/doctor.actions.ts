@@ -143,6 +143,9 @@ export interface DoctorAgendaEntry {
   zoomMeetingUrl: string | null;
   hasClinicalRecord: boolean;
   clinicalRecordSigned: boolean;
+  riskLevel: string | null;
+  hasActiveSafetyAlert: boolean;
+  activeAlertSeverity: "CRISIS" | "ELEVATED" | null;
   rescheduledFromUTC: string | null;
   rescheduleReason: string | null;
   whatsappReminderUrl: string;
@@ -177,43 +180,69 @@ export async function getMyAgendaAction(input?: {
     include: {
       patient: { select: { id: true, fullName: true, phone: true } },
       doctor: { select: { user: { select: { fullName: true } } } },
-      clinicalRecord: { select: { id: true, signedAt: true } },
+      clinicalRecord: { select: { id: true, signedAt: true, riskLevel: true } },
     },
   });
 
+  const patientIds = Array.from(new Set(appointments.map((a) => a.patient.id)));
+  const activeAlerts =
+    patientIds.length > 0
+      ? await prisma.safetyAlert.findMany({
+          where: {
+            patientId: { in: patientIds },
+            resolvedAt: null,
+          },
+          select: { patientId: true, severity: true },
+        })
+      : [];
+
+  const alertsByPatient = new Map<string, "CRISIS" | "ELEVATED">();
+  for (const alert of activeAlerts) {
+    const existing = alertsByPatient.get(alert.patientId);
+    if (!existing || alert.severity === "CRISIS") {
+      alertsByPatient.set(alert.patientId, alert.severity as "CRISIS" | "ELEVATED");
+    }
+  }
+
   return success(
-    appointments.map((appointment) => ({
-      appointmentId: appointment.id,
-      patientId: appointment.patient.id,
-      patientName: appointment.patient.fullName,
-      patientPhone: appointment.patient.phone,
-      doctorId: target.data.doctorId,
-      doctorName: appointment.doctor.user.fullName,
-      type: asAppointmentType(appointment.type),
-      status: asAppointmentStatus(appointment.status),
-      scheduledAtUTC: appointment.scheduledAtUTC.toISOString(),
-      durationMinutes: appointment.durationMinutes,
-      priceEGP: toEgp(appointment.priceEGP),
-      zoomMeetingUrl: appointment.zoomMeetingUrl,
-      hasClinicalRecord: Boolean(appointment.clinicalRecord),
-      clinicalRecordSigned: Boolean(appointment.clinicalRecord?.signedAt),
-      rescheduledFromUTC: appointment.rescheduledFromUTC?.toISOString() ?? null,
-      rescheduleReason: appointment.rescheduleReason ?? null,
-      whatsappReminderUrl: sessionReminderLink({
+    appointments.map((appointment) => {
+      const activeAlertSeverity = alertsByPatient.get(appointment.patient.id) ?? null;
+      return {
+        appointmentId: appointment.id,
+        patientId: appointment.patient.id,
         patientName: appointment.patient.fullName,
         patientPhone: appointment.patient.phone,
+        doctorId: target.data.doctorId,
         doctorName: appointment.doctor.user.fullName,
         type: asAppointmentType(appointment.type),
-        scheduledAtUTC: appointment.scheduledAtUTC,
+        status: asAppointmentStatus(appointment.status),
+        scheduledAtUTC: appointment.scheduledAtUTC.toISOString(),
         durationMinutes: appointment.durationMinutes,
         priceEGP: toEgp(appointment.priceEGP),
         zoomMeetingUrl: appointment.zoomMeetingUrl,
-        zoomPasscode: appointment.zoomPasscode,
-        roomNumber: target.data.roomNumber,
-        clinicAddressAr: clinic.addressAr,
-        clinicMapsUrl: clinic.mapsUrl,
-      }),
-    })),
+        hasClinicalRecord: Boolean(appointment.clinicalRecord),
+        clinicalRecordSigned: Boolean(appointment.clinicalRecord?.signedAt),
+        riskLevel: appointment.clinicalRecord?.riskLevel ?? null,
+        hasActiveSafetyAlert: activeAlertSeverity !== null,
+        activeAlertSeverity,
+        rescheduledFromUTC: appointment.rescheduledFromUTC?.toISOString() ?? null,
+        rescheduleReason: appointment.rescheduleReason ?? null,
+        whatsappReminderUrl: sessionReminderLink({
+          patientName: appointment.patient.fullName,
+          patientPhone: appointment.patient.phone,
+          doctorName: appointment.doctor.user.fullName,
+          type: asAppointmentType(appointment.type),
+          scheduledAtUTC: appointment.scheduledAtUTC,
+          durationMinutes: appointment.durationMinutes,
+          priceEGP: toEgp(appointment.priceEGP),
+          zoomMeetingUrl: appointment.zoomMeetingUrl,
+          zoomPasscode: appointment.zoomPasscode,
+          roomNumber: target.data.roomNumber,
+          clinicAddressAr: clinic.addressAr,
+          clinicMapsUrl: clinic.mapsUrl,
+        }),
+      };
+    }),
   );
 }
 
@@ -1563,4 +1592,219 @@ export async function getPatientHistoryAction(
       createdAtUTC: record.createdAt.toISOString(),
     })),
   );
+}
+
+/**
+ * Fetch existing clinical record for an appointment to prefill the SOAP note editor.
+ * Prevents accidental loss of riskLevel, DSM-5 codes, and treatment notes.
+ */
+export async function getClinicalRecordForAppointmentAction(
+  appointmentId: string,
+): Promise<ActionResult<ClinicalRecordView | null>> {
+  const guard = await requireRole(["DOCTOR", "ADMIN"]);
+  if (!guard.ok) return guard;
+
+  let doctorId: string | undefined;
+  if (guard.data.user.role === "DOCTOR") {
+    const profile = await resolveDoctorProfile(guard.data.user.id);
+    if (!profile.ok) return profile;
+    doctorId = profile.data.doctorId;
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: {
+      id: true,
+      doctorId: true,
+      patientId: true,
+      patient: { select: { fullName: true } },
+    },
+  });
+
+  if (!appointment) return Failures.notFound("الحجز المطلوب");
+
+  if (doctorId && appointment.doctorId !== doctorId) {
+    return Failures.forbidden();
+  }
+
+  const record = await prisma.clinicalRecord.findUnique({
+    where: { appointmentId },
+    select: {
+      id: true,
+      appointmentId: true,
+      patientId: true,
+      chiefComplaint: true,
+      diagnosis: true,
+      dsm5CodesJson: true,
+      prescriptionNotes: true,
+      followUpPlan: true,
+      riskLevel: true,
+      signedAt: true,
+      createdAt: true,
+    },
+  });
+
+  if (!record) return success(null);
+
+  await recordAudit({
+    actorId: guard.data.user.id,
+    action: "CLINICAL_RECORD_VIEWED",
+    entityType: "ClinicalRecord",
+    entityId: record.id,
+  });
+
+  return success({
+    id: record.id,
+    appointmentId: record.appointmentId,
+    patientId: record.patientId,
+    patientName: appointment.patient.fullName,
+    chiefComplaint: record.chiefComplaint,
+    diagnosis: record.diagnosis,
+    dsm5Codes: toStringArray(record.dsm5CodesJson),
+    prescriptionNotes: record.prescriptionNotes,
+    followUpPlan: record.followUpPlan,
+    riskLevel: record.riskLevel,
+    signedAtUTC: record.signedAt?.toISOString() ?? null,
+    createdAtUTC: record.createdAt.toISOString(),
+  });
+}
+
+export interface SafetyAlertSummary {
+  id: string;
+  source: string;
+  severity: string;
+  detail: string;
+  createdAtUTC: string;
+}
+
+/**
+ * Fetch active, unresolved safety alerts for a patient under this doctor's care.
+ */
+export async function getPatientActiveSafetyAlertsAction(
+  patientId: string,
+): Promise<ActionResult<SafetyAlertSummary[]>> {
+  const guard = await requireRole(["DOCTOR", "ADMIN"]);
+  if (!guard.ok) return guard;
+
+  if (guard.data.user.role === "DOCTOR") {
+    const profile = await resolveDoctorProfile(guard.data.user.id);
+    if (!profile.ok) return profile;
+
+    const shared = await prisma.appointment.findFirst({
+      where: { patientId, doctorId: profile.data.doctorId },
+      select: { id: true },
+    });
+    if (!shared) return Failures.forbidden();
+  }
+
+  const alerts = await prisma.safetyAlert.findMany({
+    where: { patientId, resolvedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      source: true,
+      severity: true,
+      detail: true,
+      createdAt: true,
+    },
+  });
+
+  if (alerts.length > 0) {
+    await recordAudit({
+      actorId: guard.data.user.id,
+      action: "SAFETY_ALERT_VIEWED",
+      entityType: "SafetyAlert",
+      entityId: patientId,
+      metadata: { count: alerts.length },
+    });
+  }
+
+  return success(
+    alerts.map((a) => ({
+      id: a.id,
+      source: a.source,
+      severity: a.severity,
+      detail: a.detail,
+      createdAtUTC: a.createdAt.toISOString(),
+    })),
+  );
+}
+
+export interface IntakeSummaryView {
+  id: string;
+  patientId: string;
+  concerns: string[];
+  ageGroup: string;
+  therapyHistory: string;
+  medicationHistory: string;
+  urgencyLevel: string;
+  crisisFlagged: boolean;
+  severityScore: number;
+  maxScore: number;
+  answers: Record<string, unknown>;
+  createdAtUTC: string;
+}
+
+/**
+ * Fetch newest intake triage assessment for a patient under this doctor's care.
+ */
+export async function getPatientIntakeSummaryAction(
+  patientId: string,
+): Promise<ActionResult<IntakeSummaryView | null>> {
+  const guard = await requireRole(["DOCTOR", "ADMIN"]);
+  if (!guard.ok) return guard;
+
+  if (guard.data.user.role === "DOCTOR") {
+    const profile = await resolveDoctorProfile(guard.data.user.id);
+    if (!profile.ok) return profile;
+
+    const shared = await prisma.appointment.findFirst({
+      where: { patientId, doctorId: profile.data.doctorId },
+      select: { id: true },
+    });
+    if (!shared) return Failures.forbidden();
+  }
+
+  const intake = await prisma.intakeAssessment.findFirst({
+    where: { patientId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      patientId: true,
+      concernsJson: true,
+      ageGroup: true,
+      therapyHistory: true,
+      medicationHistory: true,
+      urgencyLevel: true,
+      crisisFlagged: true,
+      severityScore: true,
+      maxScore: true,
+      answersJson: true,
+      createdAt: true,
+    },
+  });
+
+  if (!intake) return success(null);
+
+  let answers: Record<string, unknown> = {};
+  try {
+    answers = JSON.parse(intake.answersJson);
+  } catch {
+    answers = {};
+  }
+
+  return success({
+    id: intake.id,
+    patientId: intake.patientId,
+    concerns: toStringArray(intake.concernsJson),
+    ageGroup: intake.ageGroup,
+    therapyHistory: intake.therapyHistory,
+    medicationHistory: intake.medicationHistory,
+    urgencyLevel: intake.urgencyLevel,
+    crisisFlagged: intake.crisisFlagged,
+    severityScore: intake.severityScore,
+    maxScore: intake.maxScore,
+    answers,
+    createdAtUTC: intake.createdAt.toISOString(),
+  });
 }

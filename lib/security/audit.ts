@@ -55,6 +55,8 @@ export type AuditAction =
   | "CREDIT_ADJUSTED"
   | "SAFETY_ALERT_ACKNOWLEDGED"
   | "SAFETY_ALERT_RESOLVED"
+  | "SAFETY_ALERT_VIEWED"
+  | "INTAKE_VIEWED"
   | "ASSESSMENT_DRAFT_REJECTED";
 
 export interface AuditInput {

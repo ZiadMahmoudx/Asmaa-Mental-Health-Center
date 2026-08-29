@@ -88,7 +88,7 @@ export function AppointmentActions({
           <FileSignature className="w-3.5 h-3.5" />
           <span>
             {appointment.hasClinicalRecord
-              ? isAr ? "عرض / تعديل التقرير" : "View / Edit Note"
+              ? isAr ? "تعديل التقرير الطبي" : "Edit Clinical Note"
               : isAr ? "كتابة التقرير الطبي" : "Document SOAP Note"}
           </span>
         </button>

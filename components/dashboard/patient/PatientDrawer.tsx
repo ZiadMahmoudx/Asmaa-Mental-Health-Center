@@ -4,20 +4,29 @@ import React, { useState } from "react";
 import {
   Activity,
   AlertOctagon,
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   FileCheck2,
+  HeartHandshake,
   History,
   Phone,
   Shield,
   ShieldAlert,
+  Sparkles,
+  Tag,
   User,
   X,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AssessmentHistoryRow } from "@/app/actions/assessments.actions";
 import type { SafetyPlanView } from "@/app/actions/safety-plan.actions";
-import type { ClinicalRecordView } from "@/app/actions/doctor.actions";
+import type {
+  ClinicalRecordView,
+  IntakeSummaryView,
+  SafetyAlertSummary,
+} from "@/app/actions/doctor.actions";
 import {
   ASSESSMENT_SCALES,
   ASSESSMENT_TYPES,
@@ -30,6 +39,8 @@ interface Props {
   assessments: AssessmentHistoryRow[];
   safetyPlan: SafetyPlanView | null;
   history: ClinicalRecordView[];
+  safetyAlerts?: SafetyAlertSummary[];
+  intakeSummary?: IntakeSummaryView | null;
   onClose: () => void;
 }
 
@@ -39,15 +50,22 @@ export function PatientDrawer({
   assessments,
   safetyPlan,
   history,
+  safetyAlerts = [],
+  intakeSummary = null,
   onClose,
 }: Props) {
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  const [activeTab, setActiveTab] = useState<"SCALES" | "SAFETY_PLAN" | "HISTORY">("SCALES");
+  const [activeTab, setActiveTab] = useState<"INTAKE" | "SCALES" | "SAFETY_PLAN" | "HISTORY">(
+    intakeSummary ? "INTAKE" : "SCALES",
+  );
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
-  const hasAnySafetyFlag = assessments.some((a) => a.riskItemEndorsed);
+  const hasAnySafetyFlag =
+    assessments.some((a) => a.riskItemEndorsed) ||
+    safetyAlerts.length > 0 ||
+    Boolean(intakeSummary?.crisisFlagged);
 
   // Group assessments dynamically by scale type
   const assessmentsByType = ASSESSMENT_TYPES.reduce((acc, type) => {
@@ -73,8 +91,8 @@ export function PatientDrawer({
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-slate-900 text-base">{patientName}</h3>
               {hasAnySafetyFlag && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
-                  <ShieldAlert className="w-3 h-3 text-red-600" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
                   {isAr ? "مؤشر أمان سريري" : "Safety Flag"}
                 </span>
               )}
@@ -96,25 +114,76 @@ export function PatientDrawer({
         </button>
       </div>
 
+      {/* Active Clinical Safety Alerts Banner (D2) */}
+      {safetyAlerts.length > 0 && (
+        <div className="p-3 bg-red-50 border-b border-red-200 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-black text-red-900">
+            <AlertOctagon className="w-4 h-4 text-red-600" />
+            <span>
+              {isAr
+                ? `تنبيه أمان سريري عاجل (${safetyAlerts.length})`
+                : `Active Clinical Safety Alert (${safetyAlerts.length})`}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {safetyAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="flex items-center justify-between text-[11px] p-2 bg-white rounded-lg border border-red-200 text-red-900 font-bold"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] uppercase ${
+                      alert.severity === "CRISIS"
+                        ? "bg-red-600 text-white font-black"
+                        : "bg-amber-500 text-white font-bold"
+                    }`}
+                  >
+                    {alert.severity}
+                  </span>
+                  <span>{alert.detail}</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-mono">
+                  {new Date(alert.createdAtUTC).toLocaleDateString(isAr ? "ar-EG" : "en-GB")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-sm font-medium">
+      <div className="flex border-b border-slate-200 bg-slate-50/70 px-2 pt-2 gap-1 text-sm font-medium overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab("INTAKE")}
+          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition whitespace-nowrap ${
+            activeTab === "INTAKE"
+              ? "border-teal-800 text-teal-900 font-bold"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <ClipboardList className="w-4 h-4 text-teal-700" />
+          <span>{isAr ? "الفرز الأولي (Intake)" : "Intake Triage"}</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("SCALES")}
-          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition ${
+          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition whitespace-nowrap ${
             activeTab === "SCALES"
               ? "border-teal-800 text-teal-900 font-bold"
               : "border-transparent text-slate-600 hover:text-slate-900"
           }`}
         >
           <Activity className="w-4 h-4 text-teal-700" />
-          <span>{isAr ? `المقاييس النفسية (${assessments.length})` : `Screenings (${assessments.length})`}</span>
+          <span>{isAr ? `المقاييس (${assessments.length})` : `Screenings (${assessments.length})`}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("SAFETY_PLAN")}
-          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition ${
+          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition whitespace-nowrap ${
             activeTab === "SAFETY_PLAN"
               ? "border-teal-800 text-teal-900 font-bold"
               : "border-transparent text-slate-600 hover:text-slate-900"
@@ -127,19 +196,123 @@ export function PatientDrawer({
         <button
           type="button"
           onClick={() => setActiveTab("HISTORY")}
-          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition ${
+          className={`flex items-center gap-1.5 px-3 py-2 border-b-2 transition whitespace-nowrap ${
             activeTab === "HISTORY"
               ? "border-teal-800 text-teal-900 font-bold"
               : "border-transparent text-slate-600 hover:text-slate-900"
           }`}
         >
           <History className="w-4 h-4 text-teal-700" />
-          <span>{isAr ? `الجلسات السابقة (${history.length})` : `History (${history.length})`}</span>
+          <span>{isAr ? `السجلات السابقة (${history.length})` : `History (${history.length})`}</span>
         </button>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {/* TAB 0: INTAKE SUMMARY (D6) */}
+        {activeTab === "INTAKE" && (
+          <div className="space-y-4">
+            {!intakeSummary ? (
+              <div className="text-center py-10 text-slate-400 text-sm">
+                {isAr
+                  ? "لا يوجد تقرير فرز أولي مسجل لهذا المريض."
+                  : "No initial intake triage assessment on file."}
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Triage Overview Card */}
+                <div className="p-4 rounded-2xl bg-teal-950 text-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-teal-300 font-bold">
+                      {isAr ? "درجة أولوية الفرز السريري" : "Triage Urgency Level"}
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        intakeSummary.urgencyLevel === "CRISIS_EMERGENCY"
+                          ? "bg-red-600 text-white"
+                          : intakeSummary.urgencyLevel === "EVALUATE"
+                          ? "bg-amber-500 text-slate-950"
+                          : "bg-emerald-500 text-white"
+                      }`}
+                    >
+                      {intakeSummary.urgencyLevel}
+                    </span>
+                  </div>
+
+                  {intakeSummary.crisisFlagged && (
+                    <div className="p-2.5 rounded-xl bg-red-900/80 border border-red-500/50 flex items-center gap-2 text-red-100 font-bold">
+                      <ShieldAlert className="w-4 h-4 text-red-300 shrink-0" />
+                      <span>
+                        {isAr
+                          ? "تم الإبلاغ عن أفكار إيذاء النفس أو أزمة حادة عند التسجيل."
+                          : "Patient disclosed self-harm or acute crisis thoughts at intake."}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-teal-800/80">
+                    <div>
+                      <span className="text-teal-400 block">{isAr ? "الفئة العمرية" : "Age Group"}</span>
+                      <span className="font-bold">{intakeSummary.ageGroup}</span>
+                    </div>
+                    <div>
+                      <span className="text-teal-400 block">
+                        {isAr ? "درجة شدة الأعراض" : "Severity Score"}
+                      </span>
+                      <span className="font-bold font-mono">
+                        {intakeSummary.severityScore} / {intakeSummary.maxScore}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Presenting Concerns Tags */}
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-teal-700" />
+                    <span>{isAr ? "الأعراض والشكاوى المحددة (Presenting Concerns)" : "Presenting Concerns"}</span>
+                  </h4>
+                  {intakeSummary.concerns.length === 0 ? (
+                    <p className="text-slate-400 text-xs">{isAr ? "لم تُحدد وسوم." : "None specified."}</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {intakeSummary.concerns.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-900 border border-teal-200 font-bold text-[11px]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Medical & Therapy History */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="text-slate-500 font-bold block mb-1">
+                      {isAr ? "تاريخ العلاج النفسي السابق" : "Previous Therapy History"}
+                    </span>
+                    <span className="font-semibold text-slate-900">
+                      {intakeSummary.therapyHistory}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="text-slate-500 font-bold block mb-1">
+                      {isAr ? "تاريخ الأدوية النفسية" : "Psychiatric Medication History"}
+                    </span>
+                    <span className="font-semibold text-slate-900">
+                      {intakeSummary.medicationHistory}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TAB 1: SCALES */}
         {activeTab === "SCALES" && (
           <div className="space-y-4">
@@ -331,7 +504,7 @@ export function PatientDrawer({
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
                           {new Date(record.createdAtUTC).toLocaleDateString(
-                            isAr ? "ar-EG" : "en-US",
+                            isAr ? "ar-EG" : "en-GB",
                             {
                               weekday: "short",
                               year: "numeric",
@@ -448,80 +621,49 @@ function ScaleGroupSection({
   isAr: boolean;
 }) {
   if (items.length === 0) return null;
-  const latest = items[0];
 
   return (
-    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="font-bold text-slate-900 text-sm">{title}</h4>
-          <p className="text-xs text-slate-500">
-            {isAr ? "أحدث نتيجة: " : "Latest Score: "}
-            <strong>
-              {latest.totalScore} / {latest.maxScore}
-            </strong>{" "}
-            — {isAr ? latest.labelAr : latest.labelEn}
-          </p>
-        </div>
-
-        {latest.riskItemEndorsed && (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-100 text-red-800 text-xs font-bold border border-red-200">
-            <AlertOctagon className="w-3.5 h-3.5 text-red-600" />
-            {isAr ? "إشارة خطر" : "Risk Indicator"}
-          </span>
-        )}
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <h4 className="font-bold text-slate-900 text-xs">{title}</h4>
+        <span className="text-[10px] text-slate-500 font-bold">
+          {items.length} {isAr ? "سجلات" : "records"}
+        </span>
       </div>
-
-      {/* Subscale breakdown if present on latest */}
-      {latest.subscaleScores && latest.subscaleScores.length > 0 && (
-        <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1.5">
-          <p className="text-[10px] font-bold text-slate-500 uppercase">
-            {isAr ? "الأبعاد السريرية التفصيلية:" : "Subscale Breakdown:"}
-          </p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {latest.subscaleScores.map((sub) => (
-              <div key={sub.key} className="text-[11px] flex justify-between">
-                <span className="text-slate-600">{isAr ? sub.labelAr : sub.labelEn}:</span>
-                <span className="font-mono font-bold text-slate-900">
-                  {sub.score}/{sub.maxScore}
+      <div className="divide-y divide-slate-100 text-xs">
+        {items.map((it) => (
+          <div key={it.id} className="p-3 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-900">
+                  {isAr ? "الدرجة الكلية: " : "Score: "}
+                  <strong className="font-mono text-teal-900">{it.totalScore}</strong> / {it.maxScore}
                 </span>
+                {it.severityBand && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                    {it.severityBand}
+                  </span>
+                )}
+                {it.riskItemEndorsed && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
+                    {isAr ? "مؤشر خطر" : "Risk Item"}
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Trajectory Timeline */}
-      <div className="space-y-1.5 pt-2 border-t border-slate-200">
-        <div className="text-[11px] font-semibold text-slate-500 mb-1">
-          {isAr ? "مسار التطور التاريخي:" : "Longitudinal Trajectory:"}
-        </div>
-        {items.slice(0, 5).map((item) => {
-          const percent = Math.min(Math.round((item.totalScore / item.maxScore) * 100), 100);
-          return (
-            <div key={item.id} className="space-y-0.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-500 font-mono">
-                  {new Date(item.completedAtUTC).toLocaleDateString(isAr ? "ar-EG" : "en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-                <span className="font-bold text-slate-800">
-                  {item.totalScore}/{item.maxScore} ({isAr ? item.labelAr : item.labelEn})
-                </span>
-              </div>
-              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    percent > 65 ? "bg-red-500" : percent > 40 ? "bg-amber-500" : "bg-teal-600"
-                  }`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {it.completedAtUTC
+                  ? new Date(it.completedAtUTC).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : ""}
+              </p>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
