@@ -37,11 +37,11 @@ export const Footer: React.FC = () => {
             <div className="flex items-center gap-3 pt-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-850 border border-teal-700/60 text-xs text-sage-300 font-medium">
                 <Lock className="w-3.5 h-3.5 text-sage-400" />
-                <span>HIPAA / GDPR Ready</span>
+                <span>{language === "ar" ? "سرية طبية مشددة" : "Strict Confidentiality"}</span>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-850 border border-teal-700/60 text-xs text-sage-300 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-sage-400" />
-                <span>AES-256 E2EE Video</span>
+                <span>{language === "ar" ? "جلسات زووم مؤمنة" : "Secure Zoom Video"}</span>
               </div>
             </div>
           </div>
@@ -80,30 +80,30 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Academy & Resources */}
+          {/* Clinical Tools & Self-Care (A3: Honest links to real tools) */}
           <div className="space-y-3">
             <h4 className="font-bold text-sm text-sage-300 uppercase tracking-wider">
-              {language === "ar" ? "الأكاديمية والمكتبة" : "Academy & Books"}
+              {language === "ar" ? "الأدوات السريرية والتقييم" : "Clinical Tools & Self-Care"}
             </h4>
             <ul className="space-y-2 text-sm text-teal-100/70">
               <li>
-                <Link href="/academy" className="hover:text-white transition">
-                  {language === "ar" ? "ماستركلاس نوبات الهلع" : "Panic Disorder Masterclass"}
+                <Link href="/assessments" className="hover:text-white transition">
+                  {language === "ar" ? "المقاييس النفسية السريرية (8 مقاييس)" : "Clinical Self-Assessments (8 Scales)"}
                 </Link>
               </li>
               <li>
-                <Link href="/academy" className="hover:text-white transition">
-                  {language === "ar" ? "كورس التعافي من الصدمات" : "Trauma Recovery Course"}
+                <Link href="/intake" className="hover:text-white transition">
+                  {language === "ar" ? "استبيان الفرز المبدئي الذكي" : "Smart Intake Assessment"}
                 </Link>
               </li>
               <li>
-                <Link href="/books" className="hover:text-white transition">
-                  {language === "ar" ? "كتب المساعدة الذاتية" : "Self-Help eBooks"}
+                <Link href="/safety-plan" className="hover:text-white transition">
+                  {language === "ar" ? "خطة الأمان النفسي الشخصية" : "Personal Safety Plan"}
                 </Link>
               </li>
               <li>
-                <Link href="/assistant" className="hover:text-white transition">
-                  {language === "ar" ? "المساعد النفسي الذكي (PFA)" : "AI Triage Assistant"}
+                <Link href="/emergency" className="hover:text-white transition">
+                  {language === "ar" ? "طوارئ الدعم النفسي والخطوط الساخنة" : "Emergency & Crisis Hotlines"}
                 </Link>
               </li>
             </ul>
@@ -148,7 +148,7 @@ export const Footer: React.FC = () => {
           </p>
           <div className="flex items-center gap-4">
             <Link href="/faq" className="hover:text-white transition">
-              {language === "ar" ? "سياسة الخصوصية والسرية الطبية (HIPAA)" : "Privacy & Confidentiality"}
+              {language === "ar" ? "سياسة الخصوصية والسرية الطبية" : "Privacy & Confidentiality"}
             </Link>
             <span>•</span>
             <Link href="/faq" className="hover:text-white transition">

@@ -47,7 +47,7 @@ export const CrisisBanner: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-200 relative animate-in fade-in zoom-in-95 duration-200">
             <button
               onClick={() => setShowModal(false)}
-              className="absolute top-4 left-4 text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition"
+              className="absolute top-4 end-4 text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
@@ -59,7 +59,7 @@ export const CrisisBanner: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-lg text-gray-900">
-                  {language === "ar" ? "أرقام الدعم النفسي الطارئ والمجاني" : "Emergency Crisis Lifelines"}
+                  {language === "ar" ? "أرقام الطوارئ والدعم النفسي المجاني" : "Emergency & Crisis Lifelines"}
                 </h3>
                 <p className="text-xs text-gray-600">
                   {language === "ar" ? "متاحة على مدار 24 ساعة بسرية تامة ومجاناً" : "Available 24/7, confidential and free"}
@@ -68,18 +68,38 @@ export const CrisisBanner: React.FC = () => {
             </div>
 
             <div className="space-y-3 mb-6">
-              <div className="p-3.5 bg-red-50 rounded-xl border border-red-100 flex items-center justify-between">
+              {/* Medical Emergency Ambulance 123 */}
+              <div className="p-3.5 bg-red-100/70 rounded-xl border border-red-200 flex items-center justify-between">
+                <div>
+                  <p className="font-black text-red-950 text-sm">
+                    {language === "ar" ? "مصر - الإسعاف الطبي الطارئ (123)" : "Egypt - Emergency Medical Ambulance (123)"}
+                  </p>
+                  <p className="text-xs text-red-800">
+                    {language === "ar" ? "للطوارئ الطبية الحرجة والمهددة للحياة" : "For life-threatening physical medical emergencies"}
+                  </p>
+                </div>
+                <a
+                  href="tel:123"
+                  className="flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>123</span>
+                </a>
+              </div>
+
+              {/* Psychological Crisis Line 16328 */}
+              <div className="p-3.5 bg-teal-50 rounded-xl border border-teal-100 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-gray-900 text-sm">
                     {language === "ar" ? "مصر - الأمانة العامة للصحة النفسية" : "Egypt - National Mental Health Secretariat"}
                   </p>
                   <p className="text-xs text-gray-600">
-                    {language === "ar" ? "خط مجاني رسمي متاح 24 ساعة" : "Official free line available 24/7"}
+                    {language === "ar" ? "خط الدعم النفسي المجاني متاح 24 ساعة" : "Official free psychological line 24/7"}
                   </p>
                 </div>
                 <a
                   href="tel:16328"
-                  className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"
+                  className="flex items-center gap-1 bg-teal-800 hover:bg-teal-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>16328</span>
@@ -89,7 +109,7 @@ export const CrisisBanner: React.FC = () => {
               <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-gray-900 text-sm">
-                    {language === "ar" ? "مصر - خط الاستشارات البديل" : "Egypt - Alternative Advisory Line"}
+                    {language === "ar" ? "مصر - خط الاستشارات النفسية البديل" : "Egypt - Alternative Advisory Line"}
                   </p>
                   <p className="text-xs text-gray-600">08008880700 (أرضي مجاني)</p>
                 </div>

@@ -1,0 +1,265 @@
+"use client";
+
+import React, { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Ban,
+  CalendarClock,
+  Loader2,
+  Unlock,
+  Video,
+  X,
+} from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import type { AdminAppointmentRow } from "@/app/actions/roster.actions";
+import { adminCancelAppointmentAction, assignMeetingLinkAction } from "@/app/actions/admin.actions";
+import { releaseReservationAction } from "@/app/actions/doctor.actions";
+import { CSRF_FIELD } from "@/lib/constants";
+import { RescheduleDialog } from "../dashboard/agenda/RescheduleDialog";
+
+interface Props {
+  appointment: AdminAppointmentRow;
+  csrfToken: string;
+}
+
+export function AdminAppointmentRowActions({ appointment, csrfToken }: Props) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+  const router = useRouter();
+
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showZoomModal, setShowZoomModal] = useState(false);
+
+  const [cancelState, cancelAction, isCancelPending] = useActionState(adminCancelAppointmentAction, null);
+  const [releaseState, releaseAction, isReleasePending] = useActionState(releaseReservationAction, null);
+  const [zoomState, zoomAction, isZoomPending] = useActionState(assignMeetingLinkAction, null);
+
+  useEffect(() => {
+    if (cancelState?.ok) {
+      setShowCancelModal(false);
+      router.refresh();
+    }
+  }, [cancelState, router]);
+
+  useEffect(() => {
+    if (releaseState?.ok) {
+      router.refresh();
+    }
+  }, [releaseState, router]);
+
+  useEffect(() => {
+    if (zoomState?.ok) {
+      setShowZoomModal(false);
+      router.refresh();
+    }
+  }, [zoomState, router]);
+
+  const canReschedule = ["CONFIRMED", "PAYMENT_UNDER_REVIEW"].includes(appointment.status);
+  const canCancel = !["CANCELLED", "COMPLETED", "EXPIRED", "REJECTED"].includes(appointment.status);
+  const isPendingHold = appointment.status === "PENDING_PAYMENT_PROOF";
+
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      {/* Reschedule Button */}
+      {canReschedule && (
+        <button
+          type="button"
+          onClick={() => setShowReschedule(true)}
+          title={isAr ? "إعادة جدولة الموعد" : "Reschedule Consultation"}
+          aria-label={isAr ? "إعادة جدولة الموعد" : "Reschedule Consultation"}
+          className="p-1.5 text-slate-700 hover:text-teal-900 hover:bg-slate-100 rounded-lg transition"
+        >
+          <CalendarClock className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Assign Zoom Link */}
+      {appointment.type === "ONLINE" && appointment.status === "CONFIRMED" && (
+        <button
+          type="button"
+          onClick={() => setShowZoomModal(true)}
+          title={isAr ? "إضافة / تعديل رابط زووم" : "Edit Zoom Meeting Link"}
+          aria-label={isAr ? "إضافة / تعديل رابط زووم" : "Edit Zoom Meeting Link"}
+          className="p-1.5 text-blue-700 hover:bg-blue-50 rounded-lg transition"
+        >
+          <Video className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Release Pending Hold */}
+      {isPendingHold && (
+        <form action={releaseAction}>
+          <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
+          <input type="hidden" name="appointmentId" value={appointment.id} />
+          <button
+            type="submit"
+            disabled={isReleasePending}
+            title={isAr ? "تحرير الحجز المعلق فوراً" : "Release Pending Slot Lock"}
+            aria-label={isAr ? "تحرير الحجز المعلق فوراً" : "Release Pending Slot Lock"}
+            className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg transition"
+          >
+            {isReleasePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+          </button>
+        </form>
+      )}
+
+      {/* Cancel Button */}
+      {canCancel && (
+        <button
+          type="button"
+          onClick={() => setShowCancelModal(true)}
+          title={isAr ? "إلغاء الحجز إدارياً" : "Admin Cancel Consultation"}
+          aria-label={isAr ? "إلغاء الحجز إدارياً" : "Admin Cancel Consultation"}
+          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+        >
+          <Ban className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Reschedule Dialog Modal */}
+      {showReschedule && (
+        <RescheduleDialog
+          appointmentId={appointment.id}
+          patientName={appointment.patientName}
+          doctorId={appointment.doctorId}
+          type={appointment.type}
+          durationMinutes={appointment.durationMinutes}
+          currentScheduledAtUTC={appointment.scheduledAtUTC}
+          csrfToken={csrfToken}
+          isAdmin={true}
+          onClose={() => setShowReschedule(false)}
+        />
+      )}
+
+      {/* Admin Cancel Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-red-600 text-sm flex items-center gap-2">
+                <Ban className="w-4 h-4" />
+                <span>{isAr ? "إلغاء الحجز إدارياً" : "Admin Cancellation"}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form action={cancelAction} className="space-y-4">
+              <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
+              <input type="hidden" name="appointmentId" value={appointment.id} />
+
+              {!cancelState?.ok && cancelState && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
+                  {isAr ? cancelState.messageAr : cancelState.messageEn ?? cancelState.messageAr}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isAr ? "سبب الإلغاء" : "Cancellation Reason"}
+                </label>
+                <textarea
+                  name="reason"
+                  rows={3}
+                  placeholder={isAr ? "سبب إلغاء الحجز من الإدارة..." : "Admin reason for cancellation..."}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
+                >
+                  {isAr ? "تراجع" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCancelPending}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                >
+                  {isCancelPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isAr ? "تأكيد الإلغاء" : "Confirm Cancellation"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Zoom Modal */}
+      {showZoomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 text-start">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <Video className="w-4 h-4 text-blue-600" />
+                <span>{isAr ? "رابط جلسة زووم" : "Zoom Meeting Link"}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowZoomModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label={isAr ? "إغلاق" : "Close"}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form action={zoomAction} className="space-y-4">
+              <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
+              <input type="hidden" name="appointmentId" value={appointment.id} />
+
+              {!zoomState?.ok && zoomState && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
+                  {isAr ? zoomState.messageAr : zoomState.messageEn ?? zoomState.messageAr}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isAr ? "رابط زووم (نطاق zoom.us حصراً)" : "Zoom URL (Must belong to zoom.us domain)"}
+                </label>
+                <input
+                  type="url"
+                  name="zoomMeetingUrl"
+                  required
+                  defaultValue={appointment.zoomMeetingUrl ?? ""}
+                  placeholder="https://us04web.zoom.us/j/..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowZoomModal(false)}
+                  className="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
+                >
+                  {isAr ? "إلغاء" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isZoomPending}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                >
+                  {isZoomPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isAr ? "حفظ الرابط" : "Save Meeting Link"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
