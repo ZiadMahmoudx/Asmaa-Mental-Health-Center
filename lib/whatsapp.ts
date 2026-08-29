@@ -130,18 +130,25 @@ export function adminVerificationAlertMessage(input: {
   patientName: string;
   doctorName: string;
   scheduledAtUTC: Date;
-  method: "INSTAPAY" | "VODAFONE_CASH";
+  method: "INSTAPAY" | "VODAFONE_CASH" | "CREDIT";
   senderIdentifier: string;
   amountClaimedEGP?: number | null;
   reviewUrl: string;
 }): string {
+  const methodLabel =
+    input.method === "INSTAPAY"
+      ? "إنستا باي"
+      : input.method === "VODAFONE_CASH"
+      ? "فودافون كاش"
+      : "رصيد مريض";
+
   return [
     `🔔 إيصال دفع جديد بانتظار المراجعة`,
     ``,
     `👤 المريض: ${input.patientName}`,
     `👨‍⚕️ الطبيب: ${input.doctorName}`,
     `🗓️ الموعد: ${formatCairo(input.scheduledAtUTC)}`,
-    `💳 وسيلة الدفع: ${input.method === "INSTAPAY" ? "إنستا باي" : "فودافون كاش"}`,
+    `💳 وسيلة الدفع: ${methodLabel}`,
     `📱 حساب المُرسِل: ${input.senderIdentifier}`,
     input.amountClaimedEGP ? `💰 المبلغ المُعلن: ${formatEgp(input.amountClaimedEGP)}` : null,
     ``,

@@ -105,63 +105,54 @@ export async function getPatientCreditBalanceAction(
 
 /**
  * ADMIN: Debt Report listing all patients with an outstanding positive balance.
- * Sorted by oldest activity first to guarantee fair settlement.
+ * Uses database-level grouping and aggregation (F9).
  */
 export async function getOutstandingCreditsAction(): Promise<ActionResult<OutstandingCreditRow[]>> {
   const guard = await requireRole(["ADMIN"]);
   if (!guard.ok) return guard;
 
-  // Retrieve all credit entries
-  const allCredits = await prisma.patientCredit.findMany({
-    orderBy: { createdAt: "asc" },
-    include: {
-      patient: {
-        select: { id: true, fullName: true, phone: true, email: true },
+  // Aggregate directly in the database engine
+  const groups = await prisma.patientCredit.groupBy({
+    by: ["patientId"],
+    _sum: { amountEGP: true },
+    _max: { createdAt: true },
+    _count: true,
+    having: {
+      amountEGP: {
+        _sum: {
+          gt: 0,
+        },
       },
     },
   });
 
-  // Aggregate by patient
-  const patientMap = new Map<
-    string,
-    {
-      patient: { id: string; fullName: string; phone: string; email: string };
-      balance: Prisma.Decimal;
-      lastCreditDate: Date;
-      count: number;
-    }
-  >();
-
-  for (const row of allCredits) {
-    const existing = patientMap.get(row.patientId);
-    if (!existing) {
-      patientMap.set(row.patientId, {
-        patient: row.patient,
-        balance: row.amountEGP,
-        lastCreditDate: row.createdAt,
-        count: 1,
-      });
-    } else {
-      existing.balance = existing.balance.add(row.amountEGP);
-      existing.lastCreditDate = row.createdAt;
-      existing.count += 1;
-    }
+  if (groups.length === 0) {
+    return success([]);
   }
 
-  const outstanding: OutstandingCreditRow[] = [];
+  const patientIds = groups.map((g) => g.patientId);
 
-  for (const [, item] of patientMap.entries()) {
-    if (item.balance.gt(0)) {
-      outstanding.push({
-        patientId: item.patient.id,
-        patientName: item.patient.fullName,
-        patientPhone: item.patient.phone,
-        patientEmail: item.patient.email,
-        balanceEGP: item.balance.toNumber(),
-        lastCreditAtUTC: item.lastCreditDate.toISOString(),
-        entriesCount: item.count,
-      });
-    }
+  const patients = await prisma.user.findMany({
+    where: { id: { in: patientIds } },
+    select: { id: true, fullName: true, phone: true, email: true },
+  });
+
+  const patientMap = new Map(patients.map((p) => [p.id, p]));
+
+  const outstanding: OutstandingCreditRow[] = [];
+  for (const group of groups) {
+    const patient = patientMap.get(group.patientId);
+    if (!patient) continue;
+    const balance = group._sum.amountEGP ? group._sum.amountEGP.toNumber() : 0;
+    outstanding.push({
+      patientId: patient.id,
+      patientName: patient.fullName,
+      patientPhone: patient.phone,
+      patientEmail: patient.email,
+      balanceEGP: balance,
+      lastCreditAtUTC: (group._max.createdAt ?? new Date()).toISOString(),
+      entriesCount: group._count,
+    });
   }
 
   // Sort by highest debt first
@@ -190,8 +181,8 @@ export async function issueManualCreditAction(
   if (!parsed.success) {
     return failure(
       "VALIDATION_ERROR",
-      "بيانات إصدار الرصيد غير صالحة.",
-      "Invalid credit details.",
+      "بيانات الرصيد غير صالحة.",
+      "Invalid manual credit parameters.",
       toFieldErrors(parsed.error),
     );
   }
@@ -233,7 +224,7 @@ export async function issueManualCreditAction(
 
 /**
  * ADMIN: Settle outstanding credit by refunding the patient via InstaPay / Vodafone Cash.
- * Sets settledAt, marks positive rows, and records a balancing PAID_OUT row.
+ * Protected with SERIALIZABLE isolation to prevent concurrent double payouts (F7 & F8).
  */
 export async function settleCreditAction(
   _prevState: ActionResult<{ settledCount: number; paidOutAmountEGP: number }> | null,
@@ -262,97 +253,101 @@ export async function settleCreditAction(
 
   const now = new Date();
 
-  const outcome = await prisma.$transaction(async (tx) => {
-    // 1. Fetch all unsettled positive credits for this patient
-    const unsettledPositive = await tx.patientCredit.findMany({
-      where: {
-        patientId,
-        settledAt: null,
-        amountEGP: { gt: 0 },
+  try {
+    const outcome = await prisma.$transaction(
+      async (tx) => {
+        // 1. Calculate net balance inside Serializable isolation
+        const allCredits = await tx.patientCredit.findMany({
+          where: { patientId },
+        });
+
+        let currentBalance = new Prisma.Decimal(0);
+        for (const c of allCredits) {
+          currentBalance = currentBalance.add(c.amountEGP);
+        }
+
+        if (currentBalance.lte(0)) {
+          throw new Error("NO_OUTSTANDING_BALANCE");
+        }
+
+        const payableAmount = currentBalance;
+
+        // 2. Mark unsettled positive rows
+        const marked = await tx.patientCredit.updateMany({
+          where: {
+            patientId,
+            settledAt: null,
+            amountEGP: { gt: 0 },
+          },
+          data: {
+            settledAt: now,
+            settledById: admin.id,
+            settlementRef,
+          },
+        });
+
+        // 3. Create balancing negative entry (PAID_OUT)
+        const payoutEntry = await tx.patientCredit.create({
+          data: {
+            patientId,
+            amountEGP: payableAmount.negated(),
+            kind: "PAID_OUT",
+            reason: notes ? `تسوية بنكية: ${notes}` : "تسوية رصيد وتحويل إلكتروني للمريض",
+            issuedById: admin.id,
+            settledAt: now,
+            settledById: admin.id,
+            settlementRef,
+          },
+        });
+
+        return {
+          settledCount: marked.count,
+          paidOutAmountEGP: payableAmount.toNumber(),
+          payoutId: payoutEntry.id,
+        };
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
-    // 2. Fetch total net balance
-    const allCredits = await tx.patientCredit.findMany({
-      where: { patientId },
-    });
-
-    let currentBalance = new Prisma.Decimal(0);
-    for (const c of allCredits) {
-      currentBalance = currentBalance.add(c.amountEGP);
-    }
-
-    if (currentBalance.lte(0)) {
-      throw new Error("NO_OUTSTANDING_BALANCE");
-    }
-
-    const payableAmount = currentBalance;
-
-    // 3. Mark unsettled positive rows
-    await tx.patientCredit.updateMany({
-      where: {
+    await recordAudit({
+      actorId: admin.id,
+      action: "CREDIT_SETTLED",
+      entityType: "PatientCredit",
+      entityId: outcome.payoutId,
+      metadata: {
         patientId,
-        settledAt: null,
-        amountEGP: { gt: 0 },
-      },
-      data: {
-        settledAt: now,
-        settledById: admin.id,
+        paidOutAmountEGP: outcome.paidOutAmountEGP,
         settlementRef,
       },
     });
 
-    // 4. Create balancing negative entry (PAID_OUT)
-    const payoutEntry = await tx.patientCredit.create({
-      data: {
-        patientId,
-        amountEGP: payableAmount.negated(),
-        kind: "PAID_OUT",
-        reason: notes ? `تسوية بنكية: ${notes}` : "تسوية رصيد وتحويل إلكتروني للمريض",
-        issuedById: admin.id,
-        settledAt: now,
-        settledById: admin.id,
-        settlementRef,
-      },
+    revalidatePath("/dashboard/admin/credits");
+    revalidatePath("/dashboard/patient");
+
+    return success({
+      settledCount: outcome.settledCount,
+      paidOutAmountEGP: outcome.paidOutAmountEGP,
     });
-
-    return {
-      settledCount: unsettledPositive.length,
-      paidOutAmountEGP: payableAmount.toNumber(),
-      payoutId: payoutEntry.id,
-    };
-  }).catch((err) => {
-    if (err instanceof Error && err.message === "NO_OUTSTANDING_BALANCE") {
-      return null;
+  } catch (error) {
+    if (error instanceof Error && error.message === "NO_OUTSTANDING_BALANCE") {
+      return failure(
+        "INVALID_STATE",
+        "لا يوجد رصيد مستحق قابل للتسوية لهذا المريض.",
+        "This patient has no outstanding balance to settle.",
+      );
     }
-    throw err;
-  });
-
-  if (!outcome) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return failure(
+        "CONFLICT",
+        "تمت معالجة تسوية هذا الرصيد بالفعل أو أن رقم المعاملة مسجل مسبقاً. يرجى تحديث الصفحة.",
+        "Credit was already settled or transaction reference is duplicate.",
+      );
+    }
+    console.error("[settleCreditAction] Transaction error:", error);
     return failure(
-      "INVALID_STATE",
-      "لا يوجد رصيد مستحق قابل للتسوية لهذا المريض.",
-      "This patient has no outstanding balance to settle.",
+      "CONFLICT",
+      "تعذّر إتمام التسوية لوجود تعارض متزامن. يرجى تحديث الصفحة والمحاولة مجدداً.",
+      "Settlement conflicted with a concurrent transaction. Please refresh.",
     );
   }
-
-  await recordAudit({
-    actorId: admin.id,
-    action: "CREDIT_SETTLED",
-    entityType: "PatientCredit",
-    entityId: outcome.payoutId,
-    metadata: {
-      patientId,
-      paidOutAmountEGP: outcome.paidOutAmountEGP,
-      settlementRef,
-    },
-  });
-
-  revalidatePath("/dashboard/admin/credits");
-  revalidatePath("/dashboard/patient");
-
-  return success({
-    settledCount: outcome.settledCount,
-    paidOutAmountEGP: outcome.paidOutAmountEGP,
-  });
 }

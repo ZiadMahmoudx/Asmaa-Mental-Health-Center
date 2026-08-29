@@ -65,6 +65,7 @@ export const APPOINTMENT_STATUS_LABELS = {
 export const PAYMENT_METHOD_LABELS = {
   INSTAPAY: { ar: "إنستا باي", en: "InstaPay" },
   VODAFONE_CASH: { ar: "فودافون كاش", en: "Vodafone Cash" },
+  CREDIT: { ar: "رصيد مريض", en: "Patient Credit" },
 } as const;
 
 export const APPOINTMENT_TYPE_LABELS = {

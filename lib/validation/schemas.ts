@@ -170,6 +170,7 @@ export const reserveSlotSchema = z.object({
   type: appointmentTypeSchema,
   scheduledAtUTC: utcInstant,
   durationMinutes: durationSchema,
+  applyCredit: z.coerce.boolean().default(false),
 });
 
 export const cancelAppointmentSchema = z.object({

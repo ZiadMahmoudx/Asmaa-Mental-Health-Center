@@ -213,13 +213,13 @@ export interface ReservationPayload {
   type: "ONLINE" | "OFFLINE";
   priceEGP: number;
   doctorName: string;
-  holdExpiresAtUTC: string;
+  holdExpiresAtUTC: string | null;
   paymentInstructions: {
     instapayHandle: string;
     vodafoneCashNumbers: string[];
     amountEGP: number;
     holdMinutes: number;
-  };
+  } | null;
   /** Pre-filled WhatsApp message with the payment instructions, to the patient. */
   whatsappInstructionsUrl: string;
   /** Pre-filled WhatsApp message to the clinic, for a patient who needs help. */
@@ -247,6 +247,7 @@ export async function reserveSlotAction(
     type: formData.get("type"),
     scheduledAtUTC: formData.get("scheduledAtUTC"),
     durationMinutes: formData.get("durationMinutes"),
+    applyCredit: formData.get("applyCredit"),
   });
 
   if (!parsed.success) {
@@ -258,7 +259,7 @@ export async function reserveSlotAction(
     );
   }
 
-  const { doctorId, type, scheduledAtUTC, durationMinutes } = parsed.data;
+  const { doctorId, type, scheduledAtUTC, durationMinutes, applyCredit } = parsed.data;
   const now = new Date();
 
   // The published calendar is re-derived below starting from the requested day,
@@ -389,6 +390,136 @@ export async function reserveSlotAction(
   const priceEGP = toEgp(
     type === "ONLINE" ? doctor.sessionPriceOnline : doctor.sessionPriceOffline,
   );
+
+  // Credit-covered booking execution (Option A)
+  if (applyCredit) {
+    try {
+      const outcome = await prisma.$transaction(
+        async (tx) => {
+          // Re-calculate balance inside Serializable transaction
+          const credits = await tx.patientCredit.findMany({
+            where: { patientId: user.id },
+          });
+
+          let currentBalance = new Prisma.Decimal(0);
+          for (const c of credits) {
+            currentBalance = currentBalance.add(c.amountEGP);
+          }
+
+          if (currentBalance.lt(priceEGP)) {
+            throw new Error("INSUFFICIENT_CREDIT");
+          }
+
+          const appointment = await tx.appointment.create({
+            data: {
+              patientId: user.id,
+              doctorId,
+              type,
+              scheduledAtUTC,
+              durationMinutes,
+              status: type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED",
+              priceEGP: new Prisma.Decimal(priceEGP),
+              slotLockKey: ACTIVE_SLOT_LOCK,
+              holdExpiresAt: null,
+            },
+            select: { id: true },
+          });
+
+          // Ledger deduction
+          await tx.patientCredit.create({
+            data: {
+              patientId: user.id,
+              appointmentId: appointment.id,
+              amountEGP: new Prisma.Decimal(priceEGP).negated(),
+              kind: "APPLIED_TO_BOOKING",
+              reason: `استخدام الرصيد لحجز جلسة ${type === "ONLINE" ? "أونلاين" : "حضوري"} مع ${doctor.user.fullName}`,
+              issuedById: user.id,
+              settledAt: now,
+              settledById: user.id,
+              settlementRef: `CREDIT-${appointment.id}`,
+            },
+          });
+
+          // Auto-approved PaymentProof row
+          await tx.paymentProof.create({
+            data: {
+              appointmentId: appointment.id,
+              method: "CREDIT",
+              senderIdentifier: user.phone,
+              transactionRef: `CREDIT-${appointment.id}`,
+              amountClaimedEGP: new Prisma.Decimal(priceEGP),
+              receiptImageUrl: "SYSTEM_CREDIT",
+              receiptMimeType: "application/system",
+              receiptSizeBytes: 0,
+              receiptSha256: `SYSTEM_CREDIT_${appointment.id}`,
+              status: "APPROVED",
+            },
+          });
+
+          return appointment;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+      await recordAudit({
+        actorId: user.id,
+        action: "APPOINTMENT_RESERVED",
+        entityType: "Appointment",
+        entityId: outcome.id,
+        metadata: {
+          doctorId,
+          type,
+          priceEGP,
+          scheduledAtUTC: scheduledAtUTC.toISOString(),
+          paymentMethod: "CREDIT",
+        },
+      });
+
+      revalidatePath("/dashboard/patient");
+      revalidatePath(`/booking/${doctorId}`);
+      revalidatePath("/dashboard/admin/verification");
+
+      const clinic = getClinicConfig();
+      const uploadUrl = `${env.APP_URL}/payment/${outcome.id}`;
+      const clinicWhatsapp = buildWhatsAppLink(
+        clinic.whatsappNumber,
+        `مرحباً، قمت بحجز موعد باستخدام رصيدي المالي لدى المركز. رقم الحجز: ${outcome.id}`,
+      );
+
+      return success({
+        appointmentId: outcome.id,
+        status: (type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED") as AppointmentStatus,
+        scheduledAtUTC: scheduledAtUTC.toISOString(),
+        durationMinutes,
+        type,
+        priceEGP,
+        doctorName: doctor.user.fullName,
+        holdExpiresAtUTC: null,
+        paymentInstructions: null,
+        whatsappInstructionsUrl: "",
+        whatsappClinicUrl: clinicWhatsapp,
+        uploadUrl,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_CREDIT") {
+        return failure(
+          "INVALID_STATE",
+          "رصيدك المالي المتاح لدى المركز غير كافٍ لتغطية قيمة الجلسة. يرجى إتمام الحجز بالدفع اليدوي.",
+          "Your available credit balance is insufficient to cover this booking.",
+        );
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return failure(
+          "SLOT_TAKEN",
+          "تم حجز هذا الموعد للتو من مريض آخر. يرجى اختيار موعد بديل.",
+          "This slot was just taken by another patient. Please pick another time.",
+        );
+      }
+      console.error("[booking] credit reservation failed", error);
+      return Failures.internal();
+    }
+  }
+
   const holdExpiresAt = new Date(now.getTime() + bookingPolicy.holdMinutes * MINUTE_MS);
 
   let appointmentId: string;
@@ -519,6 +650,7 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
       holdExpiresAt: true,
       rescheduledFromUTC: true,
       rescheduledById: true,
+      patientRescheduleCount: true,
       doctor: {
         select: { id: true, title: true, roomNumber: true, user: { select: { fullName: true } } },
       },
@@ -541,7 +673,7 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
       const canReschedule =
         appointment.status === "CONFIRMED" &&
         appointment.scheduledAtUTC.getTime() > now + 24 * 60 * MINUTE_MS &&
-        appointment.rescheduledById !== auth.user.id;
+        appointment.patientRescheduleCount < 1;
 
       return {
         id: appointment.id,
@@ -733,8 +865,8 @@ export async function patientRescheduleAppointmentAction(
     );
   }
 
-  // Cap at 1 patient-initiated reschedule per appointment
-  if (appointment.rescheduledById === user.id) {
+  // Cap at 1 patient-initiated reschedule per appointment (F10)
+  if (appointment.patientRescheduleCount >= 1) {
     return failure(
       "INVALID_STATE",
       "تمت إعادة جدولة هذا الموعد مسبقاً. يرجى التواصل مع إدارة العيادة لإجراء أي تعديل إضافي.",
@@ -815,6 +947,7 @@ export async function patientRescheduleAppointmentAction(
         rescheduledAt: now,
         rescheduledById: user.id,
         rescheduleReason: "إعادة جدولة ذاتية من المريض",
+        patientRescheduleCount: { increment: 1 },
       },
     });
   } catch (error) {

@@ -511,7 +511,19 @@ function ReviewPanel({
           </a>
         </div>
 
-        {isPdf ? (
+        {row.method === "CREDIT" ? (
+          <div className="p-6 bg-white rounded-2xl border border-teal-200 text-center space-y-2">
+            <BadgeCheck className="w-10 h-10 text-teal-800 mx-auto" />
+            <h5 className="font-bold text-sm text-teal-950">
+              {isAr ? "دفع آلي عبر رصيد المريض" : "Paid via Patient Credit Balance"}
+            </h5>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {isAr
+                ? "تم خصم قيمة الجلسة تلقائياً من سجل رصيد المريض. يرجى إرفاق رابط زووم واعتماد الموعد."
+                : "The fee was deducted automatically from the credit ledger. Please attach Zoom link and approve."}
+            </p>
+          </div>
+        ) : isPdf ? (
           <a
             href={row.receiptUrl}
             target="_blank"

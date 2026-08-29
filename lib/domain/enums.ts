@@ -58,7 +58,7 @@ export const OCCUPYING_STATUSES: readonly AppointmentStatus[] = [
 // Payments
 // ---------------------------------------------------------------------------
 
-export const PAYMENT_METHODS = ["INSTAPAY", "VODAFONE_CASH"] as const;
+export const PAYMENT_METHODS = ["INSTAPAY", "VODAFONE_CASH", "CREDIT"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_PROOF_STATUSES = ["UNDER_REVIEW", "APPROVED", "REJECTED"] as const;

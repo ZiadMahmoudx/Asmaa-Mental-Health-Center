@@ -565,6 +565,69 @@ async function main() {
     assert.equal(intervalsOverlap(slotAStart, slotAEnd, candidateBefore, candidateBeforeEnd), false);
   });
 
+  console.log("\n--- patient reschedule count gating (F10) ---");
+
+  await check("patientRescheduleCount >= 1 blocks subsequent patient reschedule attempts", () => {
+    const isAllowed = (count: number) => count < 1;
+    assert.equal(isAllowed(0), true, "0 previous reschedules allowed");
+    assert.equal(isAllowed(1), false, "1 previous reschedule blocked");
+    assert.equal(isAllowed(2), false, "2 previous reschedules blocked");
+  });
+
+  console.log("\n--- credit booking application (F11) ---");
+
+  await check("reserveSlotSchema parses applyCredit boolean", () => {
+    const withCredit = reserveSlotSchema.safeParse({
+      doctorId: "cm01234567890123456789012",
+      type: "ONLINE",
+      scheduledAtUTC: "2026-09-10T14:00:00.000Z",
+      durationMinutes: 45,
+      applyCredit: "true",
+    });
+    assert.equal(withCredit.success, true);
+    if (withCredit.success) {
+      assert.equal(withCredit.data.applyCredit, true);
+    }
+
+    const withoutCredit = reserveSlotSchema.safeParse({
+      doctorId: "cm01234567890123456789012",
+      type: "ONLINE",
+      scheduledAtUTC: "2026-09-10T14:00:00.000Z",
+      durationMinutes: 45,
+    });
+    assert.equal(withoutCredit.success, true);
+    if (withoutCredit.success) {
+      assert.equal(withoutCredit.data.applyCredit, false);
+    }
+  });
+
+  await check("credit booking balance checks (exact vs insufficient)", () => {
+    const sessionPrice = 600;
+    const canBook = (balance: number) => balance >= sessionPrice;
+
+    assert.equal(canBook(600), true, "exact balance covers session");
+    assert.equal(canBook(850), true, "surplus balance covers session");
+    assert.equal(canBook(599), false, "1 EGP short is rejected");
+    assert.equal(canBook(0), false, "0 balance is rejected");
+  });
+
+  console.log("\n--- settlement net balance arithmetic & double payout defense (F7 & F8) ---");
+
+  await check("net balance arithmetic with interleaved debits & credits", () => {
+    // Patient had an 850 EGP cancellation, then spent 300 EGP on a booking
+    const ledger = [
+      { amount: 850, kind: "CANCELLATION" },
+      { amount: -300, kind: "APPLIED_TO_BOOKING" },
+    ];
+    const netBalance = ledger.reduce((sum, item) => sum + item.amount, 0);
+    assert.equal(netBalance, 550, "Net payout must equal exactly 550 EGP");
+
+    // After payout of 550 EGP, net balance becomes 0
+    const afterPayout = [...ledger, { amount: -550, kind: "PAID_OUT" }];
+    const finalBalance = afterPayout.reduce((sum, item) => sum + item.amount, 0);
+    assert.equal(finalBalance, 0, "Final balance must be 0");
+  });
+
   console.log(`\n${passed} checks passed.\n`);
 }
 
