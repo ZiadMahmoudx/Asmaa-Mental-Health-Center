@@ -63,8 +63,8 @@ export interface AppointmentSummary {
   doctorName: string;
   type: "ONLINE" | "OFFLINE";
   scheduledAtUTC: Date;
-  durationMinutes: number;
-  priceEGP: number;
+  durationMinutes?: number;
+  priceEGP?: number;
   /** ONLINE only. */
   zoomMeetingUrl?: string | null;
   zoomPasscode?: string | null;
@@ -292,6 +292,7 @@ export interface ClinicCancellationSummary {
   doctorName: string;
   scheduledAtUTC: Date;
   reason: string;
+  roomNumber?: string | null;
   rebookUrl?: string;
 }
 

@@ -288,6 +288,8 @@ export interface PendingPaymentRow {
     priceEGP: number;
     status: string;
     hasZoomLink: boolean;
+    rescheduledFromUTC: string | null;
+    rescheduledAtUTC: string | null;
   };
   /** True when the declared amount does not match the frozen session price. */
   amountMismatch: boolean;
@@ -322,6 +324,8 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
           durationMinutes: true,
           priceEGP: true,
           zoomMeetingUrl: true,
+          rescheduledFromUTC: true,
+          rescheduledAt: true,
           patient: { select: { id: true, fullName: true, phone: true, email: true } },
           doctor: {
             select: { id: true, roomNumber: true, user: { select: { fullName: true } } },
@@ -359,6 +363,12 @@ export async function getPendingPaymentsAction(): Promise<ActionResult<PendingPa
           priceEGP,
           status: proof.appointment.status,
           hasZoomLink: Boolean(proof.appointment.zoomMeetingUrl),
+          rescheduledFromUTC: proof.appointment.rescheduledFromUTC
+            ? proof.appointment.rescheduledFromUTC.toISOString()
+            : null,
+          rescheduledAtUTC: proof.appointment.rescheduledAt
+            ? proof.appointment.rescheduledAt.toISOString()
+            : null,
         },
         amountMismatch: claimed !== null && claimed !== priceEGP,
       };

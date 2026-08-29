@@ -23,15 +23,14 @@ import {
 import type { ActionResult } from "@/lib/result";
 import { APPOINTMENT_STATUS_LABELS, CSRF_FIELD } from "@/lib/constants";
 import { formatCairo, formatEgp } from "@/lib/whatsapp";
+import { PatientRescheduleModal } from "@/components/patient/PatientRescheduleModal";
 
 /**
  * The patient's bookings.
  *
  * Every row is a real appointment row from the database, and the actions offered
- * on it come from the server (`canUploadProof`, `canCancel`) rather than being
- * re-derived here. That matters: the cancellation window and the payment window
- * are policy, and policy belongs on the server where it cannot be edited by
- * whoever is holding the browser.
+ * on it come from the server (`canUploadProof`, `canCancel`, `canReschedule`) rather than being
+ * re-derived here.
  */
 
 interface Props {
@@ -71,6 +70,8 @@ export function PatientAppointments({
 
   const [tab, setTab] = useState<"UPCOMING" | "PAST">("UPCOMING");
   const rows = tab === "UPCOMING" ? upcoming : past;
+
+  const [reschedulingAppointment, setReschedulingAppointment] = useState<PatientAppointmentView | null>(null);
 
   const [cancelState, cancelFormAction, cancelling] = useActionState(
     cancelMyAppointmentAction,
@@ -273,6 +274,17 @@ export function PatientAppointments({
                     </Link>
                   )}
 
+                  {appointment.canReschedule && (
+                    <button
+                      type="button"
+                      onClick={() => setReschedulingAppointment(appointment)}
+                      className="px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-[11px] font-extrabold transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5" />
+                      {isAr ? "تغيير الموعد" : "Reschedule"}
+                    </button>
+                  )}
+
                   {appointment.canCancel && (
                     <form action={cancelFormAction}>
                       <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
@@ -296,6 +308,17 @@ export function PatientAppointments({
             );
           })}
         </ul>
+      )}
+
+      {reschedulingAppointment && (
+        <PatientRescheduleModal
+          appointment={reschedulingAppointment}
+          csrfToken={csrfToken}
+          onClose={() => {
+            setReschedulingAppointment(null);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

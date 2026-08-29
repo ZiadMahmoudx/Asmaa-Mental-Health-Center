@@ -31,10 +31,11 @@ import { bookingPolicy, getClinicConfig } from "@/lib/clinic-config";
 import {
   appointmentRescheduledLink,
   clinicCancellationLink,
+  formatCairo,
   sessionReminderLink,
 } from "@/lib/whatsapp";
 import { ACTIVE_RULE_LOCK, ACTIVE_SLOT_LOCK } from "@/lib/constants";
-import { generateSlots, isSlotOffered, parseUtcDate, startOfUtcDay } from "@/lib/slots";
+import { generateSlots, intervalsOverlap, isSlotOffered, parseUtcDate, startOfUtcDay } from "@/lib/slots";
 
 const MINUTE_MS = 60_000;
 
@@ -166,21 +167,19 @@ export async function getMyAgendaAction(input?: {
   const days = Math.min(Math.max(input?.days ?? 30, 1), 90);
   const until = new Date(from.getTime() + days * 24 * 60 * MINUTE_MS);
 
-  const [clinic, appointments] = await Promise.all([
-    getClinicConfig(),
-    prisma.appointment.findMany({
-      where: {
-        doctorId: target.data.doctorId,
-        scheduledAtUTC: { gte: from, lte: until },
-      },
-      orderBy: { scheduledAtUTC: "asc" },
-      include: {
-        patient: { select: { id: true, fullName: true, phone: true } },
-        doctor: { select: { user: { select: { fullName: true } } } },
-        clinicalRecord: { select: { id: true, signedAt: true } },
-      },
-    }),
-  ]);
+  const clinic = getClinicConfig();
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      doctorId: target.data.doctorId,
+      scheduledAtUTC: { gte: from, lte: until },
+    },
+    orderBy: { scheduledAtUTC: "asc" },
+    include: {
+      patient: { select: { id: true, fullName: true, phone: true } },
+      doctor: { select: { user: { select: { fullName: true } } } },
+      clinicalRecord: { select: { id: true, signedAt: true } },
+    },
+  });
 
   return success(
     appointments.map((appointment) => ({
@@ -796,7 +795,7 @@ export async function forceTimeOffAction(
 
   const doctor = await prisma.doctorProfile.findUnique({
     where: { id: doctorId },
-    select: { id: true, user: { select: { fullName: true } } },
+    select: { id: true, roomNumber: true, user: { select: { fullName: true } } },
   });
   if (!doctor) return Failures.notFound("الطبيب المطلوب");
 
@@ -845,6 +844,20 @@ export async function forceTimeOffAction(
           rejectionReason: `تم إلغاء الموعد بسبب إجازة طارئة للعيادة: ${cancellationReason}`,
         },
       });
+
+      // Auto-issue patient credit for confirmed appointments cancelled by emergency time-off
+      if (app.status === "CONFIRMED") {
+        await tx.patientCredit.create({
+          data: {
+            patientId: app.patientId,
+            appointmentId: app.id,
+            amountEGP: app.priceEGP,
+            kind: "CANCELLATION",
+            reason: `إلغاء جلسة بسبب إجازة طارئة للعيادة: ${cancellationReason}`,
+            issuedById: guard.data.user.id,
+          },
+        });
+      }
     }
 
     return exception;
@@ -863,7 +876,9 @@ export async function forceTimeOffAction(
   });
 
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/credits");
   revalidatePath("/dashboard/doctor");
+  revalidatePath("/dashboard/patient");
   revalidatePath(`/booking/${doctorId}`);
 
   return success({
@@ -878,6 +893,7 @@ export async function forceTimeOffAction(
         patientPhone: c.patient.phone,
         doctorName: doctor.user.fullName,
         scheduledAtUTC: c.scheduledAtUTC,
+        roomNumber: doctor.roomNumber ?? null,
         reason: cancellationReason,
       }),
     })),
@@ -925,11 +941,12 @@ export async function rescheduleAppointmentAction(
   }
 
   const { appointmentId, scheduledAtUTC: targetInstant, durationMinutes, reason, allowOffGrid } = parsed.data;
+  const allowOverlap = formData.get("allowOverlap") === "true";
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: {
-      doctor: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
+      doctor: { select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true } } } },
       patient: { select: { id: true, fullName: true, phone: true } },
     },
   });
@@ -1008,6 +1025,39 @@ export async function rescheduleAppointmentAction(
         "The selected slot is not offered or is already taken.",
       );
     }
+  } else {
+    // ADMIN Off-Grid Overlap Guard:
+    // When an admin schedules off-grid, the DB unique index (@@unique([doctorId, scheduledAtUTC, slotLockKey]))
+    // only detects exact-instant collisions. We explicitly check interval overlaps here.
+    // RESIDUAL RACE NOTE: This is an application-level check with a small time-of-check/time-of-use window.
+    // For admin-only manual adjustments, this is acceptable.
+    const nearbyBusy = await prisma.appointment.findMany({
+      where: {
+        doctorId: appointment.doctorId,
+        id: { not: appointmentId },
+        status: { in: [...OCCUPYING_STATUSES] },
+        scheduledAtUTC: {
+          gte: new Date(targetInstant.getTime() - 4 * 60 * MINUTE_MS),
+          lte: new Date(targetInstant.getTime() + 4 * 60 * MINUTE_MS),
+        },
+      },
+      select: { scheduledAtUTC: true, durationMinutes: true },
+    });
+
+    const targetEnd = new Date(targetInstant.getTime() + durationMinutes * MINUTE_MS);
+    const conflictingApp = nearbyBusy.find((b) => {
+      const bEnd = new Date(b.scheduledAtUTC.getTime() + b.durationMinutes * MINUTE_MS);
+      return intervalsOverlap(targetInstant, targetEnd, b.scheduledAtUTC, bEnd);
+    });
+
+    if (conflictingApp && !allowOverlap) {
+      const conflictTime = formatCairo(conflictingApp.scheduledAtUTC);
+      return failure(
+        "CONFLICT",
+        `الموعد الجديد يتداخل مع جلسة أخرى لنفس الطبيب بتوقيت القاهرة (${conflictTime}).`,
+        `The new time overlaps another session for this doctor (${conflictTime}).`,
+      );
+    }
   }
 
   const oldScheduledAtUTC = appointment.scheduledAtUTC;
@@ -1046,6 +1096,7 @@ export async function rescheduleAppointmentAction(
       toUTC: targetInstant.toISOString(),
       byRole: guard.data.user.role,
       offGrid: Boolean(allowOffGrid),
+      overlapForced: Boolean(allowOverlap),
     },
   });
 
@@ -1054,7 +1105,7 @@ export async function rescheduleAppointmentAction(
   revalidatePath("/dashboard/admin");
   revalidatePath(`/booking/${appointment.doctorId}`);
 
-  const clinic = await getClinicConfig();
+  const clinic = getClinicConfig();
   const whatsappUrl = appointmentRescheduledLink({
     patientName: appointment.patient.fullName,
     patientPhone: appointment.patient.phone,
@@ -1066,7 +1117,7 @@ export async function rescheduleAppointmentAction(
     priceEGP: toEgp(appointment.priceEGP),
     zoomMeetingUrl: appointment.zoomMeetingUrl,
     zoomPasscode: appointment.zoomPasscode,
-    roomNumber: null,
+    roomNumber: appointment.doctor.roomNumber ?? null,
     clinicAddressAr: clinic.addressAr,
     clinicMapsUrl: clinic.mapsUrl,
     reason,
@@ -1107,7 +1158,7 @@ export async function doctorCancelAppointmentAction(
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: {
-      doctor: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
+      doctor: { select: { id: true, userId: true, roomNumber: true, user: { select: { fullName: true } } } },
       patient: { select: { id: true, fullName: true, phone: true } },
     },
   });
@@ -1128,8 +1179,8 @@ export async function doctorCancelAppointmentAction(
 
   const now = new Date();
 
-  await prisma.$transaction([
-    prisma.appointment.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.appointment.update({
       where: { id: appointmentId },
       data: {
         status: "CANCELLED",
@@ -1138,8 +1189,9 @@ export async function doctorCancelAppointmentAction(
         slotLockKey: appointment.id, // Frees the composite lock
         holdExpiresAt: null,
       },
-    }),
-    prisma.paymentProof.updateMany({
+    });
+
+    await tx.paymentProof.updateMany({
       where: { appointmentId, status: "UNDER_REVIEW" },
       data: {
         status: "REJECTED",
@@ -1147,8 +1199,22 @@ export async function doctorCancelAppointmentAction(
         reviewedById: guard.data.user.id,
         rejectionReason: `تم إلغاء الموعد من قِبل الطبيب: ${reason}`,
       },
-    }),
-  ]);
+    });
+
+    // Auto-issue patient credit if the cancelled appointment was confirmed and paid for
+    if (appointment.status === "CONFIRMED") {
+      await tx.patientCredit.create({
+        data: {
+          patientId: appointment.patientId,
+          appointmentId: appointment.id,
+          amountEGP: appointment.priceEGP,
+          kind: "CANCELLATION",
+          reason: `إلغاء جلسة من قبل الطبيب/الإدارة: ${reason}`,
+          issuedById: guard.data.user.id,
+        },
+      });
+    }
+  });
 
   await recordAudit({
     actorId: guard.data.user.id,
@@ -1161,6 +1227,7 @@ export async function doctorCancelAppointmentAction(
   revalidatePath("/dashboard/doctor");
   revalidatePath("/dashboard/patient");
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/credits");
   revalidatePath(`/booking/${appointment.doctorId}`);
 
   const whatsappUrl = clinicCancellationLink({
@@ -1168,6 +1235,7 @@ export async function doctorCancelAppointmentAction(
     patientPhone: appointment.patient.phone,
     doctorName: appointment.doctor.user.fullName,
     scheduledAtUTC: appointment.scheduledAtUTC,
+    roomNumber: appointment.doctor.roomNumber ?? null,
     reason,
   });
 

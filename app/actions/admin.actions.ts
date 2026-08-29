@@ -533,7 +533,7 @@ export async function adminCancelAppointmentAction(
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, patientId: true, priceEGP: true },
   });
 
   if (!appointment) return Failures.notFound("الحجز المطلوب");
@@ -569,6 +569,20 @@ export async function adminCancelAppointmentAction(
           rejectionReason: reason ?? "تم إلغاء الحجز من إدارة المركز",
         },
       });
+
+      // Auto-issue patient credit for confirmed appointments
+      if (appointment.status === "CONFIRMED") {
+        await tx.patientCredit.create({
+          data: {
+            patientId: appointment.patientId,
+            appointmentId: appointment.id,
+            amountEGP: appointment.priceEGP,
+            kind: "CANCELLATION",
+            reason: reason ?? "ألغت إدارة المركز الحجز",
+            issuedById: admin.id,
+          },
+        });
+      }
     }
 
     return result.count;
@@ -591,6 +605,7 @@ export async function adminCancelAppointmentAction(
   });
 
   revalidatePath("/dashboard/admin/verification");
+  revalidatePath("/dashboard/admin/credits");
   revalidatePath("/dashboard/patient");
   revalidatePath("/dashboard/doctor");
 

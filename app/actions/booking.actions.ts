@@ -13,6 +13,7 @@ import { ActionResult, Failures, failure, success } from "@/lib/result";
 import {
   availabilityQuerySchema,
   cancelAppointmentSchema,
+  patientRescheduleSchema,
   reserveSlotSchema,
   toFieldErrors,
 } from "@/lib/validation/schemas";
@@ -31,7 +32,11 @@ import {
   parseUtcDate,
   startOfUtcDay,
 } from "@/lib/slots";
-import { paymentInstructionsLink, buildWhatsAppLink } from "@/lib/whatsapp";
+import {
+  appointmentRescheduledLink,
+  paymentInstructionsLink,
+  buildWhatsAppLink,
+} from "@/lib/whatsapp";
 
 /**
  * Booking engine.
@@ -472,6 +477,7 @@ export async function reserveSlotAction(
 
 export interface PatientAppointmentView {
   id: string;
+  doctorId: string;
   doctorName: string;
   doctorTitle: string;
   type: "ONLINE" | "OFFLINE";
@@ -487,6 +493,8 @@ export interface PatientAppointmentView {
   latestRejectionReason: string | null;
   canUploadProof: boolean;
   canCancel: boolean;
+  canReschedule: boolean;
+  rescheduledFromUTC: string | null;
 }
 
 export async function getMyAppointmentsAction(): Promise<ActionResult<PatientAppointmentView[]>> {
@@ -499,6 +507,7 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
     take: 100,
     select: {
       id: true,
+      doctorId: true,
       type: true,
       status: true,
       scheduledAtUTC: true,
@@ -508,8 +517,10 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
       zoomPasscode: true,
       clinicNotes: true,
       holdExpiresAt: true,
+      rescheduledFromUTC: true,
+      rescheduledById: true,
       doctor: {
-        select: { title: true, roomNumber: true, user: { select: { fullName: true } } },
+        select: { id: true, title: true, roomNumber: true, user: { select: { fullName: true } } },
       },
       paymentProofs: {
         orderBy: { uploadedAt: "desc" },
@@ -527,8 +538,14 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
       const holdActive =
         !appointment.holdExpiresAt || appointment.holdExpiresAt.getTime() > now;
 
+      const canReschedule =
+        appointment.status === "CONFIRMED" &&
+        appointment.scheduledAtUTC.getTime() > now + 24 * 60 * MINUTE_MS &&
+        appointment.rescheduledById !== auth.user.id;
+
       return {
         id: appointment.id,
+        doctorId: appointment.doctorId,
         doctorName: appointment.doctor.user.fullName,
         doctorTitle: appointment.doctor.title,
         type: asAppointmentType(appointment.type),
@@ -551,6 +568,10 @@ export async function getMyAppointmentsAction(): Promise<ActionResult<PatientApp
           appointment.status === "PAYMENT_UNDER_REVIEW" ||
           (appointment.status === "CONFIRMED" &&
             appointment.scheduledAtUTC.getTime() > now + 12 * 60 * MINUTE_MS),
+        canReschedule,
+        rescheduledFromUTC: appointment.rescheduledFromUTC
+          ? appointment.rescheduledFromUTC.toISOString()
+          : null,
       };
     }),
   );
@@ -612,8 +633,8 @@ export async function cancelMyAppointmentAction(
     );
   }
 
-  // Conditional update guards against a double submit: if the status already
-  // moved, `count` is 0 and nothing is overwritten.
+  // TODO(policy): Patient-initiated cancellation does not auto-issue credit pending clinic policy decision
+  // on refundable notice windows. Currently, only staff-initiated cancellations auto-issue credits.
   const updated = await prisma.appointment.updateMany({
     where: { id: appointmentId, status: appointment.status },
     data: {
@@ -646,6 +667,207 @@ export async function cancelMyAppointmentAction(
   revalidatePath("/dashboard/admin/verification");
 
   return success({ appointmentId });
+}
+
+/**
+ * Patient self-service reschedule.
+ * Allows a patient to move their own CONFIRMED appointment to another published slot
+ * for the same doctor, with a strict 24-hour advance notice window and 1-time limit.
+ */
+export async function patientRescheduleAppointmentAction(
+  _prevState: ActionResult<{ appointmentId: string; whatsappRescheduleUrl: string }> | null,
+  formData: FormData,
+): Promise<ActionResult<{ appointmentId: string; whatsappRescheduleUrl: string }>> {
+  const guard = await requireRole(["PATIENT"], formData);
+  if (!guard.ok) return guard;
+  const { user } = guard.data;
+
+  const parsed = patientRescheduleSchema.safeParse({
+    appointmentId: formData.get("appointmentId"),
+    scheduledAtUTC: formData.get("scheduledAtUTC"),
+    durationMinutes: formData.get("durationMinutes"),
+  });
+
+  if (!parsed.success) {
+    return failure(
+      "VALIDATION_ERROR",
+      "بيانات إعادة الجدولة غير صالحة.",
+      "Invalid reschedule details.",
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const { appointmentId, scheduledAtUTC: targetInstant, durationMinutes } = parsed.data;
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      doctor: { select: { id: true, roomNumber: true, user: { select: { fullName: true } } } },
+      patient: { select: { id: true, fullName: true, phone: true } },
+    },
+  });
+
+  if (!appointment) return Failures.notFound("الحجز المطلوب");
+
+  // Ownership check: patient owns the appointment
+  if (appointment.patientId !== user.id) return Failures.forbidden();
+
+  // Only CONFIRMED sessions can be self-rescheduled
+  if (appointment.status !== "CONFIRMED") {
+    return failure(
+      "INVALID_STATE",
+      "يمكن إعادة جدولة المواعيد المؤكدة فقط. للمواعيد الأخرى يرجى مراجعة إدارة المركز.",
+      "Only confirmed appointments can be rescheduled by the patient.",
+    );
+  }
+
+  const now = new Date();
+
+  // Strict 24-hour advance notice window
+  const minNoticeThreshold = new Date(now.getTime() + 24 * 60 * MINUTE_MS);
+  if (appointment.scheduledAtUTC.getTime() < minNoticeThreshold.getTime()) {
+    return failure(
+      "INVALID_STATE",
+      "لا يمكن تغيير الموعد قبل الجلسة بأقل من 24 ساعة. يرجى التواصل مع إدارة المركز.",
+      "Appointments cannot be rescheduled less than 24 hours in advance.",
+    );
+  }
+
+  // Cap at 1 patient-initiated reschedule per appointment
+  if (appointment.rescheduledById === user.id) {
+    return failure(
+      "INVALID_STATE",
+      "تمت إعادة جدولة هذا الموعد مسبقاً. يرجى التواصل مع إدارة العيادة لإجراء أي تعديل إضافي.",
+      "This appointment has already been rescheduled once by the patient.",
+    );
+  }
+
+  // Target instant validation
+  if (targetInstant.getTime() <= now.getTime() + bookingPolicy.minNoticeMinutes * MINUTE_MS) {
+    return failure(
+      "VALIDATION_ERROR",
+      "يرجى اختيار موعد يبدأ بعد ساعتين على الأقل من الآن.",
+      "Target time must be at least the minimum notice window in the future.",
+    );
+  }
+
+  const maxHorizon = new Date(now.getTime() + bookingPolicy.horizonDays * 24 * 60 * MINUTE_MS);
+  if (targetInstant.getTime() > maxHorizon.getTime()) {
+    return failure(
+      "VALIDATION_ERROR",
+      `لا يمكن حجز موعد بعد أكثر من ${bookingPolicy.horizonDays} يوماً.`,
+      `Cannot book beyond ${bookingPolicy.horizonDays} days.`,
+    );
+  }
+
+  // Strictly on-grid published slot validation
+  const doctorRules = await prisma.doctorAvailability.findMany({
+    where: { doctorId: appointment.doctorId, isActive: true },
+  });
+  const exceptions = await prisma.availabilityException.findMany({
+    where: { doctorId: appointment.doctorId, cancelledAt: null, endsAtUTC: { gte: now } },
+    select: { startsAtUTC: true, endsAtUTC: true },
+  });
+  const busy = await prisma.appointment.findMany({
+    where: {
+      doctorId: appointment.doctorId,
+      id: { not: appointmentId },
+      status: { in: [...OCCUPYING_STATUSES] },
+      scheduledAtUTC: {
+        gte: new Date(targetInstant.getTime() - 4 * 60 * MINUTE_MS),
+        lte: new Date(targetInstant.getTime() + 4 * 60 * MINUTE_MS),
+      },
+    },
+    select: { scheduledAtUTC: true, durationMinutes: true },
+  });
+
+  const slots = generateSlots({
+    rules: doctorRules,
+    exceptions: exceptions.map((e) => ({ startUTC: e.startsAtUTC, endUTC: e.endsAtUTC })),
+    busy: busy.map((b) => ({
+      startUTC: b.scheduledAtUTC,
+      endUTC: new Date(b.scheduledAtUTC.getTime() + b.durationMinutes * MINUTE_MS),
+    })),
+    type: asAppointmentType(appointment.type),
+    from: startOfUtcDay(targetInstant),
+    days: 2,
+    now,
+    minNoticeMinutes: bookingPolicy.minNoticeMinutes,
+  });
+
+  if (!isSlotOffered(slots, targetInstant, durationMinutes)) {
+    return failure(
+      "CONFLICT",
+      "الموعد المختار غير متاح في جدول الطبيب.",
+      "The selected slot is not offered or is already taken.",
+    );
+  }
+
+  const oldScheduledAtUTC = appointment.scheduledAtUTC;
+
+  try {
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        scheduledAtUTC: targetInstant,
+        durationMinutes,
+        rescheduledFromUTC: oldScheduledAtUTC,
+        rescheduledAt: now,
+        rescheduledById: user.id,
+        rescheduleReason: "إعادة جدولة ذاتية من المريض",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return failure(
+        "SLOT_TAKEN",
+        "هذا الموعد حُجز للتو لمريض آخر. يرجى اختيار وقت بديل.",
+        "That slot was just booked by another patient.",
+      );
+    }
+    console.error("[patientReschedule] Database error:", error);
+    return Failures.internal();
+  }
+
+  await recordAudit({
+    actorId: user.id,
+    action: "APPOINTMENT_RESCHEDULED",
+    entityType: "Appointment",
+    entityId: appointmentId,
+    metadata: {
+      fromUTC: oldScheduledAtUTC.toISOString(),
+      toUTC: targetInstant.toISOString(),
+      by: "PATIENT",
+    },
+  });
+
+  revalidatePath("/dashboard/patient");
+  revalidatePath("/dashboard/doctor");
+  revalidatePath("/dashboard/admin/appointments");
+  revalidatePath(`/booking/${appointment.doctorId}`);
+
+  const clinic = getClinicConfig();
+  const whatsappUrl = appointmentRescheduledLink({
+    patientName: appointment.patient.fullName,
+    patientPhone: appointment.patient.phone,
+    doctorName: appointment.doctor.user.fullName,
+    type: asAppointmentType(appointment.type),
+    oldScheduledAtUTC,
+    scheduledAtUTC: targetInstant,
+    durationMinutes,
+    priceEGP: toEgp(appointment.priceEGP),
+    zoomMeetingUrl: appointment.zoomMeetingUrl,
+    zoomPasscode: appointment.zoomPasscode,
+    roomNumber: appointment.doctor.roomNumber ?? null,
+    clinicAddressAr: clinic.addressAr,
+    clinicMapsUrl: clinic.mapsUrl,
+    reason: "تعديل الموعد بناءً على طلبك",
+  });
+
+  return success({
+    appointmentId,
+    whatsappRescheduleUrl: whatsappUrl,
+  });
 }
 
 export interface SlotView {

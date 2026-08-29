@@ -84,6 +84,9 @@ model User {
   safetyPlan              SafetyPlan?             @relation("PatientSafetyPlan")
   rescheduledAppointments Appointment[]           @relation("AppointmentRescheduler")
   timeOffCreated          AvailabilityException[] @relation("TimeOffCreator")
+  patientCredits          PatientCredit[]         @relation("PatientCredits")
+  creditsIssued           PatientCredit[]         @relation("CreditIssuer")
+  creditsSettled          PatientCredit[]         @relation("CreditSettler")
 
   @@index([role])
   @@index([phone])
@@ -293,6 +296,7 @@ model Appointment {
   rescheduledBy  User?           @relation("AppointmentRescheduler", fields: [rescheduledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   paymentProofs  PaymentProof[]
   clinicalRecord ClinicalRecord?
+  credits        PatientCredit[] @relation("AppointmentCredits")
 
   /// Atomic double-booking prevention: at most one live appointment per
   /// (doctor, exact UTC start). Enforced by the database, not by application code.
@@ -472,6 +476,36 @@ model SafetyPlan {
   patient User @relation("PatientSafetyPlan", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("safety_plans")
+}
+
+// ------------------------------- FINANCIAL LEDGER ----------------------------
+
+/// Signed ledger of patient credits (refunds, adjustments, applied credits, payouts).
+/// Balance is always SUM(amountEGP). Positive = credit issued, Negative = credit consumed.
+model PatientCredit {
+  id            String    @id @default(cuid()) @db.NVarChar(30)
+  patientId     String    @db.NVarChar(30)
+  appointmentId String?   @db.NVarChar(30)
+  amountEGP     Decimal   @db.Decimal(10, 2)
+  kind          String    @db.NVarChar(30) // CreditKind: CANCELLATION | MANUAL_ADJUSTMENT | APPLIED_TO_BOOKING | PAID_OUT
+  reason        String?   @db.NVarChar(500)
+  issuedById    String?   @db.NVarChar(30)
+  settledAt     DateTime?
+  settledById   String?   @db.NVarChar(30)
+  settlementRef String?   @db.NVarChar(100)
+  createdAt     DateTime  @default(now())
+
+  patient     User         @relation("PatientCredits", fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  appointment Appointment? @relation("AppointmentCredits", fields: [appointmentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  issuedBy    User?        @relation("CreditIssuer", fields: [issuedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  settledBy   User?        @relation("CreditSettler", fields: [settledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patientId, createdAt])
+  @@index([kind, settledAt])
+  @@index([appointmentId])
+  @@index([issuedById])
+  @@index([settledById])
+  @@map("patient_credits")
 }
 
 // ------------------------------- AUDIT ---------------------------------------

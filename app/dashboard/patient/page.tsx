@@ -4,6 +4,7 @@ import {
   Activity,
   BookOpen,
   CalendarPlus,
+  Coins,
   FileText,
   Headphones,
   HeartPulse,
@@ -14,8 +15,9 @@ import { requireRolePage } from "@/lib/auth/guards";
 import { readCsrfToken } from "@/lib/auth/csrf";
 import { getMyAppointmentsAction } from "@/app/actions/booking.actions";
 import { getMyClinicalRecordsAction } from "@/app/actions/records.actions";
+import { getPatientCreditBalanceAction } from "@/app/actions/credits.actions";
 import { getClinicConfig } from "@/lib/clinic-config";
-import { formatCairo } from "@/lib/whatsapp";
+import { formatCairo, formatEgp } from "@/lib/whatsapp";
 import { PatientAppointments } from "@/components/dashboard/PatientAppointments";
 
 export const metadata: Metadata = {
@@ -32,25 +34,26 @@ export const metadata: Metadata = {
  * browser console. Everything shown here is fetched per request, scoped to the
  * session's user id at the database layer.
  *
- * The wallet, top-up and promo-code surfaces are deliberately gone: Phase 1
- * settles fees by manual InstaPay / Vodafone Cash transfer, so a simulated
- * balance would misrepresent what the clinic can actually honour. The self-help
- * tools that genuinely work standalone are linked below.
+ * Settles fees by manual InstaPay / Vodafone Cash transfer, with an auditable
+ * Patient Credit Ledger for refunds and adjustments.
  */
 export const dynamic = "force-dynamic";
 
 export default async function PatientDashboardPage() {
   const auth = await requireRolePage(["PATIENT"], "/dashboard/patient");
 
-  const [appointmentsResult, recordsResult, csrfToken] = await Promise.all([
+  const [appointmentsResult, recordsResult, creditResult, csrfToken] = await Promise.all([
     getMyAppointmentsAction(),
     getMyClinicalRecordsAction(),
+    getPatientCreditBalanceAction(),
     readCsrfToken(),
   ]);
 
   const clinic = getClinicConfig();
   const appointments = appointmentsResult.ok ? appointmentsResult.data : [];
   const records = recordsResult.ok ? recordsResult.data : [];
+  const creditBalance = creditResult.ok ? creditResult.data.balanceEGP : 0;
+  const creditEntries = creditResult.ok ? creditResult.data.entries : [];
 
   const nextSession = appointments
     .filter(
@@ -89,9 +92,68 @@ export default async function PatientDashboardPage() {
           </Link>
         </header>
 
-        {awaitingAction > 0 && (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900">
-            لديك {awaitingAction} حجز بانتظار رفع إيصال الدفع. الموعد محجوز لك مؤقتاً فقط.
+        {/* Credit Balance Card */}
+        {creditBalance > 0 && (
+          <div className="bg-white border border-teal-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-800">
+                  <Coins className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-teal-950">رصيدك المالي المتاح لدى المركز</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    رصيد لك لدى المركز، يمكن استخدامه في حجز قادم أو استرداده عبر التحويل.
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-start sm:text-end">
+                <span className="text-2xl font-black font-mono text-teal-800">
+                  {formatEgp(creditBalance)}
+                </span>
+                <span className="block text-[10px] text-slate-400">رصيد مالي صالح للاستخدام</span>
+              </div>
+            </div>
+
+            {/* Ledger Disclosure */}
+            {creditEntries.length > 0 && (
+              <details className="text-xs group border-t border-slate-100 pt-3">
+                <summary className="font-bold text-teal-800 cursor-pointer hover:underline list-none flex items-center gap-1">
+                  <span>عرض تفاصيل حركات الرصيد ({creditEntries.length})</span>
+                </summary>
+                <div className="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {creditEntries.map((e) => (
+                    <div
+                      key={e.id}
+                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-800">
+                          {e.kind === "CANCELLATION"
+                            ? "إلغاء جلسة"
+                            : e.kind === "MANUAL_ADJUSTMENT"
+                            ? "تعديل رصيد"
+                            : e.kind === "PAID_OUT"
+                            ? "تحويل بنكي / تسوية"
+                            : "استخدام في حجز"}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {formatCairo(new Date(e.createdAtUTC))} {e.reason ? `• ${e.reason}` : ""}
+                        </div>
+                      </div>
+                      <span
+                        className={`font-mono font-bold text-xs ${
+                          e.amountEGP > 0 ? "text-emerald-700" : "text-slate-700"
+                        }`}
+                      >
+                        {e.amountEGP > 0 ? `+${formatEgp(e.amountEGP)}` : formatEgp(e.amountEGP)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         )}
 

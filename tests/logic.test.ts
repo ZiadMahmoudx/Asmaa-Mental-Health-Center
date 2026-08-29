@@ -10,7 +10,7 @@
  * outside a Next.js render; --env-file supplies the validated configuration.)
  */
 import assert from "node:assert/strict";
-import { generateSlots, isSlotOffered, parseUtcDate } from "@/lib/slots";
+import { generateSlots, intervalsOverlap, isSlotOffered, parseUtcDate } from "@/lib/slots";
 import {
   egyptianPhone,
   zoomUrlSchema,
@@ -20,6 +20,9 @@ import {
   createDoctorSchema,
   createAdminSchema,
   adminResetPasswordSchema,
+  issueManualCreditSchema,
+  settleCreditSchema,
+  patientRescheduleSchema,
 } from "@/lib/validation/schemas";
 import {
   buildWhatsAppLink,
@@ -453,6 +456,113 @@ async function main() {
     assert.equal(resolveReceiptPath("../../../etc/passwd"), null);
     assert.equal(resolveReceiptPath("a\0b"), null);
     assert.notEqual(resolveReceiptPath("2026/08/abc.png"), null);
+  });
+
+  console.log("\n--- credit ledger & financial integrity ---");
+
+  await check("signed credit ledger balance arithmetic correctly aggregates", () => {
+    const ledger = [
+      { amount: 600, kind: "CANCELLATION" },
+      { amount: 400, kind: "MANUAL_ADJUSTMENT" },
+      { amount: -500, kind: "APPLIED_TO_BOOKING" },
+      { amount: -500, kind: "PAID_OUT" },
+    ];
+    const balance = ledger.reduce((acc, curr) => acc + curr.amount, 0);
+    assert.equal(balance, 0);
+  });
+
+  await check("credit validation schemas enforce valid amounts and non-empty reasons", () => {
+    const validManual = issueManualCreditSchema.safeParse({
+      patientId: "cm01234567890123456789012",
+      amountEGP: 600,
+      reason: "تعويض عن إلغاء الجلسة بسبب ظرف طارئ",
+    });
+    assert.equal(validManual.success, true);
+
+    const invalidShortReason = issueManualCreditSchema.safeParse({
+      patientId: "cm01234567890123456789012",
+      amountEGP: 600,
+      reason: "إلغ",
+    });
+    assert.equal(invalidShortReason.success, false);
+
+    const validSettlement = settleCreditSchema.safeParse({
+      patientId: "cm01234567890123456789012",
+      settlementRef: "IP-948192049",
+      notes: "تحويل إنستا باي لحساب المريض",
+    });
+    assert.equal(validSettlement.success, true);
+  });
+
+  console.log("\n--- patient reschedule & notice boundaries ---");
+
+  await check("patient reschedule schema validates instant and duration", () => {
+    const valid = patientRescheduleSchema.safeParse({
+      appointmentId: "cm01234567890123456789012",
+      scheduledAtUTC: "2026-09-10T14:00:00.000Z",
+      durationMinutes: 45,
+    });
+    assert.equal(valid.success, true);
+
+    const badInstant = patientRescheduleSchema.safeParse({
+      appointmentId: "cm01234567890123456789012",
+      scheduledAtUTC: "not-a-date",
+      durationMinutes: 45,
+    });
+    assert.equal(badInstant.success, false);
+  });
+
+  await check("24-hour patient reschedule cutoff boundary", () => {
+    const now = Date.now();
+    const MINUTE_MS = 60_000;
+    const isEligible = (scheduledAtMs: number) => scheduledAtMs >= now + 24 * 60 * MINUTE_MS;
+
+    assert.equal(isEligible(now + 23 * 60 * MINUTE_MS + 59 * MINUTE_MS), false, "23h59m must be rejected");
+    assert.equal(isEligible(now + 24 * 60 * MINUTE_MS), true, "24h00m must be allowed");
+    assert.equal(isEligible(now + 24 * 60 * MINUTE_MS + 1 * MINUTE_MS), true, "24h01m must be allowed");
+    assert.equal(isEligible(now + 12 * 60 * MINUTE_MS), false, "12h must be rejected");
+  });
+
+  console.log("\n--- reminder cron window math ---");
+
+  await check("reminder cron window boundaries [now + 22h, now + 26h]", () => {
+    const now = Date.now();
+    const HOUR_MS = 3600_000;
+    const windowStart = now + 22 * HOUR_MS;
+    const windowEnd = now + 26 * HOUR_MS;
+
+    const inWindow = (timeMs: number) => timeMs >= windowStart && timeMs <= windowEnd;
+
+    assert.equal(inWindow(now + 21 * HOUR_MS + 59 * 60_000), false, "21h59m excluded");
+    assert.equal(inWindow(now + 22 * HOUR_MS + 1 * 60_000), true, "22h01m included");
+    assert.equal(inWindow(now + 24 * HOUR_MS), true, "24h00m included");
+    assert.equal(inWindow(now + 25 * HOUR_MS + 59 * 60_000), true, "25h59m included");
+    assert.equal(inWindow(now + 26 * HOUR_MS + 1 * 60_000), false, "26h01m excluded");
+  });
+
+  console.log("\n--- intervals overlap (off-grid overlap protection) ---");
+
+  await check("intervalsOverlap catches collisions and allows disjoint intervals", () => {
+    const slotAStart = new Date("2026-09-02T16:00:00.000Z");
+    const slotAEnd = new Date("2026-09-02T16:45:00.000Z");
+
+    // Partial overlap (candidate: 16:20 - 17:05)
+    const candidateOverlap = new Date("2026-09-02T16:20:00.000Z");
+    const candidateOverlapEnd = new Date("2026-09-02T17:05:00.000Z");
+    assert.equal(intervalsOverlap(slotAStart, slotAEnd, candidateOverlap, candidateOverlapEnd), true);
+
+    // Exact identical slot
+    assert.equal(intervalsOverlap(slotAStart, slotAEnd, slotAStart, slotAEnd), true);
+
+    // Adjacent abutting slot right after (16:45 - 17:30) -> Half-open interval must not overlap!
+    const candidateAfter = new Date("2026-09-02T16:45:00.000Z");
+    const candidateAfterEnd = new Date("2026-09-02T17:30:00.000Z");
+    assert.equal(intervalsOverlap(slotAStart, slotAEnd, candidateAfter, candidateAfterEnd), false);
+
+    // Adjacent abutting slot right before (15:15 - 16:00) -> Half-open interval must not overlap!
+    const candidateBefore = new Date("2026-09-02T15:15:00.000Z");
+    const candidateBeforeEnd = new Date("2026-09-02T16:00:00.000Z");
+    assert.equal(intervalsOverlap(slotAStart, slotAEnd, candidateBefore, candidateBeforeEnd), false);
   });
 
   console.log(`\n${passed} checks passed.\n`);

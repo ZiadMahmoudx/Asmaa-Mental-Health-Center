@@ -257,6 +257,11 @@ export function PaymentVerificationDesk({ rows, history, csrfToken, initialProof
                                   {isAr ? "المبلغ مختلف" : "Amount differs"}
                                 </span>
                               )}
+                              {row.appointment.rescheduledFromUTC && (
+                                <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-900 text-[10px] font-bold">
+                                  {isAr ? "تمت إعادة الجدولة" : "Rescheduled"}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="text-end shrink-0">

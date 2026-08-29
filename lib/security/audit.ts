@@ -49,7 +49,10 @@ export type AuditAction =
   | "STAFF_ADMIN_CREATED"
   | "STAFF_PROFILE_UPDATED"
   | "STAFF_PASSWORD_RESET"
-  | "STAFF_STATUS_TOGGLED";
+  | "STAFF_STATUS_TOGGLED"
+  | "CREDIT_ISSUED"
+  | "CREDIT_SETTLED"
+  | "CREDIT_ADJUSTED";
 
 export interface AuditInput {
   actorId: string | null;
@@ -64,7 +67,8 @@ export interface AuditInput {
     | "DoctorProfile"
     | "IntakeAssessment"
     | "ClinicalAssessment"
-    | "SafetyPlan";
+    | "SafetyPlan"
+    | "PatientCredit";
   entityId: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
 }

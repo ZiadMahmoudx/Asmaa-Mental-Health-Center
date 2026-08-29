@@ -4,10 +4,12 @@ import {
   AlertTriangle,
   ArrowLeft,
   Banknote,
+  BellRing,
   Building2,
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  Coins,
   Receipt,
   ShieldAlert,
   Stethoscope,
@@ -95,6 +97,20 @@ export default async function AdminDashboardPage() {
             >
               <Clock3 className="w-4 h-4" />
               إدارة جداول الأطباء
+            </Link>
+            <Link
+              href="/dashboard/admin/credits"
+              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
+            >
+              <Coins className="w-4 h-4" />
+              أرصدة المرضى
+            </Link>
+            <Link
+              href="/dashboard/admin/reminders"
+              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
+            >
+              <BellRing className="w-4 h-4" />
+              تذكيرات الجلسات
             </Link>
             <Link
               href="/dashboard/admin/verification"

@@ -75,6 +75,18 @@ export const RISK_LEVELS = ["LOW", "MODERATE", "HIGH"] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
 // ---------------------------------------------------------------------------
+// Patient Credits
+// ---------------------------------------------------------------------------
+
+export const CREDIT_KINDS = [
+  "CANCELLATION",
+  "MANUAL_ADJUSTMENT",
+  "APPLIED_TO_BOOKING",
+  "PAID_OUT",
+] as const;
+export type CreditKind = (typeof CREDIT_KINDS)[number];
+
+// ---------------------------------------------------------------------------
 // Narrowing helpers
 // ---------------------------------------------------------------------------
 
@@ -93,6 +105,7 @@ export const isAppointmentType = makeGuard(APPOINTMENT_TYPES);
 export const isAppointmentStatus = makeGuard(APPOINTMENT_STATUSES);
 export const isPaymentMethod = makeGuard(PAYMENT_METHODS);
 export const isPaymentProofStatus = makeGuard(PAYMENT_PROOF_STATUSES);
+export const isCreditKind = makeGuard(CREDIT_KINDS);
 
 /**
  * Narrow a database string, falling back to a safe default if the row somehow
@@ -119,3 +132,8 @@ export function asPaymentMethod(value: string): PaymentMethod {
 export function asPaymentProofStatus(value: string): PaymentProofStatus {
   return isPaymentProofStatus(value) ? value : "UNDER_REVIEW";
 }
+
+export function asCreditKind(value: string): CreditKind {
+  return isCreditKind(value) ? value : "MANUAL_ADJUSTMENT";
+}
+

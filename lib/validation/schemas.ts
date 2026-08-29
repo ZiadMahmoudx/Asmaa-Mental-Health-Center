@@ -468,6 +468,28 @@ export const toggleUserActiveSchema = z.object({
 });
 
 // --------------------------------------------------------------------------
+// Patient Credits & Patient Rescheduling Schemas
+// --------------------------------------------------------------------------
+
+export const issueManualCreditSchema = z.object({
+  patientId: cuidSchema,
+  amountEGP: z.coerce.number().min(1, "المبلغ يجب أن يكون جنيهاً واحداً على الأقل").max(100000),
+  reason: z.string().trim().min(5, "يرجى توضيح سبب إصدار الرصيد (٥ أحرف على الأقل)").max(500),
+});
+
+export const settleCreditSchema = z.object({
+  patientId: cuidSchema,
+  settlementRef: z.string().trim().min(3, "رقم المعاملة أو مرجع التحويل مطلوب (InstaPay / المحفظة)").max(100),
+  notes: z.string().trim().max(500).optional().or(z.literal("")).transform((v) => v || undefined),
+});
+
+export const patientRescheduleSchema = z.object({
+  appointmentId: cuidSchema,
+  scheduledAtUTC: utcInstant,
+  durationMinutes: z.coerce.number().int().min(15).max(180).default(45),
+});
+
+// --------------------------------------------------------------------------
 // Inferred types
 // --------------------------------------------------------------------------
 
