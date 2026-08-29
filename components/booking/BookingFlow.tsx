@@ -12,6 +12,7 @@ import {
   Lock,
   MapPin,
   Video,
+  Wallet,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { DoctorCardView } from "@/app/actions/doctors.actions";
@@ -27,23 +28,7 @@ import { CSRF_FIELD } from "@/lib/constants";
 import { formatEgp } from "@/lib/whatsapp";
 
 /**
- * Booking flow — slot selection through to a held reservation.
- *
- * This replaces the previous page, which collected card details in component
- * state and wrote `status: "CONFIRMED"` straight into a React context. Here the
- * client chooses a consultation type and a published slot; everything that
- * matters (whether the slot exists, what it costs, whether it is still free)
- * is decided by the server.
- *
- * Two details worth keeping:
- *
- *  - The slot list is re-fetched from the server whenever the consultation type
- *    changes, because a doctor's online and in-clinic windows are different
- *    calendars, not a filter over one calendar.
- *
- *  - The price is never computed here. It is read from the server payload and,
- *    on reservation, frozen onto the appointment row, so a later price change
- *    cannot alter what an already-booked patient owes.
+ * Booking flow — slot selection through to a held reservation or credit-covered confirmation.
  */
 
 interface Props {
@@ -51,6 +36,7 @@ interface Props {
   csrfToken: string;
   isAuthenticated: boolean;
   holdMinutes: number;
+  creditBalanceEGP?: number | null;
 }
 
 const initialReservation: ActionResult<ReservationPayload> | null = null;
@@ -81,7 +67,13 @@ function formatTime(iso: string, isAr: boolean): string {
   }).format(new Date(iso));
 }
 
-export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }: Props) {
+export function BookingFlow({
+  doctor,
+  csrfToken,
+  isAuthenticated,
+  holdMinutes,
+  creditBalanceEGP,
+}: Props) {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
@@ -98,6 +90,7 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
   const [loadingSlots, startLoadingSlots] = useTransition();
   const [slotError, setSlotError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<BookableSlot | null>(null);
+  const [useCredit, setUseCredit] = useState(false);
 
   const [reservation, reserveFormAction, reserving] = useActionState(
     reserveSlotAction,
@@ -105,6 +98,15 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
   );
 
   const price = type === "ONLINE" ? doctor.priceOnlineEGP : doctor.priceOfflineEGP;
+  const hasCredit = typeof creditBalanceEGP === "number" && creditBalanceEGP > 0;
+  const isCreditSufficient = hasCredit && creditBalanceEGP >= price;
+
+  // Auto-disable useCredit if price exceeds credit balance upon type change
+  useEffect(() => {
+    if (!isCreditSufficient) {
+      setUseCredit(false);
+    }
+  }, [isCreditSufficient]);
 
   // Re-fetch on every type change: online and in-clinic are separate calendars.
   useEffect(() => {
@@ -122,11 +124,16 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
     });
   }, [doctor.id, type, isAr]);
 
-  // A held reservation is a real database row with a countdown attached, so the
-  // patient is moved straight to the payment step rather than being left here.
+  // Handle post-reservation routing
   useEffect(() => {
     if (reservation?.ok) {
-      router.push(`/payment/${reservation.data.appointmentId}`);
+      if (reservation.data.isCreditApplied || reservation.data.holdExpiresAtUTC === null) {
+        router.push(
+          `/dashboard/patient?booked=true&appointmentId=${reservation.data.appointmentId}&credit=true&type=${reservation.data.type}`,
+        );
+      } else {
+        router.push(`/payment/${reservation.data.appointmentId}`);
+      }
     }
   }, [reservation, router]);
 
@@ -299,11 +306,81 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
             />
           </dl>
 
+          {/* Credit Payment Option */}
+          {isAuthenticated && hasCredit && (
+            <div className="space-y-2 pt-2 border-t border-alabaster-border">
+              {isCreditSufficient ? (
+                <div
+                  className={`p-4 rounded-2xl border transition ${
+                    useCredit
+                      ? "bg-teal-50/90 border-teal-600 ring-1 ring-teal-600 shadow-sm"
+                      : "bg-alabaster-base border-alabaster-border hover:border-teal-400"
+                  }`}
+                >
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={useCredit}
+                      onChange={(e) => setUseCredit(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-800 focus:ring-teal-700 accent-teal-800 cursor-pointer"
+                    />
+                    <div className="space-y-1">
+                      <span className="text-xs font-black text-teal-950 flex items-center gap-1.5">
+                        <Wallet className="w-3.5 h-3.5 text-teal-800" />
+                        {isAr ? "استخدام رصيدي المالي لدى المركز" : "Use my clinic credit balance"}
+                      </span>
+                      <p className="text-[11px] text-teal-900 leading-snug">
+                        {isAr
+                          ? `رصيدك ${formatEgp(creditBalanceEGP, "ar")} — بعد الحجز يتبقى ${formatEgp(creditBalanceEGP - price, "ar")}`
+                          : `Your credit is ${formatEgp(creditBalanceEGP, "en")} — Remaining after booking: ${formatEgp(creditBalanceEGP - price, "en")}`}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">
+                      {isAr ? "رصيدك الحالي لا يغطي قيمة هذه الجلسة" : "Your current balance is insufficient"}
+                    </span>
+                    <span>
+                      {isAr
+                        ? `رصيدك المتاح هو ${formatEgp(creditBalanceEGP, "ar")} بينما قيمة الجلسة ${formatEgp(price, "ar")}. ${
+                            type === "OFFLINE" && doctor.offersOnline && creditBalanceEGP >= doctor.priceOnlineEGP
+                              ? "يمكنك استخدامه في جلسة أونلاين."
+                              : ""
+                          }`
+                        : `Your available balance is ${formatEgp(creditBalanceEGP, "en")} while this session fee is ${formatEgp(price, "en")}. ${
+                            type === "OFFLINE" && doctor.offersOnline && creditBalanceEGP >= doctor.priceOnlineEGP
+                              ? "You can use it for an online session."
+                              : ""
+                          }`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-3 border-t border-alabaster-border">
             <span className="text-xs font-bold text-gray-600">
               {isAr ? "الإجمالي المستحق" : "Total due"}
             </span>
-            <span className="text-xl font-black text-teal-900">{formatEgp(price, isAr ? "ar" : "en")}</span>
+            {useCredit ? (
+              <div className="text-end">
+                <span className="text-xs line-through text-gray-400 block">
+                  {formatEgp(price, isAr ? "ar" : "en")}
+                </span>
+                <span className="text-sm font-black text-emerald-800">
+                  {isAr ? "٠ ج.م (مغطى بالرصيد)" : "0 EGP (Covered by credit)"}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xl font-black text-teal-900">
+                {formatEgp(price, isAr ? "ar" : "en")}
+              </span>
+            )}
           </div>
 
           {reservation && !reservation.ok && (
@@ -327,18 +404,25 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
                 name="durationMinutes"
                 value={selectedSlot?.durationMinutes ?? doctor.defaultDurationMins}
               />
+              <input type="hidden" name="applyCredit" value={useCredit ? "true" : "false"} />
 
               <button
                 type="submit"
                 disabled={!selectedSlot || reserving || !doctor.isAcceptingPatients}
-                className="w-full py-3.5 rounded-2xl bg-terracotta-600 hover:bg-terracotta-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-sm transition flex items-center justify-center gap-2"
+                className={`w-full py-3.5 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-sm transition flex items-center justify-center gap-2 ${
+                  useCredit
+                    ? "bg-teal-800 hover:bg-teal-900 shadow-sm"
+                    : "bg-terracotta-600 hover:bg-terracotta-700"
+                }`}
               >
                 {reserving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}
-                {isAr ? "احجز الموعد وتابع للدفع" : "Hold this time & continue"}
+                {useCredit
+                  ? isAr ? "أكّد الحجز من رصيدك" : "Confirm using your credit"
+                  : isAr ? "احجز الموعد وتابع للدفع" : "Hold this time & continue"}
               </button>
             </form>
           ) : (
@@ -351,17 +435,35 @@ export function BookingFlow({ doctor, csrfToken, isAuthenticated, holdMinutes }:
             </a>
           )}
 
-          <div className="p-3.5 rounded-2xl bg-alabaster-base border border-alabaster-border space-y-1.5">
-            <p className="text-[11px] font-bold text-teal-950 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-sage-700" />
-              {isAr ? "ماذا يحدث بعد الحجز؟" : "What happens next?"}
-            </p>
-            <p className="text-[11px] text-gray-600 leading-relaxed">
-              {isAr
-                ? `يُحجز الموعد باسمك لمدة ${holdMinutes} دقيقة، وتظهر لك بيانات التحويل عبر إنستا باي أو فودافون كاش. بعد رفع صورة الإيصال يراجعها فريق المركز ويؤكد الحجز.`
-                : `The time is held in your name for ${holdMinutes} minutes while you transfer via InstaPay or Vodafone Cash. Upload the receipt and the clinic confirms your booking.`}
-            </p>
-          </div>
+          {useCredit ? (
+            <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
+              <p className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                {isAr ? "ماذا يحدث بعد الحجز؟" : "What happens next?"}
+              </p>
+              <p className="text-[11px] text-emerald-900 leading-relaxed">
+                {type === "OFFLINE"
+                  ? isAr
+                    ? "يتم تأكيد الحجز فوراً وخصم المبلغ من رصيدك. ستجد تفاصيل الموعد والغرفة في لوحة تحكمك."
+                    : "Your in-clinic booking is confirmed immediately and deducted from your credit balance."
+                  : isAr
+                    ? "تم خصم قيمة الجلسة من رصيدك بالكامل. سيصلك رابط زووم من فريق المركز خلال وقت قصير قبل موعد الجلسة."
+                    : "Session fee deducted from your credit balance in full. The clinic team will send you the Zoom link shortly before your appointment."}
+              </p>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-alabaster-base border border-alabaster-border space-y-1.5">
+              <p className="text-[11px] font-bold text-teal-950 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-sage-700" />
+                {isAr ? "ماذا يحدث بعد الحجز؟" : "What happens next?"}
+              </p>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                {isAr
+                  ? `يُحجز الموعد باسمك لمدة ${holdMinutes} دقيقة، وتظهر لك بيانات التحويل عبر إنستا باي أو فودافون كاش. بعد رفع صورة الإيصال يراجعها فريق المركز ويؤكد الحجز.`
+                  : `The time is held in your name for ${holdMinutes} minutes while you transfer via InstaPay or Vodafone Cash. Upload the receipt and the clinic confirms your booking.`}
+              </p>
+            </div>
+          )}
 
           {type === "OFFLINE" && (
             <p className="text-[11px] text-gray-500 flex items-start gap-1.5">

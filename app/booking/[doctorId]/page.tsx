@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, BadgeCheck, GraduationCap, Stethoscope } from "lucide-react";
 import { getDoctorAction } from "@/app/actions/doctors.actions";
+import { getPatientCreditBalanceAction } from "@/app/actions/credits.actions";
 import { getAuthContext } from "@/lib/auth/session";
 import { ensureCsrfToken } from "@/lib/auth/csrf";
 import { bookingPolicy } from "@/lib/clinic-config";
@@ -53,6 +54,15 @@ export default async function BookingPage({
   ]);
 
   if (!doctorResult.ok) notFound();
+
+  let creditBalanceEGP: number | null = null;
+  if (auth && (auth.user.role === "PATIENT" || auth.user.role === "ADMIN")) {
+    const creditResult = await getPatientCreditBalanceAction();
+    if (creditResult.ok) {
+      creditBalanceEGP = creditResult.data.balanceEGP;
+    }
+  }
+
   const doctor = doctorResult.data;
   const isAr = lang === "ar";
   const BackIcon = isAr ? ArrowLeft : ArrowRight;
@@ -134,6 +144,7 @@ export default async function BookingPage({
           csrfToken={csrfToken}
           isAuthenticated={Boolean(auth)}
           holdMinutes={bookingPolicy.holdMinutes}
+          creditBalanceEGP={creditBalanceEGP}
         />
       </div>
     </div>

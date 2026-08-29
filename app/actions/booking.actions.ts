@@ -225,6 +225,7 @@ export interface ReservationPayload {
   /** Pre-filled WhatsApp message to the clinic, for a patient who needs help. */
   whatsappClinicUrl: string;
   uploadUrl: string;
+  isCreditApplied?: boolean;
 }
 
 /**
@@ -498,6 +499,7 @@ export async function reserveSlotAction(
         whatsappInstructionsUrl: "",
         whatsappClinicUrl: clinicWhatsapp,
         uploadUrl,
+        isCreditApplied: true,
       });
     } catch (error) {
       if (error instanceof Error && error.message === "INSUFFICIENT_CREDIT") {
@@ -598,6 +600,7 @@ export async function reserveSlotAction(
         `وأحتاج مساعدة بخصوص إتمام الدفع (رقم الحجز: ${appointmentId}).`,
     ),
     uploadUrl,
+    isCreditApplied: false,
   });
 }
 

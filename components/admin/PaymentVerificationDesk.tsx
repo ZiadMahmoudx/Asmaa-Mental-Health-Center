@@ -512,15 +512,17 @@ function ReviewPanel({
             <Receipt className="w-4 h-4 text-sage-700" />
             {isAr ? "صورة إيصال التحويل" : "Transfer receipt"}
           </h4>
-          <a
-            href={row.receiptUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] font-bold text-teal-800 hover:text-teal-950 flex items-center gap-1"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            {isAr ? "فتح بالحجم الكامل" : "Open full size"}
-          </a>
+          {row.method !== "CREDIT" && (
+            <a
+              href={row.receiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-teal-800 hover:text-teal-950 flex items-center gap-1"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              {isAr ? "فتح بالحجم الكامل" : "Open full size"}
+            </a>
+          )}
         </div>
 
         {row.method === "CREDIT" ? (

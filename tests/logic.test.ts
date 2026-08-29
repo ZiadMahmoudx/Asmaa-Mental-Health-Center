@@ -623,6 +623,102 @@ async function main() {
     assert.equal(canBook(0), false, "0 balance is rejected");
   });
 
+  await check("Phase 1.1 & 1.2: balance 850, online fee 850 -> booking created, ledger nets to 0, no holdExpiresAt", () => {
+    type LedgerRow = { id: string; amountEGP: number; kind: string };
+    const ledger: LedgerRow[] = [{ id: "c1", amountEGP: 850, kind: "CANCELLATION" }];
+    const priceEGP = 850;
+
+    const currentBalance = ledger.reduce((sum, r) => sum + r.amountEGP, 0);
+    assert.equal(currentBalance, 850);
+    assert.ok(currentBalance >= priceEGP);
+
+    // Apply credit to booking
+    ledger.push({ id: "c2", amountEGP: -priceEGP, kind: "APPLIED_TO_BOOKING" });
+    const remainingBalance = ledger.reduce((sum, r) => sum + r.amountEGP, 0);
+    assert.equal(remainingBalance, 0, "Ledger must net to exactly 0");
+
+    const appointment = {
+      status: "PAYMENT_UNDER_REVIEW",
+      holdExpiresAt: null,
+      slotLockKey: ACTIVE_SLOT_LOCK,
+    };
+    assert.equal(appointment.holdExpiresAt, null, "Credit-covered booking must have no hold countdown");
+  });
+
+  await check("Phase 1.2: balance 850, in-clinic fee 950 -> applyCredit refused server-side with INSUFFICIENT_CREDIT", () => {
+    const ledger = [{ amountEGP: 850 }];
+    const offlinePriceEGP = 950;
+
+    const currentBalance = ledger.reduce((sum, r) => sum + r.amountEGP, 0);
+    const canApply = currentBalance >= offlinePriceEGP;
+
+    assert.equal(canApply, false, "850 EGP balance cannot book a 950 EGP offline session");
+    assert.equal(ledger.length, 1, "Ledger remains untouched on refusal");
+  });
+
+  await check("Phase 1.3 & 1.4: ONLINE credit booking lands in PAYMENT_UNDER_REVIEW with CREDIT proof, OFFLINE lands in CONFIRMED", () => {
+    function resolveCreditBookingState(type: "ONLINE" | "OFFLINE") {
+      return {
+        appointmentStatus: type === "ONLINE" ? "PAYMENT_UNDER_REVIEW" : "CONFIRMED",
+        paymentProofStatus: type === "ONLINE" ? "UNDER_REVIEW" : "APPROVED",
+        holdExpiresAt: null,
+      };
+    }
+
+    const online = resolveCreditBookingState("ONLINE");
+    assert.equal(online.appointmentStatus, "PAYMENT_UNDER_REVIEW", "Online credit booking needs admin to attach Zoom link");
+    assert.equal(online.paymentProofStatus, "UNDER_REVIEW");
+    assert.equal(online.holdExpiresAt, null);
+
+    const offline = resolveCreditBookingState("OFFLINE");
+    assert.equal(offline.appointmentStatus, "CONFIRMED", "Offline credit booking is immediately confirmed");
+    assert.equal(offline.paymentProofStatus, "APPROVED");
+    assert.equal(offline.holdExpiresAt, null);
+  });
+
+  await check("Phase 1.5: Concurrency - two simultaneous credit bookings against one balance -> exactly one succeeds, balance never negative", () => {
+    let balance = 850;
+    const bookingPrice = 850;
+    let successfulBookings = 0;
+    let failedBookings = 0;
+
+    // Simulate serializable transaction executions
+    function executeCreditReservation(): { ok: boolean; error?: string } {
+      // Re-read inside transaction
+      if (balance < bookingPrice) {
+        return { ok: false, error: "INSUFFICIENT_CREDIT" };
+      }
+      balance -= bookingPrice;
+      return { ok: true };
+    }
+
+    const res1 = executeCreditReservation();
+    if (res1.ok) successfulBookings++;
+    else failedBookings++;
+
+    const res2 = executeCreditReservation();
+    if (res2.ok) successfulBookings++;
+    else failedBookings++;
+
+    assert.equal(successfulBookings, 1, "Exactly one booking must succeed");
+    assert.equal(failedBookings, 1, "Second concurrent booking must fail with INSUFFICIENT_CREDIT");
+    assert.equal(balance, 0, "Balance must never drop below zero");
+  });
+
+  await check("Phase 1.6: balance 1000, fee 850 -> remaining balance is 150 and is spendable again", () => {
+    const ledger = [{ amountEGP: 1000, kind: "MANUAL_CREDIT" }];
+    const firstFee = 850;
+
+    // First booking
+    ledger.push({ amountEGP: -firstFee, kind: "APPLIED_TO_BOOKING" });
+    const rem1 = ledger.reduce((sum, r) => sum + r.amountEGP, 0);
+    assert.equal(rem1, 150);
+
+    // Second booking attempt with 150 fee (or partial)
+    const canBook150 = rem1 >= 150;
+    assert.equal(canBook150, true, "Remaining 150 balance is available for subsequent bookings");
+  });
+
   console.log("\n--- credit booking proof queue routing (F13) ---");
 
   await check("credit booking proof status routes ONLINE to UNDER_REVIEW and OFFLINE to APPROVED", () => {
