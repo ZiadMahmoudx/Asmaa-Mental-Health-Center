@@ -76,6 +76,13 @@ export default async function AdminDashboardPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/dashboard/admin/staff"
+              className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
+            >
+              <Users className="w-4 h-4" />
+              إدارة طاقم العمل
+            </Link>
+            <Link
               href="/dashboard/admin/appointments"
               className="px-4 py-2.5 rounded-2xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 border border-teal-700"
             >

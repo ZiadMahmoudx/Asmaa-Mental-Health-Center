@@ -412,6 +412,62 @@ export const clinicalRecordSchema = z.object({
 export const completeAppointmentSchema = z.object({ appointmentId: cuidSchema });
 
 // --------------------------------------------------------------------------
+// Staff Onboarding & Identity Governance Schemas
+// --------------------------------------------------------------------------
+
+export const createDoctorSchema = z.object({
+  fullName: z.string().trim().min(3, "الاسم يجب أن يكون ٣ أحرف على الأقل").max(120),
+  email: z.string().trim().email("البريد الإلكتروني غير صالح").max(190),
+  phone: egyptianPhone,
+  password: passwordSchema,
+  title: z.string().trim().min(2, "اللقب المهني مطلوب").max(100),
+  licenseNumber: z.string().trim().min(3, "رقم الترخيص مطلوب").max(40),
+  yearsOfExperience: z.coerce.number().int().min(0).max(60).default(0),
+  roomNumber: z.string().trim().max(20).optional().or(z.literal("")).transform((v) => v || undefined),
+  sessionPriceOnline: z.coerce.number().min(50, "السعر لا يقل عن 50 ج.م").max(50000),
+  sessionPriceOffline: z.coerce.number().min(50, "السعر لا يقل عن 50 ج.م").max(50000),
+  specialties: z.array(z.string().trim().min(1)).min(1, "حدد تخصصاً واحداً على الأقل"),
+  concernTags: z.array(z.string().trim().min(1)).min(1, "حدد وسم تشخيصي واحداً على الأقل"),
+  bioAr: z.string().trim().max(2000).optional().or(z.literal("")).transform((v) => v || undefined),
+});
+
+export const createAdminSchema = z.object({
+  fullName: z.string().trim().min(3, "الاسم يجب أن يكون ٣ أحرف على الأقل").max(120),
+  email: z.string().trim().email("البريد الإلكتروني غير صالح").max(190),
+  phone: egyptianPhone,
+  password: passwordSchema,
+});
+
+export const updateDoctorFullProfileSchema = z.object({
+  doctorId: cuidSchema,
+  title: z.string().trim().min(2, "اللقب المهني مطلوب").max(100),
+  licenseNumber: z.string().trim().min(3, "رقم الترخيص مطلوب").max(40),
+  yearsOfExperience: z.coerce.number().int().min(0).max(60).default(0),
+  roomNumber: z.string().trim().max(20).optional().or(z.literal("")).transform((v) => v || undefined),
+  sessionPriceOnline: z.coerce.number().min(50).max(50000),
+  sessionPriceOffline: z.coerce.number().min(50).max(50000),
+  specialties: z.array(z.string().trim().min(1)).min(1, "حدد تخصصاً واحداً على الأقل"),
+  concernTags: z.array(z.string().trim().min(1)).min(1, "حدد وسم تشخيصي واحداً على الأقل"),
+  bioAr: z.string().trim().max(2000).optional().or(z.literal("")).transform((v) => v || undefined),
+});
+
+export const adminResetPasswordSchema = z
+  .object({
+    userId: cuidSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "كلمتا المرور غير متطابقتين",
+    path: ["confirmPassword"],
+  });
+
+export const toggleUserActiveSchema = z.object({
+  userId: cuidSchema,
+  isActive: z.coerce.boolean(),
+});
+
+// --------------------------------------------------------------------------
 // Inferred types
 // --------------------------------------------------------------------------
 

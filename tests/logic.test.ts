@@ -17,6 +17,9 @@ import {
   paymentProofSchema,
   registerSchema,
   reserveSlotSchema,
+  createDoctorSchema,
+  createAdminSchema,
+  adminResetPasswordSchema,
 } from "@/lib/validation/schemas";
 import {
   buildWhatsAppLink,
@@ -238,6 +241,61 @@ async function main() {
     );
   });
 
+  await check("create doctor schema validates credentials, specialties and price bounds", () => {
+    const validDoctor = {
+      fullName: "د. طارق خالد",
+      email: "tarek@asmaaclinic.com",
+      phone: "01098765432",
+      password: "DoctorPassword2026",
+      title: "استشاري الطب النفسي",
+      licenseNumber: "MOH-998877",
+      yearsOfExperience: "12",
+      roomNumber: "3A",
+      sessionPriceOnline: "650",
+      sessionPriceOffline: "800",
+      specialties: ["علاج الاكتئاب", "علاج الصدمات"],
+      concernTags: ["depression", "trauma"],
+      bioAr: "استشاري الطب النفسي بخبرة تزيد عن 12 عاماً.",
+    };
+    assert.equal(createDoctorSchema.safeParse(validDoctor).success, true);
+    // Rejects below min price
+    assert.equal(createDoctorSchema.safeParse({ ...validDoctor, sessionPriceOnline: 20 }).success, false);
+    // Rejects empty specialties
+    assert.equal(createDoctorSchema.safeParse({ ...validDoctor, specialties: [] }).success, false);
+    // Rejects weak password
+    assert.equal(createDoctorSchema.safeParse({ ...validDoctor, password: "weak" }).success, false);
+  });
+
+  await check("create admin schema enforces email, phone, and password", () => {
+    const validAdmin = {
+      fullName: "محمود عبد الرحمن",
+      email: "reception@asmaaclinic.com",
+      phone: "01122334455",
+      password: "AdminPassword2026",
+    };
+    assert.equal(createAdminSchema.safeParse(validAdmin).success, true);
+    assert.equal(createAdminSchema.safeParse({ ...validAdmin, phone: "invalid-phone" }).success, false);
+  });
+
+  await check("admin reset password enforces confirmation match", () => {
+    assert.equal(
+      adminResetPasswordSchema.safeParse({
+        userId: "clh1234567890abcdefghij",
+        password: "NewStrongPassword2026",
+        confirmPassword: "NewStrongPassword2026",
+      }).success,
+      true,
+    );
+    assert.equal(
+      adminResetPasswordSchema.safeParse({
+        userId: "clh1234567890abcdefghij",
+        password: "NewStrongPassword2026",
+        confirmPassword: "MismatchPassword123",
+      }).success,
+      false,
+    );
+  });
+
   console.log("\n--- whatsapp ---");
 
   await check("wa.me numbers are digits with the country code", () => {
@@ -277,6 +335,7 @@ async function main() {
   await check("reschedule message includes both old and new times", () => {
     const message = appointmentRescheduledMessage({
       patientName: "سارة محمود",
+      patientPhone: "+201001234567",
       doctorName: "د. أسماء عبد الوهاب",
       type: "ONLINE",
       oldScheduledAtUTC: new Date("2026-09-02T14:00:00Z"),
